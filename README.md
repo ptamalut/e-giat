@@ -25,6 +25,11 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
   dan melakukan absensi, tetapi tidak melihat atau mengerjakan kuis (ditegakkan di server) dan tidak masuk
   peringkat/laporan kuis. Peran dipilih di formulir, lewat filter, saat impor ("Impor sebagai"), atau lewat kolom
   opsional "Peran" di data Excel.
+- **Sertifikat**: admin mengunggah sertifikat (PDF/PNG/JPG, maks. 10 MB) per orang di tab *Sertifikat*, satu per satu atau
+  banyak sekaligus. Berkas dicocokkan otomatis ke orangnya lewat **NIP** atau **nama** pada nama berkas
+  (mis. `198001012005011001.pdf` atau `Budi Santoso.pdf`; gelar diabaikan, nama kembar/tidak cocok dipilih manual,
+  tipe berkas dicek dari isinya). Setelah semua siap, admin menekan **Buka unduhan**; peserta, narasumber, dan panitia
+  lalu mengunduh dari link pribadi masing-masing (tombol Unduh/Lihat). Ada daftar siapa yang belum punya sertifikat.
 - **Pengelompokan per satuan kerja (satker)**: tab Peserta, Absensi, dan rekap kehadiran dikelompokkan per satker
   (peserta, narasumber, dan panitia dalam satu kelompok) dengan jumlah per peran, lipat/buka kelompok, filter satker,
   dan tampilan "Daftar" bila ingin tanpa kelompok. Penulisan nama satker yang berbeda huruf besar/kecil atau spasi
@@ -81,7 +86,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, lalu `004_urutan.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, lalu `005_sertifikat.sql`).
 > Skrip bersifat idempotent dan otomatis menambah kolom baru (mis. `grade` dan `job_title` untuk Pangkat/Gol. dan Jabatan)
 > tanpa menghapus data. Lakukan ini **sebelum** versi aplikasi baru dipakai.
 
@@ -101,6 +106,12 @@ Unggah `dist/` ke Vercel / Netlify / Cloudflare Pages dan isi dua variabel lingk
 Aplikasi memakai routing sisi-klien, jadi host harus mengarahkan semua path ke `index.html`
 (sudah disiapkan: `vercel.json` untuk Vercel dan `public/_redirects` untuk Netlify/Cloudflare).
 Link peserta memakai domain tempat aplikasi di-deploy, jadi deploy dulu sebelum membagikan link.
+
+## Keamanan sertifikat
+Berkas disimpan di bucket Supabase Storage `certificates` dengan nama acak (`<id kegiatan>/<32 hex>.<ext>`). Bucket bersifat
+publik, tetapi alamat berkas **tidak bisa ditebak** dan hanya diberikan oleh server (`portal_certificate`) setelah token pribadi
+valid **dan** unduhan dibuka panitia; hanya pemilik kegiatan yang boleh mengunggah, mengganti, menghapus, atau melihat daftar
+berkas. Seperti link pribadi, alamat berkas yang sudah dibagikan oleh penerimanya bisa dibuka siapa pun yang memilikinya.
 
 ## Keamanan
 

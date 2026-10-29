@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CardTitle, Check, ErrorBox, Field, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtPct, fmtScore } from '../../lib/format'
+import { removeActivityCertificateFiles } from '../../lib/certificateApi'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { ActivityStatus, RankingRow } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -67,6 +68,7 @@ export default function Overview() {
       message: <>Semua peserta, absensi, kuis, dan hasil di kegiatan <b>{a.name}</b> akan ikut terhapus dan <b>tidak bisa dikembalikan</b>.</>,
     })
     if (!ok) return
+    await removeActivityCertificateFiles(a.id) // bersihkan berkas sertifikat di Storage
     const { error } = await supabase.from('activities').delete().eq('id', a.id)
     if (error) return toast(errMsg(error), 'error')
     toast('Kegiatan dihapus.', 'success')
@@ -84,6 +86,7 @@ export default function Overview() {
     { done: data.participants + data.speakers > 0 && data.sessions > 0, text: 'Bagikan link / QR unik ke setiap orang', to: 'peserta', cta: 'Lihat link' },
     { done: data.readyQuizzes > 0, text: 'Buat kuis pre test / post test lalu terbitkan', to: 'kuis', cta: 'Buat kuis' },
     { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
+    { done: a.certificates_open, text: 'Unggah sertifikat lalu buka unduhan untuk peserta', to: 'sertifikat', cta: 'Kelola sertifikat' },
   ]
 
   return (

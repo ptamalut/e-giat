@@ -9,6 +9,7 @@ import { GRADE_SUGGESTIONS, isStaff, ROLE_HINT, ROLE_LABEL, ROLES, roleLine } fr
 import { participantLink } from '../../lib/format'
 import { groupBySatker, matchesUnit, normSatker, roleSummary, sortPeople } from '../../lib/satker'
 import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
+import { removeParticipantCertificateFiles } from '../../lib/certificateApi'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -70,6 +71,7 @@ export default function ParticipantsTab() {
     const ok = await confirm({ title: `Hapus ${p.name}?`, danger: true, confirmText: 'Hapus',
       message: 'Data absensi dan hasil kuis peserta ini juga akan terhapus. Link pribadinya tidak berlaku lagi.' })
     if (!ok) return
+    await removeParticipantCertificateFiles([p.id]) // berkas sertifikatnya ikut dibersihkan
     const { error } = await supabase.from('participants').delete().eq('id', p.id)
     if (error) return toast(errMsg(error), 'error')
     toast('Peserta dihapus.', 'success'); void reload(true)

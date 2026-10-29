@@ -32,9 +32,12 @@ create table if not exists public.activities (
   show_leaderboard   boolean not null default true,
   -- urutan tampil satuan kerja (daftar kunci satker huruf kecil); null = abjad
   satker_order       jsonb,
+  -- peserta/narasumber/panitia baru bisa mengunduh sertifikat setelah panitia membuka unduhan
+  certificates_open  boolean not null default false,
   created_at         timestamptz not null default now()
 );
 alter table public.activities add column if not exists satker_order jsonb;
+alter table public.activities add column if not exists certificates_open boolean not null default false;
 create index if not exists activities_owner_idx on public.activities (owner_id, created_at desc);
 
 create table if not exists public.participants (
@@ -159,6 +162,22 @@ create table if not exists public.quiz_attempts (
 create index if not exists attempts_quiz_idx on public.quiz_attempts (quiz_id);
 create index if not exists attempts_participant_idx on public.quiz_attempts (participant_id);
 
+-- Sertifikat: satu berkas per orang. Berkasnya di Supabase Storage (bucket "certificates"),
+-- path acak `<activity_id>/<32 hex>.<ext>` sehingga alamatnya tidak bisa ditebak.
+create table if not exists public.certificates (
+  id              uuid primary key default gen_random_uuid(),
+  activity_id     uuid not null,
+  participant_id  uuid not null,
+  storage_path    text not null unique,
+  file_name       text not null,            -- nama berkas asli (dipakai sebagai nama unduhan)
+  mime_type       text,
+  size_bytes      bigint,
+  uploaded_at     timestamptz not null default now(),
+  unique (participant_id),
+  foreign key (participant_id, activity_id) references public.participants (id, activity_id) on delete cascade
+);
+create index if not exists certificates_activity_idx on public.certificates (activity_id);
+
 -- ---------------------------------------------------------------------------
 -- RLS (akses panitia)
 -- ---------------------------------------------------------------------------
@@ -179,6 +198,7 @@ alter table public.attendances         enable row level security;
 alter table public.quizzes             enable row level security;
 alter table public.questions           enable row level security;
 alter table public.quiz_attempts       enable row level security;
+alter table public.certificates        enable row level security;
 
 drop policy if exists activities_owner on public.activities;
 create policy activities_owner on public.activities
@@ -214,6 +234,11 @@ create policy questions_owner on public.questions
 drop policy if exists attempts_owner_select on public.quiz_attempts;
 create policy attempts_owner_select on public.quiz_attempts
   for select to authenticated using (public.is_activity_owner(activity_id));
+drop policy if exists certificates_owner on public.certificates;
+create policy certificates_owner on public.certificates
+  for all to authenticated
+  using (public.is_activity_owner(activity_id)) with check (public.is_activity_owner(activity_id));
+
 drop policy if exists attempts_owner_delete on public.quiz_attempts;
 create policy attempts_owner_delete on public.quiz_attempts
   for delete to authenticated using (public.is_activity_owner(activity_id));
@@ -399,10 +424,12 @@ declare
   v_now    timestamptz := now();
   v_sess   jsonb;
   v_quiz   jsonb;
+  c        public.certificates;
 begin
   p := public._participant_by_token(p_token);
   perform public._close_expired(p.id);
   select * into a from public.activities where id = p.activity_id;
+  select * into c from public.certificates where participant_id = p.id;
 
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', s.id,
@@ -467,6 +494,12 @@ begin
       'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
       'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
       'show_leaderboard', a.show_leaderboard),
+    -- ringkasan sertifikat (tanpa alamat berkas; alamat baru dibuka oleh portal_certificate)
+    'certificate', case when a.certificates_open or c.id is not null then jsonb_build_object(
+      'open', a.certificates_open,
+      'available', c.id is not null,
+      'file_name', case when a.certificates_open then c.file_name end,
+      'mime_type', case when a.certificates_open then c.mime_type end) end,
     'sessions', v_sess,
     'quizzes', v_quiz
   );
@@ -745,6 +778,68 @@ begin
   );
 end $$;
 
+-- Alamat berkas sertifikat milik pemilik token (hanya bila unduhan dibuka panitia)
+create or replace function public.portal_certificate(p_token text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  p public.participants;
+  a public.activities;
+  c public.certificates;
+begin
+  p := public._participant_by_token(p_token);
+  select * into a from public.activities where id = p.activity_id;
+  if not a.certificates_open then
+    raise exception 'Unduhan sertifikat belum dibuka oleh panitia.' using errcode = 'P0001';
+  end if;
+  select * into c from public.certificates where participant_id = p.id;
+  if not found then
+    raise exception 'Sertifikat Anda belum tersedia. Silakan hubungi panitia.' using errcode = 'P0002';
+  end if;
+  return jsonb_build_object('path', c.storage_path, 'file_name', c.file_name, 'mime_type', c.mime_type);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- STORAGE: bucket sertifikat
+--   * bucket publik, tetapi path acak (122 bit) dan hanya diberikan oleh portal_certificate
+--     setelah token pribadi divalidasi -> seperti "link rahasia"
+--   * hanya pemilik kegiatan yang boleh mengunggah/mengganti/menghapus/melihat daftar,
+--     dibatasi pada folder `<activity_id>/`
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('certificates', 'certificates', true, 10485760, array['application/pdf', 'image/png', 'image/jpeg'])
+on conflict (id) do update
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+-- Apakah folder pertama path berupa id kegiatan milik pengguna ini? Tahan terhadap path yang bukan uuid.
+create or replace function public.owns_certificate_object(p_name text)
+returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare v uuid;
+begin
+  begin
+    v := (string_to_array(p_name, '/'))[1]::uuid;
+  exception when others then
+    return false;
+  end;
+  return public.is_activity_owner(v);
+end $$;
+
+drop policy if exists certificates_obj_select on storage.objects;
+create policy certificates_obj_select on storage.objects for select to authenticated
+  using (bucket_id = 'certificates' and public.owns_certificate_object(name));
+drop policy if exists certificates_obj_insert on storage.objects;
+create policy certificates_obj_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'certificates' and public.owns_certificate_object(name));
+drop policy if exists certificates_obj_update on storage.objects;
+create policy certificates_obj_update on storage.objects for update to authenticated
+  using (bucket_id = 'certificates' and public.owns_certificate_object(name))
+  with check (bucket_id = 'certificates' and public.owns_certificate_object(name));
+drop policy if exists certificates_obj_delete on storage.objects;
+create policy certificates_obj_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'certificates' and public.owns_certificate_object(name));
+
 -- ---------------------------------------------------------------------------
 -- RPC UNTUK PANITIA
 -- ---------------------------------------------------------------------------
@@ -809,6 +904,7 @@ revoke all on function
   public.portal_submit_attempt(text, uuid, jsonb),
   public.portal_get_result(text, uuid),
   public.portal_leaderboard(text),
+  public.portal_certificate(text),
   public.activity_ranking(uuid),
   public.is_activity_owner(uuid)
 from public;
@@ -820,7 +916,8 @@ grant execute on function
   public.portal_save_answers(text, uuid, jsonb),
   public.portal_submit_attempt(text, uuid, jsonb),
   public.portal_get_result(text, uuid),
-  public.portal_leaderboard(text)
+  public.portal_leaderboard(text),
+  public.portal_certificate(text)
 to anon, authenticated;
 
 revoke all on function public.save_activity_order(uuid, jsonb, uuid[]) from public, anon;

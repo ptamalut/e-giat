@@ -17,7 +17,20 @@ export interface Activity {
   show_leaderboard: boolean
   /** urutan tampil satuan kerja (kunci huruf kecil); null = abjad */
   satker_order: string[] | null
+  /** peserta/narasumber/panitia bisa mengunduh sertifikat bila true */
+  certificates_open: boolean
   created_at: string
+}
+
+export interface Certificate {
+  id: string
+  activity_id: string
+  participant_id: string
+  storage_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number | null
+  uploaded_at: string
 }
 
 export interface Participant {
@@ -183,6 +196,8 @@ export interface PortalData {
     status: ActivityStatus
     show_leaderboard: boolean
   }
+  /** null bila unduhan ditutup dan orang ini belum punya sertifikat */
+  certificate: { open: boolean; available: boolean; file_name: string | null; mime_type: string | null } | null
   sessions: PortalSession[]
   quizzes: PortalQuiz[]
 }
