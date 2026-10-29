@@ -62,6 +62,14 @@ create table if not exists public.employees (
   created_at   timestamptz not null default now()
 );
 create index if not exists employees_owner_idx on public.employees (owner_id, institution, name);
+-- urutan tampil di dalam satuan kerja (kecil = lebih atas); null = setelah yang berurutan, lalu abjad
+alter table public.employees add column if not exists sort_order int;
+
+-- Urutan tampil satuan kerja untuk data pegawai (satu baris per akun): daftar kunci satker huruf kecil; null = abjad
+create table if not exists public.employee_settings (
+  owner_id      uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  satker_order  jsonb
+);
 -- satu NIP hanya boleh sekali per akun
 create unique index if not exists employees_owner_nip_uq on public.employees (owner_id, identifier)
   where identifier is not null and length(trim(identifier)) > 0;
@@ -359,6 +367,7 @@ alter table public.questions           enable row level security;
 alter table public.quiz_attempts       enable row level security;
 alter table public.certificates        enable row level security;
 alter table public.employees           enable row level security;
+alter table public.employee_settings   enable row level security;
 alter table public.meeting_notes       enable row level security;
 alter table public.documentation       enable row level security;
 
@@ -376,6 +385,11 @@ $$;
 
 drop policy if exists employees_owner on public.employees;
 create policy employees_owner on public.employees
+  for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+drop policy if exists employee_settings_owner on public.employee_settings;
+create policy employee_settings_owner on public.employee_settings
   for all to authenticated
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
@@ -1362,6 +1376,29 @@ begin
    where p.id = o.id and p.activity_id = p_activity;
 end $$;
 
+-- Simpan urutan satuan kerja dan urutan pegawai (data pegawai milik akun yang sedang login) dalam satu panggilan.
+--   p_satker_order : array kunci satker (huruf kecil) sesuai urutan tampil, atau null untuk kembali ke abjad
+--   p_employees    : id pegawai sesuai urutan tampil (posisi menjadi sort_order)
+create or replace function public.save_employee_order(p_satker_order jsonb, p_employees uuid[])
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Anda harus masuk terlebih dahulu.' using errcode = '42501';
+  end if;
+  if p_satker_order is not null and jsonb_typeof(p_satker_order) <> 'array' then
+    raise exception 'Urutan satuan kerja harus berupa daftar.' using errcode = '22023';
+  end if;
+
+  insert into public.employee_settings (owner_id, satker_order) values (auth.uid(), p_satker_order)
+  on conflict (owner_id) do update set satker_order = excluded.satker_order;
+
+  update public.employees e
+     set sort_order = o.ord::int
+    from unnest(p_employees) with ordinality as o(id, ord)
+   where e.id = o.id and e.owner_id = auth.uid();
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- HAK AKSES FUNGSI
 -- (Supabase memberi EXECUTE ke anon/authenticated secara default; cabut dulu)
@@ -1418,6 +1455,8 @@ grant execute on function public.save_activity_order(uuid, jsonb, uuid[]) to aut
 grant execute on function public.activity_ranking(uuid), public.is_activity_owner(uuid) to authenticated;
 revoke execute on function public.activity_ranking(uuid), public.is_activity_owner(uuid) from anon;
 
+revoke all on function public.save_employee_order(jsonb, uuid[]) from public, anon;
+grant execute on function public.save_employee_order(jsonb, uuid[]) to authenticated;
 revoke all on function public.is_employee_owner(uuid) from public, anon;
 grant execute on function public.is_employee_owner(uuid) to authenticated;
 revoke all on function public._sync_employee() from public, anon, authenticated;
