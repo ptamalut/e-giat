@@ -6,6 +6,7 @@ import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
 import { RoleBadge } from '../../components/RoleBadge'
 import { isStaff, nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
+import CheckInDialog, { type CheckInResult } from './CheckInDialog'
 import { certPublicUrl } from '../../lib/certificateApi'
 import { certDownloadName } from '../../lib/certificates'
 import { rpc } from '../../lib/supabase'
@@ -24,6 +25,7 @@ export default function Portal() {
   const [offset, setOffset] = useState(0)
   const [tick, setTick] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<PortalSession | null>(null)
   const [board, setBoard] = useState<Leaderboard | null>(null)
   const [boardOpen, setBoardOpen] = useState(false)
   const seq = useRef(0)
@@ -57,7 +59,15 @@ export default function Portal() {
 
   const now = Date.now() + offset
 
+  function afterCheckIn(r: CheckInResult) {
+    setDialog(null)
+    toast(r.already ? 'Anda sudah tercatat hadir.' : r.status === 'terlambat' ? 'Absen tercatat (terlambat).' : '✓ Absen berhasil. Terima kasih!', r.status === 'terlambat' ? 'info' : 'success')
+    void load()
+  }
+
   async function checkIn(s: PortalSession) {
+    // sesi yang meminta selfie/lokasi memakai dialog izin; selain itu absen langsung seperti biasa
+    if (s.require_selfie || s.require_location) return setDialog(s)
     setBusy(s.id)
     try {
       const r = await rpc<{ already: boolean; status: keyof typeof ATT }>('portal_check_in', { p_token: token, p_session: s.id })
@@ -174,6 +184,7 @@ export default function Portal() {
         )}
         <p className="center muted small">Link ini bersifat pribadi — jangan dibagikan ke orang lain.</p>
       </div>
+      {dialog && <CheckInDialog token={token} session={dialog} onClose={() => setDialog(null)} onDone={afterCheckIn} />}
     </>
   )
 }

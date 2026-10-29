@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { CardTitle, Check, ErrorBox, Field, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtPct, fmtScore } from '../../lib/format'
 import { removeActivityCertificateFiles } from '../../lib/certificateApi'
+import { removeSelfiesOf } from '../../lib/selfieApi'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { ActivityStatus, RankingRow } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -69,6 +70,7 @@ export default function Overview() {
     })
     if (!ok) return
     await removeActivityCertificateFiles(a.id) // bersihkan berkas sertifikat di Storage
+    await removeSelfiesOf({ activityId: a.id }) // dan foto selfie absensi
     const { error } = await supabase.from('activities').delete().eq('id', a.id)
     if (error) return toast(errMsg(error), 'error')
     toast('Kegiatan dihapus.', 'success')

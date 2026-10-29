@@ -59,8 +59,8 @@ describe('kuis', () => {
 
 describe('kehadiran', () => {
   const ps = [P('a'), P('b')]
-  const ss: AttendanceSession[] = ['s1', 's2'].map((id) => ({ id, activity_id: 'a', title: id, start_at: '', end_at: '', late_minutes: 0 }))
-  const at = (s: string, p: string, status: Attendance['status']): Attendance => ({ id: s + p, activity_id: 'a', session_id: s, participant_id: p, status, checked_in_at: '', note: null, manual: false })
+  const ss: AttendanceSession[] = ['s1', 's2'].map((id) => ({ id, activity_id: 'a', title: id, start_at: '', end_at: '', late_minutes: 0, require_selfie: false, require_location: false }))
+  const at = (s: string, p: string, status: Attendance['status']): Attendance => ({ id: s + p, activity_id: 'a', session_id: s, participant_id: p, status, checked_in_at: '', note: null, manual: false, selfie_path: null, lat: null, lng: null, accuracy_m: null })
   const list = [at('s1', 'a', 'hadir'), at('s2', 'a', 'terlambat'), at('s1', 'b', 'izin')]
 
   it('persentase menghitung hadir + terlambat saja', () => {
