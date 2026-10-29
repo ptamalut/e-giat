@@ -40,6 +40,8 @@ export interface Employee {
   job_title: string | null
   institution: string | null
   phone: string | null
+  /** urutan di dalam satuan kerja; null = setelah yang berurutan */
+  sort_order: number | null
   created_at: string
 }
 

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
 import { activeMenus, type MenuDef } from '../../lib/menus'
 import { ACCESS_KEYS, defaultAccess, ROLE_HINT, ROLE_LABEL, ROLES, type Access } from '../../lib/people'
-import { groupBySatker, matchesUnit, NONE_KEY } from '../../lib/satker'
+import { groupBySatker, matchesUnit, NONE_KEY, sortPeople } from '../../lib/satker'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Activity, Employee, Participant, PersonRole } from '../../lib/types'
 
@@ -44,15 +44,22 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
   const [access, setAccess] = useState<Access>(defaultAccess('peserta'))
   const [busy, setBusy] = useState(false)
 
-  const { data, error, loading, reload } = useAsync(
-    () => fetchAll<Employee>((a, b) => supabase.from('employees').select('*').order('name').order('id').range(a, b)), [])
-  const all = data ?? []
-  const allGroups = useMemo(() => groupBySatker(all, (e) => e.institution), [all])
+  // urutan yang diatur di Data pegawai dipakai juga di sini
+  const { data, error, loading, reload } = useAsync(async () => {
+    const [employees, settings] = await Promise.all([
+      fetchAll<Employee>((a, b) => supabase.from('employees').select('*').order('name').order('id').range(a, b)),
+      supabase.from('employee_settings').select('satker_order').maybeSingle(),
+    ])
+    return { employees: sortPeople(employees), satkerOrder: (settings.data as { satker_order: string[] | null } | null)?.satker_order ?? null }
+  }, [])
+  const all = data?.employees ?? []
+  const satkerOrder = data?.satkerOrder ?? null
+  const allGroups = useMemo(() => groupBySatker(all, (e) => e.institution, satkerOrder), [all, satkerOrder])
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
     return all.filter((e) => matchesUnit(unit, e.institution) && (!s || [e.name, e.identifier, e.job_title, e.institution].some((v) => v?.toLowerCase().includes(s))))
   }, [all, q, unit])
-  const groups = useMemo(() => groupBySatker(list, (e) => e.institution), [list])
+  const groups = useMemo(() => groupBySatker(list, (e) => e.institution, satkerOrder), [list, satkerOrder])
 
   const selectable = (e: Employee) => !taken.has(e.id)
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })

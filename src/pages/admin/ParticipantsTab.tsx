@@ -247,7 +247,17 @@ export default function ParticipantsTab() {
 
       {picking && <PickEmployees activity={activity} taken={taken} onClose={() => setPicking(false)} onSaved={() => { setPicking(false); void reload(true) }} />}
       {access && <AccessModal activity={activity} people={access} onClose={() => setAccess(null)} onSaved={() => { setAccess(null); setSel(new Set()); void reload(true) }} />}
-      {ordering && data && <OrderModal activity={activity} people={data} onClose={() => setOrdering(false)}
+      {ordering && data && <OrderModal people={data} satkerOrder={activity.satker_order}
+        save={async (satker, ids) => { const { error } = await supabase.rpc('save_activity_order', { p_activity: activity.id, p_satker_order: satker, p_participants: ids }); return error ? errMsg(error) : null }}
+        reset={async () => {
+          const [a, p] = await Promise.all([
+            supabase.from('activities').update({ satker_order: null }).eq('id', activity.id),
+            supabase.from('participants').update({ sort_order: null }).eq('activity_id', activity.id),
+          ])
+          const err = a.error ?? p.error
+          return err ? errMsg(err) : null
+        }}
+        onClose={() => setOrdering(false)}
         onSaved={() => { setOrdering(false); void reloadActivity(); void reload(true) }} />}
       {exporting && data && <ExportModal activity={activity} people={ordered} onClose={() => setExporting(false)}
         onOrder={() => { setExporting(false); setOrdering(true) }} />}

@@ -1,14 +1,16 @@
-import { Building2, ClipboardPaste, Contact, Download, FileSpreadsheet, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { ArrowUpDown, Building2, ClipboardPaste, Contact, Download, FileSpreadsheet, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { Fragment, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { downloadCsv } from '../../lib/csv'
+import { splitKnown } from '../../lib/employees'
 import { readEmployeeFile, type EmployeeFile } from '../../lib/employeeFile'
 import { EMPLOYEE_FORMAT_HELP, normalizeNip, parseEmployees } from '../../lib/parsers'
 import { GRADE_SUGGESTIONS } from '../../lib/people'
-import { groupBySatker, matchesUnit, normSatker } from '../../lib/satker'
+import { groupBySatker, matchesUnit, normSatker, sortPeople } from '../../lib/satker'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Employee } from '../../lib/types'
+import OrderModal from './OrderModal'
 
 const EMPTY = { name: '', identifier: '', grade: '', job_title: '', institution: '', phone: '' }
 
@@ -23,26 +25,34 @@ export default function EmployeesPage() {
   const [grouped, setGrouped] = useState(true)
   const [editing, setEditing] = useState<Partial<Employee> | null>(null)
   const [bulk, setBulk] = useState(false)
+  const [ordering, setOrdering] = useState(false)
   const [renaming, setRenaming] = useState<{ label: string; ids: string[]; none: boolean } | null>(null)
   const { collapsed, toggle, setAll } = useCollapsed()
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [employees, uses] = await Promise.all([
+    const [employees, uses, settings] = await Promise.all([
       fetchAll<Employee>((a, b) => supabase.from('employees').select('*').order('name').order('id').range(a, b)),
       fetchAll<{ id: string; employee_id: string; activity_id: string }>((a, b) => supabase.from('participants').select('id, employee_id, activity_id').not('employee_id', 'is', null).order('id').range(a, b)),
+      supabase.from('employee_settings').select('satker_order').maybeSingle(),
     ])
+    if (settings.error) throw new Error(errMsg(settings.error))
     const used = new Map<string, Set<string>>()
     for (const u of uses) used.set(u.employee_id, (used.get(u.employee_id) ?? new Set()).add(u.activity_id))
-    return { employees, activities: Object.fromEntries([...used].map(([k, v]) => [k, v.size])) as Record<string, number> }
+    return {
+      employees: sortPeople(employees), // yang sudah diurutkan lebih dulu, sisanya abjad
+      satkerOrder: (settings.data as { satker_order: string[] | null } | null)?.satker_order ?? null,
+      activities: Object.fromEntries([...used].map(([k, v]) => [k, v.size])) as Record<string, number>,
+    }
   }, [])
 
   const all = data?.employees ?? []
-  const allGroups = useMemo(() => groupBySatker(all, (e) => e.institution), [all])
+  const satkerOrder = data?.satkerOrder ?? null
+  const allGroups = useMemo(() => groupBySatker(all, (e) => e.institution, satkerOrder), [all, satkerOrder])
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
     return all.filter((e) => matchesUnit(unit, e.institution) && (!s || [e.name, e.identifier, e.grade, e.job_title, e.institution, e.phone].some((v) => v?.toLowerCase().includes(s))))
   }, [all, q, unit])
-  const groups = useMemo(() => groupBySatker(list, (e) => e.institution), [list])
+  const groups = useMemo(() => groupBySatker(list, (e) => e.institution, satkerOrder), [list, satkerOrder])
 
   async function remove(e: Employee) {
     const n = data?.activities[e.id] ?? 0
@@ -103,6 +113,7 @@ export default function EmployeesPage() {
           </div>
           <div className="row tight">
             <span className="muted small">{all.length} pegawai · {allGroups.length} satuan kerja</span>
+            <button className="btn sm" onClick={() => setOrdering(true)} disabled={!all.length}><ArrowUpDown size={14} /> Atur urutan</button>
             <button className="btn sm" onClick={exportCsv} disabled={!all.length}><Download size={14} /> CSV</button>
           </div>
         </div>
@@ -146,6 +157,20 @@ export default function EmployeesPage() {
 
       {editing && <EmployeeForm value={editing} institutions={allGroups.filter((g) => g.key).map((g) => g.label)}
         onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(true) }} />}
+      {ordering && (
+        <OrderModal people={all} satkerOrder={satkerOrder} noun="pegawai"
+          hint="Urutan ini dipakai di daftar ini, CSV, dan pemilih pegawai saat menambah peserta kegiatan."
+          save={async (satker, ids) => { const { error } = await supabase.rpc('save_employee_order', { p_satker_order: satker, p_employees: ids }); return error ? errMsg(error) : null }}
+          reset={async () => {
+            const [a, b] = await Promise.all([
+              supabase.from('employees').update({ sort_order: null }).not('id', 'is', null),
+              supabase.from('employee_settings').update({ satker_order: null }).not('owner_id', 'is', null),
+            ])
+            const err = a.error ?? b.error
+            return err ? errMsg(err) : null
+          }}
+          onClose={() => setOrdering(false)} onSaved={() => { setOrdering(false); void reload(true) }} />
+      )}
       {bulk && <BulkImport existing={all} onClose={() => setBulk(false)} onSaved={() => { setBulk(false); void reload(true) }} />}
       {renaming && <RenameSatker target={renaming} others={allGroups.map((g) => g.label).filter((l) => l !== renaming.label)}
         onClose={() => setRenaming(null)} onSaved={() => { setRenaming(null); void reload(true) }} />}
@@ -225,10 +250,9 @@ function BulkImport({ existing, onClose, onSaved }: { existing: Employee[]; onCl
   const parsed = useMemo(() => (file ? { items: file.items, errors: file.errors } : parseEmployees(text)), [file, text])
   // satuan kerja bawaan hanya mengisi baris yang satkernya kosong
   const items = useMemo(() => parsed.items.map((i) => ({ ...i, institution: normSatker(i.institution) || normSatker(defaultSatker) || null })), [parsed, defaultSatker])
-  // NIP yang sama (atau nama yang sama bila tanpa NIP) dianggap sudah ada
-  const known = new Set(existing.map((p) => (p.identifier || p.name).toLowerCase()))
-  const fresh = items.filter((i) => !known.has((i.identifier || i.name).toLowerCase()))
-  const skipped = items.length - fresh.length
+  // pegawai yang sudah ada (NIP sama, atau nama sama bila salah satunya tanpa NIP) dilewati
+  const { fresh, skipped: skippedList } = useMemo(() => splitKnown(existing, items), [existing, items])
+  const skipped = skippedList.length
   const unitCount = new Set(fresh.map((i) => (i.institution ?? '').toLowerCase())).size
   const empty = { nip: fresh.filter((i) => !i.identifier).length, unit: fresh.filter((i) => !i.institution).length, phone: fresh.filter((i) => !i.phone).length }
 
@@ -244,11 +268,17 @@ function BulkImport({ existing, onClose, onSaved }: { existing: Employee[]; onCl
 
   async function save() {
     setBusy(true)
-    const { error } = await supabase.from('employees').insert(fresh)
-    setBusy(false)
-    if (error) return toast(saveError(error), 'error')
-    toast(`${fresh.length} pegawai ditambahkan.`, 'success')
-    onSaved()
+    try {
+      // cek ulang ke database tepat sebelum menyimpan, agar yang baru ditambahkan di tempat lain ikut dilewati
+      const latest = await fetchAll<Employee>((a, b) => supabase.from('employees').select('*').order('id').range(a, b))
+      const { fresh: toAdd, skipped: dup } = splitKnown(latest, items)
+      if (toAdd.length) {
+        const { error } = await supabase.from('employees').insert(toAdd)
+        if (error) return toast(saveError(error), 'error')
+      }
+      toast(`${toAdd.length} pegawai ditambahkan${dup.length ? `, ${dup.length} dilewati karena sudah ada` : ''}.`, 'success')
+      onSaved()
+    } catch (e) { toast(errMsg(e), 'error') } finally { setBusy(false) }
   }
 
   function downloadTemplate() {

@@ -45,6 +45,9 @@ di halaman depan (lihat di bawah).
   (1) tabel dengan baris judul kolom, dan (2) *rekap pegawai* yang satu pegawainya memakai beberapa baris (kolom "Identitas" berisi nama lalu NIP,
   kolom "Jabatan" berisi jabatan lalu golongan; NIP bertitik otomatis dirapikan, "Pembina Utama, (IV/e)" menjadi "Pembina Utama (IV/e)").
   Satuan kerja diambil dari judul berkas ("… Pada <satuan kerja>") atau dari isian "satuan kerja bawaan" di pratinjau; boleh dikosongkan. NIP unik per akun.
+  Pegawai yang **sudah ada dilewati**: NIP yang sama, atau nama yang sama bila salah satunya belum punya NIP (dicek ulang ke database tepat sebelum
+  menyimpan). **Atur urutan** (seperti di halaman peserta): urutan satuan kerja dan urutan pegawai di dalamnya diseret/ditekan panah, tersimpan per akun,
+  dan dipakai di daftar, CSV, serta pemilih pegawai saat menambah peserta kegiatan; satker/pegawai baru menyusul di akhir.
   Mengubah data pegawai ikut memperbarui salinannya di semua kegiatan yang memakainya.
 - **Peserta kegiatan dipilih dari data pegawai** (per satker, bisa pilih satu kelompok sekaligus). Tiap orang diberi **jenis**
   (peserta / narasumber / panitia) dan **hak akses menu** yang bisa diubah per orang atau massal. Daftar hak akses selalu sama
@@ -131,7 +134,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, lalu `009_halaman_depan.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, lalu `010_urutan_pegawai.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
