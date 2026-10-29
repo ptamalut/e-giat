@@ -2,6 +2,7 @@ import { BarChart3, CheckCheck, ClipboardList, QrCode } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { ThemeToggle } from '../components/theme'
 import { Field } from '../components/ui'
 import { errMsg, supabase } from '../lib/supabase'
 
@@ -43,6 +44,7 @@ export default function Login() {
 
   return (
     <div className="auth-split">
+      <div className="corner-theme"><ThemeToggle /></div>
       <aside className="auth-aside">
         <div className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>e-Giat</div>
         <div>

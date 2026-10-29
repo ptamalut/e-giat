@@ -45,6 +45,10 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
 - 🔍 Analisis butir soal: tingkat kesukaran dan sebaran jawaban.
 - Peserta dapat melihat papan peringkat (top 10 + posisinya) bila diaktifkan panitia.
 
+## Tema tampilan
+Tersedia mode **terang**, **gelap**, dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
+panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan disimpan di browser masing-masing pengguna.
+
 ## Menjalankan
 
 ### 1. Siapkan Supabase

@@ -2,6 +2,7 @@ import { CheckCheck, LayoutGrid, LogOut } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
+import { ThemeToggle } from '../../components/theme'
 import { ACTIVITY_NAV } from './nav'
 
 interface SideActivity { id: string; name: string; statusLabel: string }
@@ -49,6 +50,7 @@ export default function AdminShell() {
               </>
             )}
           </nav>
+          <div className="side-theme"><span>Tema</span><ThemeToggle onDark /></div>
           <div className="side-foot">
             <span className="avatar" aria-hidden>{email.slice(0, 1).toUpperCase() || '?'}</span>
             <div className="who"><b>{email}</b><span>Panitia</span></div>
@@ -61,7 +63,8 @@ export default function AdminShell() {
             <div className="container">
               <Brand />
               <span className="spacer" />
-              <button className="btn sm" onClick={() => void signOut()}><LogOut size={15} /> Keluar</button>
+              <ThemeToggle />
+              <button className="icon-btn" onClick={() => void signOut()} aria-label="Keluar" title="Keluar"><LogOut size={18} /></button>
             </div>
           </header>
           <main className="container page"><Outlet /></main>
