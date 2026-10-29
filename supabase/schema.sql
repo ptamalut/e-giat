@@ -133,6 +133,18 @@ end $$;
 alter table public.participants add column if not exists access_attendance  boolean not null default true;
 alter table public.participants add column if not exists access_quiz        boolean not null default true;
 alter table public.participants add column if not exists access_certificate boolean not null default true;
+-- Hak akses notula & dokumentasi (menu yang dilihat peserta lewat link pribadinya); hanya diisi awal sekali.
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'participants' and column_name = 'access_notes') then
+    alter table public.participants add column access_notes         boolean not null default false;
+    alter table public.participants add column access_documentation boolean not null default false;
+    update public.participants set access_notes = true, access_documentation = true where role = 'panitia';
+  end if;
+end $$;
+alter table public.participants add column if not exists access_notes         boolean not null default false;
+alter table public.participants add column if not exists access_documentation boolean not null default false;
 -- satu pegawai hanya sekali per kegiatan
 create unique index if not exists participants_employee_uq on public.participants (activity_id, employee_id) where employee_id is not null;
 -- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
@@ -681,7 +693,9 @@ begin
     'features', jsonb_build_object(
       'attendance', a.enable_attendance and p.access_attendance,
       'quiz', a.enable_quiz and p.access_quiz,
-      'certificate', a.enable_certificate and p.access_certificate),
+      'certificate', a.enable_certificate and p.access_certificate,
+      'notes', a.enable_notes and p.access_notes,
+      'documentation', a.enable_documentation and p.access_documentation),
     'activity', jsonb_build_object(
       'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
       'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
@@ -1047,6 +1061,51 @@ begin
   );
 end $$;
 
+-- Notula yang sudah Final (hanya bila menu notula aktif dan orang ini punya hak akses notula)
+create or replace function public.portal_notes(p_token text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  p public.participants;
+  a public.activities;
+begin
+  p := public._participant_by_token(p_token);
+  select * into a from public.activities where id = p.activity_id;
+  if not a.enable_notes or not p.access_notes then
+    raise exception 'Notula tidak tersedia untuk Anda pada kegiatan ini.' using errcode = 'P0001';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', n.id, 'title', n.title, 'held_at', n.held_at, 'location', n.location, 'leader', n.leader,
+             'notetaker', n.notetaker, 'attendees', n.attendees, 'agenda', n.agenda, 'discussion', n.discussion,
+             'decisions', n.decisions, 'follow_ups', n.follow_ups)
+           order by n.held_at desc nulls last, n.created_at desc)
+      from public.meeting_notes n
+     where n.activity_id = a.id and n.status = 'final'), '[]'::jsonb);
+end $$;
+
+-- Dokumentasi kegiatan (hanya bila menu dokumentasi aktif dan orang ini punya hak akses dokumentasi).
+-- Alamat berkas foto (path acak) baru diberikan di sini, seperti sertifikat.
+create or replace function public.portal_docs(p_token text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  p public.participants;
+  a public.activities;
+begin
+  p := public._participant_by_token(p_token);
+  select * into a from public.activities where id = p.activity_id;
+  if not a.enable_documentation or not p.access_documentation then
+    raise exception 'Dokumentasi tidak tersedia untuk Anda pada kegiatan ini.' using errcode = 'P0001';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', d.id, 'kind', d.kind, 'path', d.storage_path, 'url', d.url, 'title', d.title,
+             'caption', d.caption, 'album', d.album, 'taken_on', d.taken_on)
+           order by d.taken_on desc nulls last, d.uploaded_at desc)
+      from public.documentation d where d.activity_id = a.id), '[]'::jsonb);
+end $$;
+
 -- Alamat berkas sertifikat milik pemilik token (hanya bila unduhan dibuka panitia)
 create or replace function public.portal_certificate(p_token text)
 returns jsonb
@@ -1159,13 +1218,14 @@ create policy selfies_obj_delete on storage.objects for delete to authenticated
   using (bucket_id = 'selfies' and public.owns_selfie_object(name));
 
 -- ---------------------------------------------------------------------------
--- STORAGE: bucket dokumentasi kegiatan (PRIVAT)
---   * hanya pemilik kegiatan yang boleh mengunggah/melihat/mengganti/menghapus, dibatasi pada folder `<activity_id>/`
---   * tampilan memakai signed URL berumur pendek
+-- STORAGE: bucket dokumentasi kegiatan
+--   * bucket publik, tetapi path acak (122 bit) dan alamatnya hanya diberikan portal_docs setelah token pribadi
+--     divalidasi dan orang itu punya hak akses dokumentasi -> seperti "link rahasia" (sama dengan sertifikat)
+--   * hanya pemilik kegiatan yang boleh mengunggah/mengganti/menghapus/melihat daftar, dibatasi pada folder `<activity_id>/`
 -- ---------------------------------------------------------------------------
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('dokumentasi', 'dokumentasi', false, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
+values ('dokumentasi', 'dokumentasi', true, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do update
   set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
@@ -1249,6 +1309,8 @@ revoke all on function
   public.portal_get_result(text, uuid),
   public.portal_leaderboard(text),
   public.portal_certificate(text),
+  public.portal_notes(text),
+  public.portal_docs(text),
   public.activity_ranking(uuid),
   public.is_activity_owner(uuid)
 from public;
@@ -1262,7 +1324,9 @@ grant execute on function
   public.portal_submit_attempt(text, uuid, jsonb),
   public.portal_get_result(text, uuid),
   public.portal_leaderboard(text),
-  public.portal_certificate(text)
+  public.portal_certificate(text),
+  public.portal_notes(text),
+  public.portal_docs(text)
 to anon, authenticated;
 
 revoke all on function public.save_activity_order(uuid, jsonb, uuid[]) from public, anon;

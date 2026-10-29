@@ -2,13 +2,11 @@ import { Contact, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
-import { menuOn, type MenuKey } from '../../lib/menus'
-import { ACCESS_KEYS, ACCESS_LABEL, defaultAccess, ROLE_HINT, ROLE_LABEL, ROLES, type Access } from '../../lib/people'
+import { activeMenus, type MenuDef } from '../../lib/menus'
+import { ACCESS_KEYS, defaultAccess, ROLE_HINT, ROLE_LABEL, ROLES, type Access } from '../../lib/people'
 import { groupBySatker, matchesUnit, NONE_KEY } from '../../lib/satker'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Activity, Employee, Participant, PersonRole } from '../../lib/types'
-
-const ACCESS_MENU: Record<keyof Access, MenuKey> = { access_attendance: 'attendance', access_quiz: 'quiz', access_certificate: 'certificate' }
 
 /** Pilihan jenis (peserta/narasumber/panitia). */
 function RolePills({ value, onChange }: { value: PersonRole; onChange: (r: PersonRole) => void }) {
@@ -21,17 +19,15 @@ function RolePills({ value, onChange }: { value: PersonRole; onChange: (r: Perso
   )
 }
 
-/** Tiga kotak hak akses menu; menu yang dinonaktifkan di kegiatan ditandai. */
+/** Kotak hak akses menu: hanya menu yang aktif pada kegiatan (sama dengan daftar di Ringkasan → Menu kegiatan). */
 function AccessChecks({ activity, value, onChange }: { activity: Activity; value: Access; onChange: (a: Access) => void }) {
+  const menus = activeMenus(activity)
+  if (!menus.length) return <p className="muted small">Belum ada menu yang diaktifkan untuk kegiatan ini.</p>
   return (
     <div>
-      {ACCESS_KEYS.map((k) => {
-        const on = menuOn(activity, ACCESS_MENU[k])
-        return (
-          <Check key={k} label={ACCESS_LABEL[k]} checked={value[k]} onChange={(v) => onChange({ ...value, [k]: v })}
-            hint={on ? undefined : `Menu ${ACCESS_LABEL[k]} sedang dinonaktifkan untuk kegiatan ini, jadi belum berlaku.`} />
-        )
-      })}
+      {menus.map((m) => (
+        <Check key={m.key} label={m.label} hint={m.hint} checked={value[m.access]} onChange={(v) => onChange({ ...value, [m.access]: v })} />
+      ))}
     </div>
   )
 }
@@ -154,16 +150,19 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
   const bulk = people.length > 1
   const one = people[0]
   const [role, setRole] = useState<PersonRole | 'keep'>(bulk ? 'keep' : one.role)
-  const [access, setAccess] = useState<Access>({ access_attendance: one.access_attendance, access_quiz: one.access_quiz, access_certificate: one.access_certificate })
-  const [tri, setTri] = useState<Record<keyof Access, Tri>>({ access_attendance: 'keep', access_quiz: 'keep', access_certificate: 'keep' })
+  const menus = activeMenus(activity)
+  const [access, setAccess] = useState<Access>(() => Object.fromEntries(ACCESS_KEYS.map((k) => [k, one[k]])) as unknown as Access)
+  const [tri, setTri] = useState<Record<string, Tri>>({})
   const [busy, setBusy] = useState(false)
 
   async function save() {
     setBusy(true)
     const patch: Record<string, unknown> = {}
     if (role !== 'keep') patch.role = role
-    for (const k of ACCESS_KEYS) {
-      if (bulk) { if (tri[k] !== 'keep') patch[k] = tri[k] === 'on' } else patch[k] = access[k]
+    // hanya menu yang aktif di kegiatan yang diatur; menu nonaktif dibiarkan seperti semula
+    for (const m of menus) {
+      const t = tri[m.access] ?? 'keep'
+      if (bulk) { if (t !== 'keep') patch[m.access] = t === 'on' } else patch[m.access] = access[m.access]
     }
     if (!Object.keys(patch).length) { setBusy(false); return onClose() }
     const { error } = await supabase.from('participants').update(patch).in('id', people.map((p) => p.id))
@@ -185,15 +184,15 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
         )}
         <RolePills value={role === 'keep' ? ('' as PersonRole) : role} onChange={(r) => {
           setRole(r)
-          if (!bulk) setAccess(defaultAccess(r)) // jenis baru = isian awal baru (boleh diubah lagi)
+          if (!bulk) setAccess((cur) => ({ ...cur, ...Object.fromEntries(menus.map((m) => [m.access, defaultAccess(r)[m.access]])) })) // jenis baru = isian awal baru untuk menu aktif (boleh diubah lagi)
         }} />
       </Field>
       <Field label="Hak akses menu" hint={bulk ? 'Pilih "Tidak diubah" untuk membiarkan pengaturan masing-masing orang.' : 'Menu yang boleh dipakai lewat link pribadinya.'}>
         {bulk
-          ? ACCESS_KEYS.map((k) => (
-            <div className="row between" key={k} style={{ marginBottom: 8 }}>
-              <span>{ACCESS_LABEL[k]}{menuOn(activity, ACCESS_MENU[k]) ? '' : <span className="muted small"> (menu nonaktif)</span>}</span>
-              <select className="input" style={{ width: 160 }} value={tri[k]} onChange={(e) => setTri({ ...tri, [k]: e.target.value as Tri })} aria-label={ACCESS_LABEL[k]}>
+          ? menus.map((m: MenuDef) => (
+            <div className="row between" key={m.key} style={{ marginBottom: 8 }}>
+              <span>{m.label}</span>
+              <select className="input" style={{ width: 160 }} value={tri[m.access] ?? 'keep'} onChange={(e) => setTri({ ...tri, [m.access]: e.target.value as Tri })} aria-label={m.label}>
                 <option value="keep">Tidak diubah</option><option value="on">Aktif</option><option value="off">Nonaktif</option>
               </select>
             </div>

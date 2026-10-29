@@ -28,7 +28,7 @@ export default function NotesTab() {
 
   return (
     <div className="stack">
-      <PageHeader title="Notula" subtitle="Catatan hasil rapat atau sesi kegiatan: pembahasan, keputusan, dan tindak lanjut. Hanya dapat dilihat panitia."
+      <PageHeader title="Notula" subtitle="Catatan hasil rapat atau sesi kegiatan: pembahasan, keputusan, dan tindak lanjut. Peserta yang diberi hak akses Notula hanya melihat notula berstatus Final."
         actions={<button className="btn primary" onClick={() => setEditing(emptyNote(activity.location))}><Plus size={17} /> Notula baru</button>} />
       {loading && !data && <Loading />}
       {error && <ErrorBox error={error} onRetry={() => void reload()} />}
