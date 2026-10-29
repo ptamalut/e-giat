@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseParticipants, parseQuestions, waNumber, QUESTION_FORMAT_HELP } from './parsers'
+import { parseParticipants, parseQuestions, parseRole, waNumber, QUESTION_FORMAT_HELP } from './parsers'
 
 describe('parseQuestions', () => {
   it('membaca kunci dengan tanda * dan baris Kunci:, serta pembahasan', () => {
@@ -32,7 +32,7 @@ describe('parseParticipants', () => {
     expect(r.errors).toEqual([])
     expect(r.items[0]).toEqual({
       name: 'Dr. Budi Santoso, M.Si.', identifier: '198001012005011001', grade: 'Pembina (IV/a)',
-      job_title: 'Kepala Bidang', institution: 'Dinas Pendidikan', phone: '081234567890',
+      job_title: 'Kepala Bidang', institution: 'Dinas Pendidikan', phone: '081234567890', role: 'peserta',
     })
   })
 
@@ -65,7 +65,23 @@ describe('parseParticipants', () => {
   })
 
   it('baris minimal hanya nama diterima', () => {
-    expect(parseParticipants('Andi').items).toEqual([{ name: 'Andi', identifier: null, grade: null, job_title: null, institution: null, phone: null }])
+    expect(parseParticipants('Andi').items).toEqual([{ name: 'Andi', identifier: null, grade: null, job_title: null, institution: null, phone: null, role: 'peserta' }])
+  })
+})
+
+describe('peran narasumber saat impor', () => {
+  it('peran bawaan impor berlaku bila tidak ada kolom Peran', () => {
+    expect(parseParticipants('Prof. Dr. Ahmad\t1\n', 'narasumber').items[0].role).toBe('narasumber')
+    expect(parseParticipants('Budi\t2').items[0].role).toBe('peserta')
+  })
+  it('kolom Peran di baris judul mengalahkan peran bawaan', () => {
+    const r = parseParticipants('Nama\tNIP\tPeran\nAhmad, Ph.D.\t1\tNarasumber\nBudi\t2\tPeserta\nCitra\t3\t', 'narasumber')
+    expect(r.items.map((i) => i.role)).toEqual(['narasumber', 'peserta', 'narasumber']) // sel kosong -> bawaan
+  })
+  it('mengenali sebutan lain untuk narasumber', () => {
+    expect(parseRole('Pemateri', 'peserta')).toBe('narasumber')
+    expect(parseRole('Widyaiswara', 'peserta')).toBe('narasumber')
+    expect(parseRole('lainnya', 'peserta')).toBe('peserta')
   })
 })
 

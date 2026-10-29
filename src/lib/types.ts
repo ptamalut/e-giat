@@ -1,6 +1,8 @@
 export type ActivityStatus = 'draft' | 'aktif' | 'selesai'
 export type AttendanceStatus = 'hadir' | 'terlambat' | 'izin' | 'sakit' | 'alpa'
 export type QuizType = 'pre' | 'post' | 'lainnya'
+/** peserta: mengerjakan kuis & masuk peringkat. narasumber: hanya absen. */
+export type PersonRole = 'peserta' | 'narasumber'
 
 export interface Activity {
   id: string
@@ -26,6 +28,7 @@ export interface Participant {
   institution: string | null
   email: string | null
   phone: string | null
+  role: PersonRole
   token: string
   created_at: string
 }
@@ -164,6 +167,7 @@ export interface PortalData {
     grade: string | null
     job_title: string | null
     institution: string | null
+    role: PersonRole
   }
   activity: {
     id: string

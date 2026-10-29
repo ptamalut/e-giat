@@ -44,6 +44,8 @@ create table if not exists public.participants (
   institution  text,                -- satuan kerja
   email        text,                -- tidak lagi diisi dari aplikasi (dipertahankan untuk data lama)
   phone        text,                -- nomor WhatsApp
+  -- peran: peserta mengerjakan kuis & masuk peringkat; narasumber hanya absen
+  role         text not null default 'peserta' check (role in ('peserta', 'narasumber')),
   -- token rahasia untuk link unik peserta (122 bit acak)
   token        text not null unique default replace(gen_random_uuid()::text, '-', ''),
   created_at   timestamptz not null default now(),
@@ -54,6 +56,12 @@ create index if not exists participants_activity_idx on public.participants (act
 -- Migrasi untuk database yang sudah dibuat sebelum kolom ini ada (aman dijalankan ulang)
 alter table public.participants add column if not exists grade     text;
 alter table public.participants add column if not exists job_title text;
+alter table public.participants add column if not exists role text not null default 'peserta';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'participants_role_check') then
+    alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber'));
+  end if;
+end $$;
 
 -- Sesi absensi (mis. Hari 1, Hari 2, Sesi Pagi, ...)
 create table if not exists public.attendance_sessions (
@@ -330,7 +338,7 @@ language sql stable security definer set search_path = public as $$
            count(a.id) filter (where a.status in ('hadir', 'terlambat'))::int as c
       from public.participants p
       left join public.attendances a on a.participant_id = p.id
-     where p.activity_id = p_activity
+     where p.activity_id = p_activity and p.role = 'peserta'
      group by p.id
   ),
   best as (
@@ -339,7 +347,7 @@ language sql stable security definer set search_path = public as $$
      cross join qz
       left join public.quiz_attempts t
              on t.participant_id = p.id and t.quiz_id = qz.id and t.submitted_at is not null
-     where p.activity_id = p_activity
+     where p.activity_id = p_activity and p.role = 'peserta'
      group by p.id, qz.id
   ),
   qavg as (
@@ -355,7 +363,7 @@ language sql stable security definer set search_path = public as $$
      cross join sess
      cross join w
       left join qavg on qavg.pid = p.id
-     where p.activity_id = p_activity
+     where p.activity_id = p_activity and p.role = 'peserta'
   ),
   scored as (
     select *,
@@ -444,13 +452,13 @@ begin
          ) order by q.created_at), '[]'::jsonb)
     into v_quiz
     from public.quizzes q
-   where q.activity_id = a.id and q.is_published;
+   where q.activity_id = a.id and q.is_published and p.role = 'peserta';  -- narasumber tidak melihat kuis
 
   return jsonb_build_object(
     'now', v_now,
     'participant', jsonb_build_object(
       'id', p.id, 'name', p.name, 'identifier', p.identifier, 'grade', p.grade,
-      'job_title', p.job_title, 'institution', p.institution),
+      'job_title', p.job_title, 'institution', p.institution, 'role', p.role),
     'activity', jsonb_build_object(
       'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
       'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
@@ -518,6 +526,9 @@ declare
   v_dead  timestamptz;
 begin
   p := public._participant_by_token(p_token);
+  if p.role <> 'peserta' then
+    raise exception 'Narasumber tidak mengerjakan kuis.' using errcode = 'P0001';
+  end if;
   perform pg_advisory_xact_lock(hashtextextended(p.id::text || p_quiz::text, 0));
   perform public._close_expired(p.id);
 
@@ -712,12 +723,12 @@ declare
 begin
   p := public._participant_by_token(p_token);
   select * into a from public.activities where id = p.activity_id;
-  if not a.show_leaderboard then
+  if not a.show_leaderboard or p.role <> 'peserta' then
     return jsonb_build_object('enabled', false, 'rows', '[]'::jsonb);
   end if;
   return jsonb_build_object(
     'enabled', true,
-    'total', (select count(*) from public.participants where activity_id = a.id),
+    'total', (select count(*) from public.participants where activity_id = a.id and role = 'peserta'),
     'rows', (
       select coalesce(jsonb_agg(jsonb_build_object(
                'rank', r.rank, 'name', r.name, 'institution', r.institution,

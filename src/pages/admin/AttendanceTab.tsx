@@ -5,7 +5,8 @@ import { downloadCsv, safeName } from '../../lib/csv'
 import { fmtDateTime, fmtTime, fromLocalInput, timeState, toLocalInput } from '../../lib/format'
 import { sessionCounts } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
-import type { Attendance, AttendanceSession, AttendanceStatus, Participant } from '../../lib/types'
+import { ROLE_LABEL } from '../../lib/people'
+import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 
 export const ATT_LABEL: Record<AttendanceStatus, string> = { hadir: 'Hadir', terlambat: 'Terlambat', izin: 'Izin', sakit: 'Sakit', alpa: 'Alpa' }
@@ -24,6 +25,7 @@ export default function AttendanceTab() {
   const [sel, setSel] = useState<string | null>(null)
   const [editing, setEditing] = useState<Partial<AttendanceSession> | null>(null)
   const [q, setQ] = useState('')
+  const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
 
   const { data, error, loading, reload } = useAsync(async () => {
     const [sessions, participants, attendances] = await Promise.all([
@@ -47,8 +49,10 @@ export default function AttendanceTab() {
     for (const a of data?.attendances ?? []) if (a.session_id === current?.id) m.set(a.participant_id, a)
     return m
   }, [data, current?.id])
-  const counts = current ? sessionCounts(data!.participants, data!.attendances, current.id) : null
-  const rows = (data?.participants ?? []).filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))
+  const roleCount = (r: 'semua' | PersonRole) => (data?.participants ?? []).filter((p) => r === 'semua' || p.role === r).length
+  const group = (data?.participants ?? []).filter((p) => roleFilter === 'semua' || p.role === roleFilter)
+  const counts = current ? sessionCounts(group, data!.attendances, current.id) : null
+  const rows = group.filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))
 
   async function setStatus(p: Participant, status: AttendanceStatus | '') {
     if (!current) return
@@ -63,7 +67,7 @@ export default function AttendanceTab() {
 
   async function markAbsentAsAlpa() {
     if (!current || !data) return
-    const missing = data.participants.filter((p) => !attByP.has(p.id))
+    const missing = group.filter((p) => !attByP.has(p.id))
     if (!missing.length) return toast('Semua peserta sudah tercatat.')
     const ok = await confirm({ title: `Tandai ${missing.length} peserta sebagai Alpa?`, confirmText: 'Tandai Alpa',
       message: 'Hanya untuk peserta yang belum tercatat pada sesi ini. Status bisa diubah lagi kapan saja.' })
@@ -92,10 +96,10 @@ export default function AttendanceTab() {
   function exportCsv() {
     if (!current || !data) return
     downloadCsv(`absensi-${safeName(current.title)}`, [
-      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Status', 'Waktu absen', 'Manual'],
-      ...data.participants.map((p) => {
+      ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Status', 'Waktu absen', 'Manual'],
+      ...group.map((p) => {
         const a = attByP.get(p.id)
-        return [p.name, p.identifier, p.grade, p.job_title, p.institution, a ? ATT_LABEL[a.status] : 'Belum absen', a ? fmtDateTime(a.checked_in_at) : '', a ? (a.manual ? 'ya' : 'tidak') : '']
+        return [ROLE_LABEL[p.role], p.name, p.identifier, p.grade, p.job_title, p.institution, a ? ATT_LABEL[a.status] : 'Belum absen', a ? fmtDateTime(a.checked_in_at) : '', a ? (a.manual ? 'ya' : 'tidak') : '']
       }),
     ])
   }
@@ -146,7 +150,16 @@ export default function AttendanceTab() {
 
           <div className="card flush">
             <div className="toolbar">
+              <div className="row">
               <label className="search"><Search size={16} /><input className="input" placeholder="Cari peserta" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
+              <div className="pills" role="group" aria-label="Filter peran">
+                {(['semua', 'peserta', 'narasumber'] as const).map((r) => (
+                  <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
+                    {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
+                  </button>
+                ))}
+              </div>
+              </div>
               <div className="row tight">
                 <span className="muted small hide-sm">Diperbarui otomatis tiap 15 detik</span>
                 <button className="btn sm" onClick={() => void reload(true)}><RefreshCw size={14} /> Segarkan</button>
@@ -154,15 +167,15 @@ export default function AttendanceTab() {
                 <button className="btn sm" onClick={exportCsv}><Download size={14} /> CSV</button>
               </div>
             </div>
-            {data.participants.length === 0
-              ? <Empty icon={<Users size={26} />} title="Belum ada peserta">Tambahkan peserta di tab Peserta.</Empty>
+            {group.length === 0
+              ? <Empty icon={<Users size={26} />} title="Tidak ada data">Tambahkan peserta atau narasumber di tab Peserta.</Empty>
               : <div className="table-wrap"><table className="table">
                   <thead><tr><th>Nama</th><th>Jabatan</th><th>Satuan kerja</th><th>Waktu absen</th><th>Status</th></tr></thead>
                   <tbody>{rows.map((p) => {
                     const a = attByP.get(p.id)
                     return (
                       <tr key={p.id}>
-                        <td><b>{p.name}</b>{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
+                        <td><b>{p.name}</b>{p.role === 'narasumber' && <span className="badge info" style={{ marginLeft: 8 }}>Narasumber</span>}{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
                         <td>{p.job_title ?? <span className="muted">—</span>}</td>
                         <td>{p.institution ?? <span className="muted">—</span>}</td>
                         <td>{a ? <>{fmtTime(a.checked_in_at)} {a.manual && <span className="badge">manual</span>}</> : <span className="muted">—</span>}</td>

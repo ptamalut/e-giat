@@ -3,14 +3,14 @@ import QRCode from 'qrcode'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
-import { GRADE_SUGGESTIONS, roleLine } from '../../lib/people'
+import { GRADE_SUGGESTIONS, ROLE_LABEL, roleLine } from '../../lib/people'
 import { participantLink } from '../../lib/format'
 import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
-import type { Participant } from '../../lib/types'
+import type { Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 
-const EMPTY = { name: '', identifier: '', grade: '', job_title: '', institution: '', phone: '' }
+const EMPTY = { name: '', identifier: '', grade: '', job_title: '', institution: '', phone: '', role: 'peserta' as PersonRole }
 
 async function copy(text: string): Promise<boolean> {
   try { await navigator.clipboard.writeText(text); return true } catch {
@@ -25,6 +25,7 @@ export default function ParticipantsTab() {
   const toast = useToast()
   const confirm = useConfirm()
   const [q, setQ] = useState('')
+  const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
   const [editing, setEditing] = useState<Partial<Participant> | null>(null)
   const [bulk, setBulk] = useState(false)
   const [qr, setQr] = useState<Participant | null>(null)
@@ -34,13 +35,20 @@ export default function ParticipantsTab() {
     return fetchAll<Participant>((a, b) => supabase.from('participants').select('*').eq('activity_id', activity.id).order('name').order('id').range(a, b))
   }, [activity.id])
 
+  const counts = useMemo(() => {
+    const all = data ?? []
+    return { semua: all.length, peserta: all.filter((p) => p.role === 'peserta').length, narasumber: all.filter((p) => p.role === 'narasumber').length }
+  }, [data])
+
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (data ?? []).filter((p) => !s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s)))
-  }, [data, q])
+    return (data ?? []).filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
+  }, [data, q, roleFilter])
 
   const waText = (p: Participant) =>
-    `Yth. ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+    p.role === 'narasumber'
+      ? `Yth. ${p.name}, berikut link pribadi Anda untuk absensi sebagai narasumber pada kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+      : `Yth. ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
 
   async function remove(p: Participant) {
     const ok = await confirm({ title: `Hapus ${p.name}?`, danger: true, confirmText: 'Hapus',
@@ -78,8 +86,8 @@ export default function ParticipantsTab() {
 
   function exportLinks() {
     downloadCsv(`link-peserta-${safeName(activity.name)}`, [
-      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Link'],
-      ...(data ?? []).map((p) => [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
+      ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Link'],
+      ...(data ?? []).map((p) => [ROLE_LABEL[p.role], p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
     ])
   }
 
@@ -89,20 +97,26 @@ export default function ParticipantsTab() {
         <div className="toolbar">
           <div className="row">
             <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, jabatan, atau satuan kerja" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
-            <span className="muted small">{data?.length ?? 0} peserta</span>
+            <div className="pills" role="group" aria-label="Filter peran">
+              {(['semua', 'peserta', 'narasumber'] as const).map((r) => (
+                <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
+                  {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{counts[r]}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="row tight">
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
             <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
             <button className="btn sm" onClick={() => setBulk(true)}><ClipboardPaste size={15} /> Impor banyak</button>
-            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> Peserta</button>
+            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY, role: roleFilter === 'narasumber' ? 'narasumber' : 'peserta' })}><Plus size={16} /> Tambah</button>
           </div>
         </div>
 
         {loading && <Loading />}
         {error && <div style={{ padding: 16 }}><ErrorBox error={error} onRetry={() => void reload()} /></div>}
         {!loading && !error && !data?.length && (
-          <Empty icon={<Users size={26} />} title="Belum ada peserta">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
+          <Empty icon={<Users size={26} />} title="Belum ada peserta atau narasumber">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
         )}
         {!!data?.length && (
           <div className="table-wrap">
@@ -112,7 +126,7 @@ export default function ParticipantsTab() {
                 {list.map((p, i) => (
                   <tr key={p.id}>
                     <td className="muted">{i + 1}</td>
-                    <td style={{ minWidth: 220 }}><b>{p.name}</b><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
+                    <td style={{ minWidth: 220 }}><b>{p.name}</b>{p.role === 'narasumber' && <span className="badge info" style={{ marginLeft: 8 }}>Narasumber</span>}<div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
                     <td style={{ minWidth: 170 }}>
                       {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
                       {p.grade && <div className="muted small">{p.grade}</div>}
@@ -154,9 +168,10 @@ export default function ParticipantsTab() {
                 <div style={{ fontWeight: 700 }}>{activity.name}</div>
                 <img src={img} alt={`QR ${p.name}`} />
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.name}</div>
+                {p.role === 'narasumber' && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Narasumber</div>}
                 <div>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</div>
                 <div>{roleLine(p)}</div>
-                <div style={{ fontSize: 10, marginTop: 4 }}>Scan untuk absen &amp; mengerjakan kuis</div>
+                <div style={{ fontSize: 10, marginTop: 4 }}>{p.role === 'narasumber' ? 'Scan untuk absen' : 'Scan untuk absen & mengerjakan kuis'}</div>
               </div>
             ))}
           </div>
@@ -173,6 +188,7 @@ function ParticipantForm({ value, activityId, institutions, onClose, onSaved }: 
   const [f, setF] = useState({
     name: value.name ?? '', identifier: value.identifier ?? '', grade: value.grade ?? '',
     job_title: value.job_title ?? '', institution: value.institution ?? '', phone: value.phone ?? '',
+    role: (value.role ?? 'peserta') as PersonRole,
   })
   const [busy, setBusy] = useState(false)
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -187,20 +203,28 @@ function ParticipantForm({ value, activityId, institutions, onClose, onSaved }: 
       job_title: f.job_title.trim() || null,
       institution: f.institution.trim() || null,
       phone: f.phone.trim() || null,
+      role: f.role,
     }
     const { error } = value.id
       ? await supabase.from('participants').update(payload).eq('id', value.id)
       : await supabase.from('participants').insert({ ...payload, activity_id: activityId })
     setBusy(false)
     if (error) return toast(errMsg(error), 'error')
-    toast(value.id ? 'Data peserta diperbarui.' : 'Peserta ditambahkan.', 'success')
+    toast(value.id ? 'Data diperbarui.' : f.role === 'narasumber' ? 'Narasumber ditambahkan.' : 'Peserta ditambahkan.', 'success')
     onSaved()
   }
 
   return (
-    <Modal wide title={value.id ? 'Ubah data peserta' : 'Tambah peserta'} onClose={onClose}
+    <Modal wide title={value.id ? 'Ubah data' : 'Tambah peserta / narasumber'} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="pform" disabled={busy}>Simpan</button></>}>
       <form id="pform" onSubmit={submit}>
+        <Field label="Peran" hint={f.role === 'narasumber' ? 'Narasumber hanya melakukan absensi: tidak melihat atau mengerjakan kuis dan tidak masuk peringkat.' : 'Peserta melakukan absensi, mengerjakan kuis, dan masuk peringkat.'}>
+          <div className="pills" role="radiogroup" aria-label="Peran">
+            {(['peserta', 'narasumber'] as const).map((r) => (
+              <button type="button" key={r} role="radio" aria-checked={f.role === r} className={`pill ${f.role === r ? 'active' : ''}`} onClick={() => setF({ ...f, role: r })}>{ROLE_LABEL[r]}</button>
+            ))}
+          </div>
+        </Field>
         <Field label="Nama lengkap beserta gelar *" hint="Tulis lengkap dengan gelar, mis. Dr. Budi Santoso, S.Pd., M.Si.">
           <input className="input" required autoFocus value={f.name} onChange={set('name')} />
         </Field>
@@ -230,7 +254,8 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
   const toast = useToast()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const parsed = useMemo(() => parseParticipants(text), [text])
+  const [role, setRole] = useState<PersonRole>('peserta')
+  const parsed = useMemo(() => parseParticipants(text, role), [text, role])
   const known = new Set(existing.map((p) => (p.identifier || p.name).toLowerCase()))
   const fresh = parsed.items.filter((i) => !known.has((i.identifier || i.name).toLowerCase()))
   const skipped = parsed.items.length - fresh.length
@@ -240,23 +265,33 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
     const { error } = await supabase.from('participants').insert(fresh.map((i) => ({ ...i, activity_id: activityId })))
     setBusy(false)
     if (error) return toast(errMsg(error), 'error')
-    toast(`${fresh.length} peserta ditambahkan.`, 'success')
+    toast(`${fresh.length} data ditambahkan.`, 'success')
     onSaved()
   }
 
   function downloadTemplate() {
     downloadCsv('templat-peserta', [
-      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp'],
-      ['Dr. Budi Santoso, M.Si.', '198001012005011001', 'Pembina (IV/a)', 'Kepala Bidang', 'Dinas Pendidikan', '081234567890'],
+      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Peran'],
+      ['Dr. Budi Santoso, M.Si.', '198001012005011001', 'Pembina (IV/a)', 'Kepala Bidang', 'Dinas Pendidikan', '081234567890', 'Peserta'],
+      ['Prof. Dr. Ahmad Fauzi, M.A.', '', '', 'Guru Besar', 'Universitas Negeri', '081200000000', 'Narasumber'],
     ])
   }
 
   return (
-    <Modal wide title="Impor banyak peserta" onClose={onClose}
+    <Modal wide title="Impor banyak peserta / narasumber" onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button>
-        <button className="btn primary" disabled={busy || fresh.length === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${fresh.length} peserta`}</button></>}>
+        <button className="btn primary" disabled={busy || fresh.length === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${fresh.length} orang`}</button></>}>
       <p className="muted small" style={{ whiteSpace: 'pre-line' }}>{PARTICIPANT_FORMAT_HELP}</p>
-      <button className="btn sm" style={{ marginBottom: 12 }} onClick={downloadTemplate}><Download size={14} /> Unduh templat (CSV)</button>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <span className="label">Impor sebagai:</span>
+        <div className="pills" role="radiogroup" aria-label="Peran bawaan impor">
+          {(['peserta', 'narasumber'] as const).map((r) => (
+            <button type="button" key={r} role="radio" aria-checked={role === r} className={`pill ${role === r ? 'active' : ''}`} onClick={() => setRole(r)}>{ROLE_LABEL[r]}</button>
+          ))}
+        </div>
+        <span className="spacer" />
+        <button className="btn sm" onClick={downloadTemplate}><Download size={14} /> Unduh templat (CSV)</button>
+      </div>
       <textarea className="input mono" style={{ minHeight: 160, whiteSpace: 'pre' }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Tempel data dari Excel di sini…" autoFocus />
       {text.trim() && (
         <div style={{ marginTop: 14 }}>
@@ -269,9 +304,9 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
           {fresh.length > 0 && (
             <div className="table-wrap" style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 10 }}>
               <table className="table">
-                <thead><tr><th>Nama</th><th>NIP</th><th>Pangkat/Gol.</th><th>Jabatan</th><th>Satuan kerja</th><th>WhatsApp</th></tr></thead>
+                <thead><tr><th>Nama</th><th>Peran</th><th>NIP</th><th>Pangkat/Gol.</th><th>Jabatan</th><th>Satuan kerja</th><th>WhatsApp</th></tr></thead>
                 <tbody>{fresh.slice(0, 5).map((i, n) => (
-                  <tr key={n}><td>{i.name}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
+                  <tr key={n}><td>{i.name}</td><td>{i.role === 'narasumber' ? <span className="badge info">Narasumber</span> : 'Peserta'}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
                 ))}</tbody>
               </table>
               {fresh.length > 5 && <div className="muted small" style={{ padding: '8px 16px' }}>…dan {fresh.length - 5} lainnya. Pastikan kolom di atas sudah benar sebelum menambahkan.</div>}
