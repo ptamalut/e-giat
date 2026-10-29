@@ -3,14 +3,14 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
-import { roleLine } from '../../lib/people'
+import { ROLE_LABEL, roleLine } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
   attendanceMatrix, gainTable, itemAnalysis, nGainCategory, quizResults,
 } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type {
-  Attendance, AttendanceSession, Participant, Question, Quiz, QuizAttempt, RankingRow,
+  Attendance, AttendanceSession, Participant, PersonRole, Question, Quiz, QuizAttempt, RankingRow,
 } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 import { ATT_LABEL, ATT_TONE } from './AttendanceTab'
@@ -57,8 +57,12 @@ export default function ReportsTab() {
     return { participants, sessions, attendances, quizzes, questions, attempts, ranking: (rank.data ?? []) as RankingRow[] }
   }, [activity.id])
 
+  // narasumber tidak mengerjakan kuis, jadi laporan kuis hanya memuat peserta
+  const pesertaData = useMemo(
+    () => (data ? { ...data, participants: data.participants.filter((p) => p.role === 'peserta') } : null), [data])
+
   if (loading && !data) return <Loading />
-  if (error || !data) return <ErrorBox error={error ?? ''} onRetry={() => void reload()} />
+  if (error || !data || !pesertaData) return <ErrorBox error={error ?? ''} onRetry={() => void reload()} />
 
   return (
     <div className="stack">
@@ -84,9 +88,9 @@ export default function ReportsTab() {
         ? <div className="card"><Empty icon={<BarChart3 size={26} />} title="Belum ada data">Tambahkan peserta terlebih dahulu.</Empty></div>
         : section === 'peringkat' ? <RankingSection data={data} name={activity.name} weight={activity.weight_attendance} />
         : section === 'kehadiran' ? <AttendanceSection data={data} name={activity.name} />
-        : section === 'kuis' ? <QuizSection data={data} name={activity.name} onChanged={() => void reload(true)} />
-        : section === 'prepost' ? <PrePostSection data={data} name={activity.name} />
-        : <ItemSection data={data} name={activity.name} />}
+        : section === 'kuis' ? <QuizSection data={pesertaData} name={activity.name} onChanged={() => void reload(true)} />
+        : section === 'prepost' ? <PrePostSection data={pesertaData} name={activity.name} />
+        : <ItemSection data={pesertaData} name={activity.name} />}
     </div>
   )
 }
@@ -142,9 +146,12 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
 
 /* ---------- Kehadiran ---------- */
 function AttendanceSection({ data, name }: { data: Data; name: string }) {
-  const rows = useMemo(() => attendanceMatrix(data.participants, data.sessions, data.attendances), [data])
+  const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
+  const people = useMemo(() => data.participants.filter((p) => roleFilter === 'semua' || p.role === roleFilter), [data.participants, roleFilter])
+  const rows = useMemo(() => attendanceMatrix(people, data.sessions, data.attendances), [people, data.sessions, data.attendances])
+  const roleCount = (r: 'semua' | PersonRole) => data.participants.filter((p) => r === 'semua' || p.role === r).length
   if (data.sessions.length === 0) return <div className="card"><Empty icon={<CalendarCheck size={26} />} title="Belum ada sesi absensi" /></div>
-  const avg = rows.reduce((s, r) => s + (r.pct ?? 0), 0) / rows.length
+  const avg = rows.length ? rows.reduce((s, r) => s + (r.pct ?? 0), 0) / rows.length : 0
   const perSession = data.sessions.map((s) => ({
     s, n: rows.filter((r) => ['hadir', 'terlambat'].includes(r.cells[s.id]?.status ?? '')).length,
   }))
@@ -152,6 +159,15 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
 
   return (
     <>
+      {data.participants.some((p) => p.role === 'narasumber') && (
+        <div className="pills no-print" role="group" aria-label="Filter peran">
+          {(['semua', 'peserta', 'narasumber'] as const).map((r) => (
+            <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
+              {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="grid cols-4">
         <Stat icon={<Percent size={20} />} value={fmtPct(avg)} label="Rata-rata kehadiran" />
         <Stat icon={<CheckCircle2 size={20} />} tone="success" value={rows.filter((r) => r.pct === 100).length} label="Hadir di semua sesi" />
@@ -166,8 +182,8 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
         <div className="card-head">
           <h2>Rekap kehadiran</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`kehadiran-${safeName(name)}`, [
-            ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', ...data.sessions.map((s) => s.title), 'Hadir', 'Persen'],
-            ...rows.map((r) => [r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution,
+            ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', ...data.sessions.map((s) => s.title), 'Hadir', 'Persen'],
+            ...rows.map((r) => [ROLE_LABEL[r.participant.role], r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution,
               ...data.sessions.map((s) => { const a = r.cells[s.id]; return a ? ATT_LABEL[a.status] : 'Belum absen' }),
               r.attended, r.pct == null ? '' : Math.round(r.pct)]),
           ])}><Download size={14} /> CSV</button>
@@ -176,7 +192,7 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
           <thead><tr><th>Nama</th>{data.sessions.map((s) => <th key={s.id} title={fmtDateTime(s.start_at)}>{short(s)}</th>)}<th className="num">Hadir</th><th className="num">%</th></tr></thead>
           <tbody>{rows.map((r) => (
             <tr key={r.participant.id}>
-              <td><b>{r.participant.name}</b><div className="muted small">{roleLine(r.participant)}</div></td>
+              <td><b>{r.participant.name}</b>{r.participant.role === 'narasumber' && <span className="badge info" style={{ marginLeft: 8 }}>Narasumber</span>}<div className="muted small">{roleLine(r.participant)}</div></td>
               {data.sessions.map((s) => {
                 const a = r.cells[s.id]
                 return <td key={s.id}>{a ? <span className={`badge ${ATT_TONE[a.status]}`}>{ATT_LABEL[a.status]}</span> : <span className="muted">—</span>}</td>

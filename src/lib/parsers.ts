@@ -1,3 +1,5 @@
+import type { PersonRole } from './types'
+
 /* ---------- Impor soal dari teks ---------- */
 
 export interface ParsedQuestion {
@@ -89,15 +91,18 @@ export interface ParsedParticipant {
   job_title: string | null
   institution: string | null
   phone: string | null
+  role: PersonRole
 }
 
 type Field = keyof ParsedParticipant
 /** Urutan kolom bawaan bila tidak ada baris judul. */
 export const PARTICIPANT_COLUMNS: Field[] = ['name', 'identifier', 'grade', 'job_title', 'institution', 'phone']
+/** Kolom "Peran" hanya dibaca bila ada di baris judul; bila tidak, dipakai peran bawaan impor. */
 
 export const PARTICIPANT_FORMAT_HELP = `Satu peserta per baris. Cara termudah: salin kolom dari Excel lalu tempel di sini (pemisah Tab).
 Urutan kolom: Nama Lengkap & Gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp
-Baris judul (header) boleh disertakan; urutan kolom akan dibaca dari judulnya.
+Baris judul (header) boleh disertakan; urutan kolom akan dibaca dari judulnya. Kolom opsional "Peran" (Peserta/Narasumber)
+hanya dibaca bila ada di baris judul.
 
 Nama bergelar sering memuat koma (mis. "Budi, S.Pd., M.Si."), jadi gunakan Tab, titik koma (;), atau garis tegak (|)
 sebagai pemisah, atau apit nama dengan tanda kutip.`
@@ -109,6 +114,7 @@ const HEADER_ALIASES: Record<Field, string[]> = {
   job_title: ['jabatan'],
   institution: ['satuankerja', 'unitkerja', 'instansi', 'unit', 'skpd', 'opd'],
   phone: ['nowhatsapp', 'nomorwhatsapp', 'whatsapp', 'nowa', 'nohp', 'nomorhp', 'hp', 'telepon', 'notelepon'],
+  role: ['peran', 'sebagai', 'status', 'kategori', 'role'],
 }
 const normHeader = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, '')
 
@@ -133,7 +139,15 @@ export function normalizeNip(v: string): string {
   return /^[\d\s]+$/.test(t) ? t.replace(/\s+/g, '') : t
 }
 
-export function parseParticipants(input: string): ParseResult<ParsedParticipant> {
+const SPEAKER = /nara\s*sumber|pembicara|pemateri|instruktur|widyaiswara|fasilitator/i
+
+/** Nilai kolom Peran -> peran; tidak dikenali dianggap bawaan. */
+export function parseRole(v: string | undefined, fallback: PersonRole): PersonRole {
+  if (!v) return fallback
+  return SPEAKER.test(v) ? 'narasumber' : /peserta|participant/i.test(v) ? 'peserta' : fallback
+}
+
+export function parseParticipants(input: string, defaultRole: PersonRole = 'peserta'): ParseResult<ParsedParticipant> {
   const items: ParsedParticipant[] = []
   const errors: string[] = []
   // hanya buang spasi di ujung kanan: tab di depan menandakan kolom pertama (nama) kosong
@@ -174,7 +188,7 @@ export function parseParticipants(input: string): ParseResult<ParsedParticipant>
     seen.add(key)
     items.push({
       name, identifier: nip, grade: rec.grade ?? null, job_title: rec.job_title ?? null,
-      institution: rec.institution ?? null, phone: rec.phone ?? null,
+      institution: rec.institution ?? null, phone: rec.phone ?? null, role: parseRole(rec.role, defaultRole),
     })
   }
   return { items, errors }
