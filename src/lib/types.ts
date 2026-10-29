@@ -21,6 +21,8 @@ export interface Participant {
   activity_id: string
   name: string
   identifier: string | null
+  grade: string | null
+  job_title: string | null
   institution: string | null
   email: string | null
   phone: string | null
@@ -155,7 +157,14 @@ export interface PortalQuiz {
 
 export interface PortalData {
   now: string
-  participant: { id: string; name: string; institution: string | null; identifier: string | null }
+  participant: {
+    id: string
+    name: string
+    identifier: string | null
+    grade: string | null
+    job_title: string | null
+    institution: string | null
+  }
   activity: {
     id: string
     name: string

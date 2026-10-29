@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
+import { nameInitial, roleLine } from '../../lib/people'
 import { rpc } from '../../lib/supabase'
 import type { Leaderboard, PortalData, PortalQuiz, PortalSession } from '../../lib/types'
 
@@ -91,8 +92,12 @@ export default function Portal() {
             {a.location && <span><MapPin size={15} /> {a.location}</span>}
           </div>
           <div className="me">
-            <span className="avatar" aria-hidden>{p.name.trim().slice(0, 1).toUpperCase()}</span>
-            <div><b>{p.name}</b>{(p.institution || p.identifier) && <span>{[p.identifier, p.institution].filter(Boolean).join(' · ')}</span>}</div>
+            <span className="avatar" aria-hidden>{nameInitial(p.name)}</span>
+            <div>
+              <b>{p.name}</b>
+              {(p.identifier || p.grade) && <span>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</span>}
+              {roleLine(p) && <span>{roleLine(p)}</span>}
+            </div>
           </div>
         </div>
       </div>

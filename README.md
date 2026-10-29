@@ -19,7 +19,11 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
 
 **Kegiatan & peserta**
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
-- Impor banyak peserta dengan menempel dari Excel/CSV (deteksi pemisah, validasi email, deteksi duplikat).
+- Data peserta: **Nama lengkap beserta gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp**
+  (saran pangkat/golongan PNS tersedia di formulir; avatar melewati gelar di depan nama seperti Dr., Ir., H.).
+- Impor banyak peserta dengan menempel dari Excel: kolom dibaca dari baris judul (urutan bebas) atau urutan bawaan,
+  nama bergelar yang memuat koma aman (pemisah Tab/titik koma/kutip), spasi pada NIP dihapus, NIP yang rusak menjadi
+  angka ilmiah (1.98E+17) ditolak, ada pratinjau kolom, deteksi duplikat (NIP/nama), dan templat CSV.
 - Link pribadi per peserta: salin, **QR code** (unduh PNG), kirim via **WhatsApp**, unduh daftar link (CSV),
   **cetak kartu QR** semua peserta, dan **buat ulang link** bila bocor.
 
@@ -58,6 +62,10 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 3. **Authentication → Providers → Email**: untuk uji coba cepat, matikan *Confirm email*.
    Bila aplikasi hanya untuk tim internal, matikan juga *Allow new users to sign up* setelah akun panitia dibuat.
 4. **Project Settings → API**: salin *Project URL* dan *anon public key*.
+
+> **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor.
+> Skrip bersifat idempotent dan otomatis menambah kolom baru (mis. `grade` dan `job_title` untuk Pangkat/Gol. dan Jabatan)
+> tanpa menghapus data. Lakukan ini **sebelum** versi aplikasi baru dipakai.
 
 ### 2. Jalankan aplikasi
 ```bash

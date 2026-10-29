@@ -383,7 +383,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: .89rem; }
 .me { margin-top: 20px; display: inline-flex; gap: 12px; align-items: center; padding: 10px 16px 10px 10px; border-radius: 14px; background: rgb(255 255 255 / 12%); border: 1px solid rgb(255 255 255 / 16%); backdrop-filter: blur(6px); }
 .me .avatar { background: #fff; color: #4338ca; width: 38px; height: 38px; }
 .me b { display: block; line-height: 1.25; }
-.me span { font-size: .8rem; color: rgb(255 255 255 / 75%); }
+.me div > span { display: block; font-size: .8rem; color: rgb(255 255 255 / 75%); line-height: 1.4; }
 .portal-body { margin-top: -44px; position: relative; z-index: 1; }
 .item { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .item:last-child { border: 0; padding-bottom: 0; }
