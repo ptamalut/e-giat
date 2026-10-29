@@ -1,0 +1,106 @@
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
+import { fmtDateRange } from '../../lib/format'
+import { errMsg, supabase } from '../../lib/supabase'
+import type { Activity, ActivityStatus } from '../../lib/types'
+
+type Row = Activity & {
+  participants: { count: number }[]
+  attendance_sessions: { count: number }[]
+  quizzes: { count: number }[]
+}
+
+export const STATUS_LABEL: Record<ActivityStatus, string> = { draft: 'Draft', aktif: 'Berjalan', selesai: 'Selesai' }
+export const STATUS_TONE: Record<ActivityStatus, string> = { draft: '', aktif: 'success', selesai: 'info' }
+
+export default function Dashboard() {
+  const toast = useToast()
+  const nav = useNavigate()
+  const [adding, setAdding] = useState(false)
+  const [filter, setFilter] = useState<'semua' | ActivityStatus>('semua')
+  const { data, error, loading, reload } = useAsync(async () => {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*, participants(count), attendance_sessions(count), quizzes(count)')
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(errMsg(error))
+    return data as Row[]
+  }, [])
+
+  const list = (data ?? []).filter((a) => filter === 'semua' || a.status === filter)
+
+  async function create(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const f = new FormData(e.currentTarget)
+    const { data, error } = await supabase.from('activities').insert({
+      name: String(f.get('name')).trim(),
+      location: String(f.get('location') || '').trim() || null,
+      start_date: String(f.get('start_date') || '') || null,
+      end_date: String(f.get('end_date') || '') || null,
+    }).select('id').single()
+    if (error) return toast(errMsg(error), 'error')
+    toast('Kegiatan dibuat. Lanjut tambahkan peserta.', 'success')
+    nav(`/admin/kegiatan/${data.id}/peserta`)
+  }
+
+  return (
+    <>
+      <div className="row between" style={{ marginBottom: 16 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>Kegiatan</h1>
+          <p className="muted" style={{ margin: 0 }}>Kelola semua kegiatan, peserta, absensi, dan kuis Anda.</p>
+        </div>
+        <button className="btn primary" onClick={() => setAdding(true)}>＋ Tambah kegiatan</button>
+      </div>
+
+      <div className="pills" style={{ marginBottom: 16 }}>
+        {(['semua', 'aktif', 'draft', 'selesai'] as const).map((s) => (
+          <button key={s} className={`pill ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>
+            {s === 'semua' ? 'Semua' : STATUS_LABEL[s]}
+          </button>
+        ))}
+      </div>
+
+      {loading && <Loading />}
+      {error && <ErrorBox error={error} onRetry={() => void reload()} />}
+      {!loading && !error && list.length === 0 && (
+        <div className="card"><Empty icon="🗓️" title={data?.length ? 'Tidak ada kegiatan dengan status ini' : 'Belum ada kegiatan'}>
+          {!data?.length && <button className="btn primary" onClick={() => setAdding(true)}>Buat kegiatan pertama</button>}
+        </Empty></div>
+      )}
+
+      <div className="grid cols-3">
+        {list.map((a) => (
+          <Link key={a.id} to={`/admin/kegiatan/${a.id}`} className="card link">
+            <div className="row between" style={{ marginBottom: 6 }}>
+              <span className={`badge ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span>
+              <span className="muted small">{fmtDateRange(a.start_date, a.end_date)}</span>
+            </div>
+            <h3>{a.name}</h3>
+            {a.location && <p className="muted small" style={{ margin: 0 }}>📍 {a.location}</p>}
+            <div className="row" style={{ marginTop: 12, gap: 16 }}>
+              <span title="Peserta">👥 <b>{a.participants[0]?.count ?? 0}</b></span>
+              <span title="Sesi absensi">🗓️ <b>{a.attendance_sessions[0]?.count ?? 0}</b></span>
+              <span title="Kuis">📝 <b>{a.quizzes[0]?.count ?? 0}</b></span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {adding && (
+        <Modal title="Kegiatan baru" onClose={() => setAdding(false)}
+          footer={<><button className="btn" onClick={() => setAdding(false)}>Batal</button><button className="btn primary" form="new-act">Simpan &amp; lanjut</button></>}>
+          <form id="new-act" onSubmit={create}>
+            <Field label="Nama kegiatan *"><input className="input" name="name" required autoFocus placeholder="mis. Pelatihan Manajemen Proyek Angkatan 3" /></Field>
+            <Field label="Lokasi"><input className="input" name="location" placeholder="mis. Aula Kantor Pusat / Zoom" /></Field>
+            <div className="form-grid">
+              <Field label="Tanggal mulai"><input className="input" type="date" name="start_date" /></Field>
+              <Field label="Tanggal selesai"><input className="input" type="date" name="end_date" /></Field>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  )
+}
