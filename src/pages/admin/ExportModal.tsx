@@ -27,7 +27,8 @@ export default function ExportModal({ activity, people, onClose, onOrder }: {
   const present = ROLES.filter((r) => people.some((p) => p.role === r))
   const [title, setTitle] = useState('Daftar Peserta')
   const [roles, setRoles] = useState<PersonRole[]>(present.length ? present : ['peserta'])
-  const [columns, setColumns] = useState<ExportColumn[]>(['identifier', 'grade', 'job_title'])
+  // bila ada lebih dari satu peran, kolom Peran diaktifkan agar pembaca dokumen tahu siapa narasumber/panitia
+  const [columns, setColumns] = useState<ExportColumn[]>(present.length > 1 ? ['identifier', 'grade', 'job_title', 'role'] : ['identifier', 'grade', 'job_title'])
   const [landscape, setLandscape] = useState(true)
   const [grouped, setGrouped] = useState(true)
   const [busy, setBusy] = useState<'docx' | 'pdf' | null>(null)
