@@ -69,8 +69,18 @@ export default function ParticipantsTab() {
       : `Yth. ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
 
   async function remove(p: Participant) {
-    const ok = await confirm({ title: `Hapus ${p.name}?`, danger: true, confirmText: 'Hapus',
-      message: 'Data absensi (termasuk foto selfie & lokasi) dan hasil kuis peserta ini juga akan terhapus. Link pribadinya tidak berlaku lagi.' })
+    // hitung dulu apa yang ikut hilang supaya admin tahu dampaknya (hasil kuis hilang = peserta bisa mengulang dari nol)
+    const [{ count: quizN }, { count: attN }] = await Promise.all([
+      supabase.from('quiz_attempts').select('id', { count: 'exact', head: true }).eq('participant_id', p.id).not('submitted_at', 'is', null),
+      supabase.from('attendances').select('id', { count: 'exact', head: true }).eq('participant_id', p.id),
+    ])
+    const ok = await confirm({ title: `Hapus ${p.name}?`, danger: true, confirmText: quizN || attN ? 'Hapus beserta datanya' : 'Hapus',
+      message: <>
+        {quizN ? <div className="alert error" style={{ marginBottom: 10 }}><span><b>{p.name} sudah mengerjakan kuis ({quizN} percobaan selesai).</b> Seluruh hasilnya akan hilang permanen
+          dan tidak bisa dikembalikan; nilai, peringkat, dan N-Gain ikut berubah. Bila tujuannya hanya mengulang kuis, pakai <b>Laporan → Hasil kuis → Reset</b>
+          agar orangnya dan link pribadinya tetap sama.</span></div> : null}
+        Data absensi{attN ? ` (${attN} sesi)` : ''} termasuk foto selfie &amp; lokasi, serta sertifikat peserta ini juga terhapus. Link pribadinya tidak berlaku lagi.
+      </> })
     if (!ok) return
     await removeParticipantCertificateFiles([p.id]) // berkas sertifikatnya ikut dibersihkan
     await removeSelfiesOf({ participantIds: [p.id] }) // begitu pula foto selfie absensinya

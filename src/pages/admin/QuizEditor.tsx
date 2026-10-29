@@ -59,7 +59,7 @@ export default function QuizEditor() {
     <div className="stack">
       <div className="row between">
         <Link to=".." relative="path" className="crumb"><ArrowLeft size={15} /> Daftar kuis</Link>
-        <Link className="btn sm" to="../laporan" relative="path"><BarChart3 size={15} /> Lihat hasil</Link>
+        <Link className="btn sm" to="../../laporan?bagian=kuis" relative="path"><BarChart3 size={15} /> Lihat hasil</Link>
       </div>
 
       {attempts > 0 && (
