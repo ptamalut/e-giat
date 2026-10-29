@@ -39,7 +39,12 @@ di halaman depan (lihat di bawah).
   Dokumentasi* untuk tiap kegiatan (bawaan: semua aktif). Menu nonaktif hilang dari panitia dan peserta, dan ditolak di server;
   datanya tetap tersimpan. *Peserta*, *Laporan*, dan *Data pegawai* selalu ada.
 - **Data pegawai** (menu di sidebar): induk data orang milik akun panitia, dikelompokkan per **satuan kerja** (penulisan yang
-  berbeda huruf besar/kecil atau spasi otomatis digabung), dengan impor dari Excel dan "Ubah nama" satker. NIP unik per akun.
+  berbeda huruf besar/kecil atau spasi otomatis digabung), dengan impor dari berkas dan "Ubah nama" satker.
+  **Impor berkas Excel (.xlsx)** atau CSV: sistem membaca berkas langsung di browser lalu mengisi nama, NIP, pangkat/golongan, jabatan,
+  satuan kerja, dan WhatsApp yang tersedia; kolom yang tidak ada dikosongkan dan bisa diperiksa dulu di pratinjau. Dua bentuk dikenali:
+  (1) tabel dengan baris judul kolom, dan (2) *rekap pegawai* yang satu pegawainya memakai beberapa baris (kolom "Identitas" berisi nama lalu NIP,
+  kolom "Jabatan" berisi jabatan lalu golongan; NIP bertitik otomatis dirapikan, "Pembina Utama, (IV/e)" menjadi "Pembina Utama (IV/e)").
+  Satuan kerja diambil dari judul berkas ("… Pada <satuan kerja>") atau dari isian "satuan kerja bawaan" di pratinjau; boleh dikosongkan. NIP unik per akun.
   Mengubah data pegawai ikut memperbarui salinannya di semua kegiatan yang memakainya.
 - **Peserta kegiatan dipilih dari data pegawai** (per satker, bisa pilih satu kelompok sekaligus). Tiap orang diberi **jenis**
   (peserta / narasumber / panitia) dan **hak akses menu** yang bisa diubah per orang atau massal. Daftar hak akses selalu sama

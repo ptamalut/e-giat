@@ -108,7 +108,7 @@ Nama bergelar sering memuat koma (mis. "Budi, S.Pd., M.Si."), jadi gunakan Tab, 
 sebagai pemisah, atau apit nama dengan tanda kutip.`
 
 const HEADER_ALIASES: Record<Field, string[]> = {
-  name: ['nama', 'namalengkap', 'namalengkapbesertagelar', 'namalengkapdangelar', 'namalengkapgelar', 'namabesertagelar', 'namadangelar', 'namapeserta', 'name'],
+  name: ['nama', 'namapegawai', 'namalengkap', 'namalengkapbesertagelar', 'namalengkapdangelar', 'namalengkapgelar', 'namabesertagelar', 'namadangelar', 'namapeserta', 'name'],
   identifier: ['nip', 'nipnik', 'nik', 'nomorindukpegawai', 'nomorpeserta', 'id'],
   grade: ['pangkatgolruang', 'pangkatgolonganruang', 'pangkatgol', 'pangkat', 'golongan', 'golruang', 'golonganruang'],
   job_title: ['jabatan'],
