@@ -19,7 +19,7 @@ export default function Overview() {
   const [form, setForm] = useState({
     name: a.name, description: a.description ?? '', location: a.location ?? '',
     start_date: a.start_date ?? '', end_date: a.end_date ?? '', status: a.status,
-    weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard,
+    weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard, public_access: a.public_access,
   })
   const [saving, setSaving] = useState(false)
   const [savingMenu, setSavingMenu] = useState<string | null>(null)
@@ -60,6 +60,7 @@ export default function Overview() {
       status: form.status,
       weight_attendance: form.weight_attendance,
       show_leaderboard: form.show_leaderboard,
+      public_access: form.public_access,
     }).eq('id', a.id)
     setSaving(false)
     if (error) return toast(errMsg(error), 'error')
@@ -180,6 +181,9 @@ export default function Overview() {
           <input type="range" min={0} max={100} step={5} value={form.weight_attendance} onChange={(e) => setForm({ ...form, weight_attendance: Number(e.target.value) })} />
         </Field>
         <Check label="Tampilkan papan peringkat ke peserta" hint="Peserta melihat top 10 dan posisinya sendiri (nama peserta lain terlihat)." checked={form.show_leaderboard} onChange={(v) => setForm({ ...form, show_leaderboard: v })} />
+        <Check label="Tampilkan di halaman depan (masuk dengan NIP)"
+          hint={`Saat status Berjalan, kegiatan ini muncul di halaman depan aplikasi dan peserta bisa membuka halaman pribadinya dengan memasukkan NIP. Matikan bila peserta hanya boleh masuk lewat link/QR. Alamat langsung: ${location.origin}/k/${a.id}`}
+          checked={form.public_access} onChange={(v) => setForm({ ...form, public_access: v })} />
         <div className="row between">
           <button className="btn primary" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan perubahan'}</button>
           <button type="button" className="btn danger" onClick={() => void remove()}><Trash2 size={16} /> Hapus kegiatan</button>
