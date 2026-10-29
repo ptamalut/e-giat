@@ -105,6 +105,8 @@ export interface Participant {
   access_attendance: boolean
   access_quiz: boolean
   access_certificate: boolean
+  access_notes: boolean
+  access_documentation: boolean
   /** urutan di dalam satuan kerja; null = setelah yang berurutan */
   sort_order: number | null
   token: string
@@ -268,7 +270,7 @@ export interface PortalData {
     show_leaderboard: boolean
   }
   /** menu yang boleh dipakai orang ini = menu aktif di kegiatan dan hak akses orang ini */
-  features: { attendance: boolean; quiz: boolean; certificate: boolean }
+  features: { attendance: boolean; quiz: boolean; certificate: boolean; notes: boolean; documentation: boolean }
   /** null bila unduhan ditutup dan orang ini belum punya sertifikat */
   certificate: { open: boolean; available: boolean; file_name: string | null; mime_type: string | null } | null
   sessions: PortalSession[]
@@ -340,4 +342,30 @@ export interface Leaderboard {
     final_score: number
     is_me: boolean
   }[]
+}
+
+/** Notula Final yang dilihat peserta berhak (tanpa data internal). */
+export interface PortalNote {
+  id: string
+  title: string
+  held_at: string | null
+  location: string | null
+  leader: string | null
+  notetaker: string | null
+  attendees: string | null
+  agenda: string | null
+  discussion: string | null
+  decisions: string | null
+  follow_ups: FollowUp[]
+}
+
+export interface PortalDoc {
+  id: string
+  kind: 'foto' | 'tautan'
+  path: string | null
+  url: string | null
+  title: string | null
+  caption: string | null
+  album: string | null
+  taken_on: string | null
 }

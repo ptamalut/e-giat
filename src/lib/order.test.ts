@@ -4,7 +4,7 @@ import { groupBySatker, moveItem, sortPeople } from './satker'
 import type { Participant } from './types'
 
 const P = (name: string, institution: string | null, sort_order: number | null = null, role: Participant['role'] = 'peserta'): Participant => ({
-  id: name, activity_id: 'a', name, identifier: name === 'Budi' ? '198001' : null, grade: 'III/a', job_title: 'Staf', institution, email: null, phone: '08', role, employee_id: null, access_attendance: true, access_quiz: role === 'peserta', access_certificate: true, sort_order, token: name, created_at: '',
+  id: name, activity_id: 'a', name, identifier: name === 'Budi' ? '198001' : null, grade: 'III/a', job_title: 'Staf', institution, email: null, phone: '08', role, employee_id: null, access_attendance: true, access_quiz: role === 'peserta', access_certificate: true, access_notes: false, access_documentation: false, sort_order, token: name, created_at: '',
 })
 
 describe('urutan', () => {

@@ -29,13 +29,15 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
   berbeda huruf besar/kecil atau spasi otomatis digabung), dengan impor dari Excel dan "Ubah nama" satker. NIP unik per akun.
   Mengubah data pegawai ikut memperbarui salinannya di semua kegiatan yang memakainya.
 - **Peserta kegiatan dipilih dari data pegawai** (per satker, bisa pilih satu kelompok sekaligus). Tiap orang diberi **jenis**
-  (peserta / narasumber / panitia) dan **hak akses menu** (absensi, kuis, sertifikat) yang bisa diubah per orang atau massal.
-  Isian awal: peserta = semua menu; narasumber/panitia = absensi + sertifikat (tanpa kuis). Menu yang boleh dipakai seseorang
-  = menu aktif di kegiatan **dan** hak akses orang itu, dan ini ditegakkan di server (RPC portal).
+  (peserta / narasumber / panitia) dan **hak akses menu** yang bisa diubah per orang atau massal. Daftar hak akses selalu sama
+  dengan menu yang aktif pada kegiatan (mis. 5 menu aktif = 5 pilihan; menu nonaktif tidak tampil).
+  Isian awal: peserta = absensi, kuis, sertifikat; narasumber = absensi, sertifikat; panitia = semua kecuali kuis. Menu yang boleh
+  dipakai seseorang = menu aktif di kegiatan **dan** hak akses orang itu, ditegakkan di server (RPC portal). Peserta yang berhak
+  melihat **notula Final** dan **dokumentasi** di halaman pribadinya.
 - **Notula**: catatan rapat/sesi (waktu, tempat, pimpinan, pencatat, peserta rapat — bisa diisi dari absensi —, agenda,
   pembahasan, keputusan, dan **tindak lanjut** dengan penanggung jawab, tenggat, status selesai). Cetak/PDF dan unduh Word.
-- **Dokumentasi**: unggah foto (dikompres otomatis, disimpan di bucket privat) atau tambah tautan video/folder, dikelompokkan
-  per **album**, dengan galeri, keterangan, dan penampil foto. Hanya dapat dilihat panitia.
+- **Dokumentasi**: unggah foto (dikompres otomatis, disimpan di Storage dengan nama acak) atau tambah tautan video/folder, dikelompokkan
+  per **album**, dengan galeri, keterangan, dan penampil foto. Peserta yang diberi hak akses melihatnya di halaman pribadinya.
 
 **Kegiatan & peserta**
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
@@ -111,7 +113,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, lalu `007_pegawai_menu.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, lalu `008_akses_notula_dokumentasi.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
@@ -151,8 +153,10 @@ berkas. Seperti link pribadi, alamat berkas yang sudah dibagikan oleh penerimany
   kebijakan privasi lembaga Anda.
 
 ## Dokumentasi (foto) dan data pegawai
-- Foto dokumentasi disimpan di bucket Storage `dokumentasi` yang **privat** (maks. 10 MB, JPEG/PNG/WebP); tampilannya memakai tautan
-  bertanda tangan berumur 1 jam, dan hanya pemilik kegiatan yang bisa mengunggah, melihat, atau menghapus (kebijakan per folder `<id kegiatan>/`).
+- Foto dokumentasi disimpan di bucket Storage `dokumentasi` (maks. 10 MB, JPEG/PNG/WebP). Seperti sertifikat, bucket bersifat publik tetapi
+  nama berkas acak (`<id kegiatan>/<32 hex>.jpg`) dan alamatnya hanya diberikan server (`portal_docs`) kepada orang yang tokennya valid, menunya aktif,
+  dan punya hak akses Dokumentasi; hanya pemilik kegiatan yang bisa mengunggah, mengganti, menghapus, atau melihat daftar berkas. Alamat yang sudah
+  dibagikan penerimanya bisa dibuka siapa pun yang memilikinya.
 - Data pegawai (nama, NIP, WhatsApp) milik akun panitia yang menginputnya (RLS per akun); akun lain tidak dapat melihatnya.
 
 ## Keamanan

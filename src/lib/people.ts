@@ -6,17 +6,21 @@ export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 
 export const ROLE_HINT: Record<PersonRole, string> = {
   peserta: 'Bawaan: absensi, kuis, dan sertifikat; masuk peringkat.',
   narasumber: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
-  panitia: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
+  panitia: 'Bawaan: semua menu kecuali kuis, tidak masuk peringkat.',
 }
 
-/** Hak akses menu per orang (berlaku bila menunya aktif di kegiatan). */
-export interface Access { access_attendance: boolean; access_quiz: boolean; access_certificate: boolean }
-export const ACCESS_KEYS = ['access_attendance', 'access_quiz', 'access_certificate'] as const
-export const ACCESS_LABEL: Record<keyof Access, string> = { access_attendance: 'Absensi', access_quiz: 'Kuis', access_certificate: 'Sertifikat' }
-/** Isi awal hak akses mengikuti jenis: narasumber dan panitia tidak mengerjakan kuis, tetapi bisa diubah per orang. */
-export const defaultAccess = (r: PersonRole): Access => ({ access_attendance: true, access_quiz: r === 'peserta', access_certificate: true })
-/** Peran yang hanya absen (tanpa kuis) menurut isian awalnya. */
-export const isStaff = (r: PersonRole) => r !== 'peserta'
+/** Hak akses menu per orang (berlaku bila menunya aktif di kegiatan). Urutan = urutan menu kegiatan. */
+export interface Access {
+  access_attendance: boolean; access_notes: boolean; access_quiz: boolean; access_certificate: boolean; access_documentation: boolean
+}
+export const ACCESS_KEYS = ['access_attendance', 'access_notes', 'access_quiz', 'access_certificate', 'access_documentation'] as const
+export const ACCESS_LABEL: Record<keyof Access, string> = {
+  access_attendance: 'Absensi', access_notes: 'Notula', access_quiz: 'Kuis', access_certificate: 'Sertifikat', access_documentation: 'Dokumentasi',
+}
+/** Isian awal hak akses mengikuti jenis (bisa diubah per orang): peserta = absensi, kuis, sertifikat; narasumber = absensi, sertifikat; panitia = semua kecuali kuis. */
+export const defaultAccess = (r: PersonRole): Access => ({
+  access_attendance: true, access_notes: r === 'panitia', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia',
+})
 
 /** Pangkat/golongan ruang PNS, dipakai sebagai saran isian (boleh mengetik bebas, mis. golongan PPPK). */
 export const GRADE_SUGGESTIONS = [

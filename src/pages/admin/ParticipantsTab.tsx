@@ -6,8 +6,8 @@ import { Empty, ErrorBox, Loading, Modal, useAsync, useConfirm, useToast } from 
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
-import { ACCESS_KEYS, ACCESS_LABEL, ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
-import { menuOn } from '../../lib/menus'
+import { ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
+import { activeMenus } from '../../lib/menus'
 import { participantLink } from '../../lib/format'
 import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
 import { waNumber } from '../../lib/parsers'
@@ -21,8 +21,7 @@ import OrderModal from './OrderModal'
 import { AccessModal, PickEmployees } from './ParticipantPicker'
 
 /** Menu yang boleh dipakai orang ini lewat link pribadinya (menu aktif di kegiatan DAN hak akses orang ini). */
-const MENU_FOR: Record<string, (a: Activity) => boolean> = { access_attendance: (a) => menuOn(a, 'attendance'), access_quiz: (a) => menuOn(a, 'quiz'), access_certificate: (a) => menuOn(a, 'certificate') }
-const allowedMenus = (p: Participant, a: Activity) => ACCESS_KEYS.filter((k) => MENU_FOR[k](a) && p[k]).map((k) => ACCESS_LABEL[k])
+const allowedMenus = (p: Participant, a: Activity) => activeMenus(a).filter((m) => p[m.access]).map((m) => m.label)
 
 async function copy(text: string): Promise<boolean> {
   try { await navigator.clipboard.writeText(text); return true } catch {
@@ -140,8 +139,8 @@ export default function ParticipantsTab() {
       <td style={{ minWidth: 220 }}>
         <b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div>
         <div className="access-chips" title="Menu yang boleh dipakai lewat link pribadinya" style={{ marginTop: 5 }}>
-          {ACCESS_KEYS.filter((k) => MENU_FOR[k](activity)).map((k) => (
-            <span key={k} className={`access-chip ${p[k] ? '' : 'off'}`}>{ACCESS_LABEL[k]}</span>
+          {activeMenus(activity).map((m) => (
+            <span key={m.key} className={`access-chip ${p[m.access] ? '' : 'off'}`}>{m.label}</span>
           ))}
         </div>
       </td>

@@ -57,7 +57,7 @@ export default function DocsTab() {
 
   return (
     <div className="stack">
-      <PageHeader title="Dokumentasi" subtitle="Foto kegiatan dan tautan video/dokumen, dikelompokkan per album. Hanya dapat dilihat panitia."
+      <PageHeader title="Dokumentasi" subtitle="Foto kegiatan dan tautan video/dokumen, dikelompokkan per album. Peserta yang diberi hak akses Dokumentasi juga melihatnya di halamannya."
         actions={<>
           <button className="btn" onClick={() => setLinking({ album: album || null, taken_on: today() })}><Link2 size={16} /> Tambah tautan</button>
           <button className="btn primary" onClick={() => fileInput.current?.click()}><ImagePlus size={17} /> Unggah foto</button>

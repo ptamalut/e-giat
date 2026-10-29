@@ -7,6 +7,7 @@ import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeStat
 import { RoleBadge } from '../../components/RoleBadge'
 import { nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
 import CheckInDialog, { type CheckInResult } from './CheckInDialog'
+import { DocsSection, NotesSection } from './PortalExtras'
 import { certPublicUrl } from '../../lib/certificateApi'
 import { certDownloadName } from '../../lib/certificates'
 import { rpc } from '../../lib/supabase'
@@ -94,7 +95,7 @@ export default function Portal() {
   const { activity: a, participant: p } = data
   const closed = a.status === 'draft'
   const f = data.features
-  const none = !f.attendance && !f.quiz && !f.certificate
+  const none = !f.attendance && !f.quiz && !f.certificate && !f.notes && !f.documentation
 
   return (
     <>
@@ -160,6 +161,9 @@ export default function Portal() {
           {data.quizzes.length === 0 && <Empty icon={<ClipboardList size={26} />} title="Belum ada kuis tersedia" />}
           {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={!f.attendance || data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
         </section>}
+
+        {f.notes && <NotesSection token={token} />}
+        {f.documentation && <DocsSection token={token} />}
 
         {f.certificate && data.certificate && <CertificateCard token={token} personName={p.name} cert={data.certificate} />}
 
