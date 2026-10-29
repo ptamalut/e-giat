@@ -1,11 +1,13 @@
-import { ClipboardPaste, Download, ExternalLink, Link2, MessageCircle, Pencil, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
+import { Building2, ClipboardPaste, Download, ExternalLink, Link2, MessageCircle, Pencil, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
 import QRCode from 'qrcode'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadge } from '../../components/RoleBadge'
+import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { GRADE_SUGGESTIONS, isStaff, ROLE_HINT, ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
 import { participantLink } from '../../lib/format'
+import { groupBySatker, matchesUnit, normSatker, roleSummary } from '../../lib/satker'
 import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Participant, PersonRole } from '../../lib/types'
@@ -30,6 +32,10 @@ export default function ParticipantsTab() {
   const [editing, setEditing] = useState<Partial<Participant> | null>(null)
   const [bulk, setBulk] = useState(false)
   const [qr, setQr] = useState<Participant | null>(null)
+  const [grouped, setGrouped] = useState(true)
+  const [unit, setUnit] = useState('')
+  const { collapsed, toggle, setAll } = useCollapsed()
+  const [renaming, setRenaming] = useState<{ label: string; ids: string[]; none: boolean } | null>(null)
   const [cards, setCards] = useState<{ p: Participant; img: string }[] | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
@@ -43,8 +49,13 @@ export default function ParticipantsTab() {
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (data ?? []).filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
-  }, [data, q, roleFilter])
+    return (data ?? []).filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
+  }, [data, q, roleFilter, unit])
+
+  // semua kelompok (tanpa filter) untuk pilihan satker & ubah nama; kelompok terfilter untuk tampilan
+  const allGroups = useMemo(() => groupBySatker(data ?? [], (p) => p.institution), [data])
+  const groups = useMemo(() => groupBySatker(list, (p) => p.institution), [list])
+  const ordered = useMemo(() => allGroups.flatMap((g) => g.items), [allGroups]) // urut per satker untuk ekspor & cetak
 
   const waText = (p: Participant) =>
     isStaff(p.role)
@@ -71,9 +82,9 @@ export default function ParticipantsTab() {
   }
 
   async function printCards() {
-    if (!data?.length) return
-    const imgs = await Promise.all(data.map((p) => QRCode.toDataURL(participantLink(p.token), { margin: 1, width: 300 })))
-    setCards(data.map((p, i) => ({ p, img: imgs[i] })))
+    if (!ordered.length) return
+    const imgs = await Promise.all(ordered.map((p) => QRCode.toDataURL(participantLink(p.token), { margin: 1, width: 300 })))
+    setCards(ordered.map((p, i) => ({ p, img: imgs[i] })))
   }
 
   useEffect(() => {
@@ -88,9 +99,37 @@ export default function ParticipantsTab() {
   function exportLinks() {
     downloadCsv(`link-peserta-${safeName(activity.name)}`, [
       ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Link'],
-      ...(data ?? []).map((p) => [ROLE_LABEL[p.role], p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
+      ...ordered.map((p) => [ROLE_LABEL[p.role], p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
     ])
   }
+
+  const cols = grouped ? 5 : 6
+  const renderRow = (p: Participant, i: number) => (
+    <tr key={p.id}>
+                    <td className="muted">{i + 1}</td>
+                    <td style={{ minWidth: 220 }}><b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
+                    <td style={{ minWidth: 170 }}>
+                      {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
+                      {p.grade && <div className="muted small">{p.grade}</div>}
+                    </td>
+                    {!grouped && <td style={{ minWidth: 140 }}>{p.institution ?? <span className="muted">—</span>}</td>}
+                    <td className="nowrap mono">{p.phone ?? <span className="muted">—</span>}</td>
+                    <td className="actions">
+                      <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                        <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')} aria-label="Salin link" title="Salin link"><Link2 size={15} /></button>
+                        <button className="btn sm" onClick={() => setQr(p)} aria-label="Tampilkan QR" title="Tampilkan QR"><QrCode size={15} /></button>
+                        <a className="btn sm" target="_blank" rel="noreferrer" aria-label="Kirim lewat WhatsApp"
+                          href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
+                          title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'No. WhatsApp kosong, pilih kontak sendiri'}><MessageCircle size={15} /></a>
+                        <a className="btn sm" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={15} /></a>
+                        <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} aria-hidden />
+                        <button className="icon-btn" onClick={() => setEditing(p)} aria-label="Ubah" title="Ubah"><Pencil size={16} /></button>
+                        <button className="icon-btn" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link"><RefreshCcw size={16} /></button>
+                        <button className="icon-btn danger" onClick={() => void remove(p)} aria-label="Hapus" title="Hapus"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+  )
 
   return (
     <>
@@ -105,6 +144,12 @@ export default function ParticipantsTab() {
                 </button>
               ))}
             </div>
+            <SatkerControls groups={allGroups} total={data?.length ?? 0} unit={unit} setUnit={setUnit} grouped={grouped} setGrouped={setGrouped} />
+            {grouped && groups.length > 1 && (
+              <button className="btn ghost sm" onClick={() => setAll(collapsed.size ? null : groups.map((g) => g.key))}>
+                {collapsed.size ? 'Buka semua' : 'Lipat semua'}
+              </button>
+            )}
           </div>
           <div className="row tight">
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
@@ -122,35 +167,27 @@ export default function ParticipantsTab() {
         {!!data?.length && (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>#</th><th>Nama &amp; NIP</th><th>Pangkat/Gol. &amp; jabatan</th><th>Satuan kerja</th><th>WhatsApp</th><th className="actions">Link pribadi &amp; aksi</th></tr></thead>
+              <thead><tr><th>#</th><th>Nama &amp; NIP</th><th>Pangkat/Gol. &amp; jabatan</th>{!grouped && <th>Satuan kerja</th>}<th>WhatsApp</th><th className="actions">Link pribadi &amp; aksi</th></tr></thead>
               <tbody>
-                {list.map((p, i) => (
-                  <tr key={p.id}>
-                    <td className="muted">{i + 1}</td>
-                    <td style={{ minWidth: 220 }}><b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
-                    <td style={{ minWidth: 170 }}>
-                      {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
-                      {p.grade && <div className="muted small">{p.grade}</div>}
-                    </td>
-                    <td style={{ minWidth: 140 }}>{p.institution ?? <span className="muted">—</span>}</td>
-                    <td className="nowrap mono">{p.phone ?? <span className="muted">—</span>}</td>
-                    <td className="actions">
-                      <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                        <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')} aria-label="Salin link" title="Salin link"><Link2 size={15} /></button>
-                        <button className="btn sm" onClick={() => setQr(p)} aria-label="Tampilkan QR" title="Tampilkan QR"><QrCode size={15} /></button>
-                        <a className="btn sm" target="_blank" rel="noreferrer" aria-label="Kirim lewat WhatsApp"
-                          href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
-                          title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'No. WhatsApp kosong, pilih kontak sendiri'}><MessageCircle size={15} /></a>
-                        <a className="btn sm" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={15} /></a>
-                        <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} aria-hidden />
-                        <button className="icon-btn" onClick={() => setEditing(p)} aria-label="Ubah" title="Ubah"><Pencil size={16} /></button>
-                        <button className="icon-btn" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link"><RefreshCcw size={16} /></button>
-                        <button className="icon-btn danger" onClick={() => void remove(p)} aria-label="Hapus" title="Hapus"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {list.length === 0 && <tr><td colSpan={6} className="center muted">Tidak ada hasil untuk "{q}".</td></tr>}
+                {grouped
+                  ? groups.map((g) => {
+                      const full = allGroups.find((x) => x.key === g.key)
+                      const isCollapsed = collapsed.has(g.key)
+                      return (
+                        <Fragment key={g.key || '__none__'}>
+                          <SatkerGroupRow label={g.label} colSpan={cols} collapsed={isCollapsed} onToggle={() => toggle(g.key)}
+                            meta={`${g.items.length} orang · ${roleSummary(g.items)}`}
+                            actions={full && (
+                              <button className="btn ghost sm" onClick={() => setRenaming({ label: g.label, ids: full.items.map((p) => p.id), none: g.key === '' })}>
+                                <Building2 size={14} /> {g.key === '' ? 'Isi satuan kerja' : 'Ubah nama'}
+                              </button>
+                            )} />
+                          {!isCollapsed && g.items.map((p, i) => renderRow(p, i))}
+                        </Fragment>
+                      )
+                    })
+                  : list.map((p, i) => renderRow(p, i))}
+                {list.length === 0 && <tr><td colSpan={cols} className="center muted">Tidak ada hasil{q ? <> untuk "{q}"</> : ''}.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -158,6 +195,8 @@ export default function ParticipantsTab() {
       </div>
 
       {editing && <ParticipantForm institutions={[...new Set((data ?? []).map((p) => p.institution).filter((v): v is string => !!v))]} value={editing} activityId={activity.id} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(true) }} />}
+      {renaming && <RenameSatker target={renaming} others={allGroups.map((g) => g.label).filter((l) => l !== renaming.label)}
+        onClose={() => setRenaming(null)} onSaved={() => { setRenaming(null); void reload(true) }} />}
       {bulk && <BulkImport activityId={activity.id} existing={data ?? []} onClose={() => setBulk(false)} onSaved={() => { setBulk(false); void reload(true) }} />}
       {qr && <QrModal p={qr} activityName={activity.name} onClose={() => setQr(null)} />}
 
@@ -316,6 +355,37 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
           )}
         </div>
       )}
+    </Modal>
+  )
+}
+
+function RenameSatker({ target, others, onClose, onSaved }: {
+  target: { label: string; ids: string[]; none: boolean }; others: string[]; onClose: () => void; onSaved: () => void
+}) {
+  const toast = useToast()
+  const [name, setName] = useState(target.none ? '' : target.label)
+  const [busy, setBusy] = useState(false)
+  const merging = others.some((o) => o.toLowerCase() === normSatker(name).toLowerCase())
+
+  async function save() {
+    setBusy(true)
+    const { error } = await supabase.from('participants').update({ institution: normSatker(name) || null }).in('id', target.ids)
+    setBusy(false)
+    if (error) return toast(errMsg(error), 'error')
+    toast(`${target.ids.length} orang dipindahkan ke "${normSatker(name)}".`, 'success')
+    onSaved()
+  }
+
+  return (
+    <Modal title={target.none ? 'Isi satuan kerja' : 'Ubah nama satuan kerja'} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Batal</button>
+        <button className="btn primary" disabled={busy || !normSatker(name)} onClick={() => void save()}>{busy ? 'Menyimpan…' : 'Simpan'}</button></>}>
+      <p className="muted">Berlaku untuk <b>{target.ids.length} orang</b> di kelompok <b>{target.label}</b>.</p>
+      <Field label="Nama satuan kerja" hint="Ketik nama satuan kerja lain yang sudah ada untuk menggabungkan kelompok, atau pilih dari saran.">
+        <input className="input" list="satker-others" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <datalist id="satker-others">{others.map((o) => <option key={o} value={o} />)}</datalist>
+      {merging && <div className="alert info"><span>Nama ini sudah dipakai kelompok lain, jadi kedua kelompok akan <b>digabung</b>.</span></div>}
     </Modal>
   )
 }

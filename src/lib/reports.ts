@@ -1,5 +1,6 @@
+import { groupBySatker } from './satker'
 import type {
-  Attendance, AttendanceSession, AttendanceStatus, Participant, Question, Quiz, QuizAttempt,
+  Attendance, AttendanceSession, AttendanceStatus, Participant, Question, Quiz, QuizAttempt, RankingRow,
 } from './types'
 
 export const ATTENDED: AttendanceStatus[] = ['hadir', 'terlambat']
@@ -212,4 +213,53 @@ export function gainTable(pre: Quiz, post: Quiz, participants: Participant[], at
     avgNGain: mean(paired.map((r) => r.nGain!)),
     improved: paired.filter((r) => r.gain! > 0).length,
   }
+}
+
+/* ---------- Rekap per satuan kerja ---------- */
+
+export interface SatkerRow {
+  key: string
+  label: string
+  peserta: number
+  narasumber: number
+  panitia: number
+  /** rata-rata kehadiran seluruh orang di satker (semua peran), null bila belum ada sesi */
+  attendancePct: number | null
+  /** rata-rata skor kuis & nilai akhir hanya dari peserta */
+  avgQuiz: number | null
+  avgFinal: number | null
+  /** peringkat satker menurut rata-rata nilai akhir; satker tanpa peserta dan kelompok "tanpa satuan kerja" tidak diperingkat */
+  rank: number | null
+}
+
+export function satkerSummary(
+  participants: Participant[], sessions: AttendanceSession[], attendances: Attendance[], ranking: RankingRow[],
+): SatkerRow[] {
+  const att = new Map(attendanceMatrix(participants, sessions, attendances).map((r) => [r.participant.id, r.pct]))
+  const rankBy = new Map(ranking.map((r) => [r.participant_id, r]))
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+
+  const rows: SatkerRow[] = groupBySatker(participants, (p) => p.institution).map((g) => {
+    const rk = g.items.map((p) => rankBy.get(p.id)).filter((r): r is RankingRow => !!r)
+    const pcts = g.items.map((p) => att.get(p.id)).filter((v): v is number => v != null)
+    return {
+      key: g.key,
+      label: g.label,
+      peserta: g.items.filter((p) => p.role === 'peserta').length,
+      narasumber: g.items.filter((p) => p.role === 'narasumber').length,
+      panitia: g.items.filter((p) => p.role === 'panitia').length,
+      attendancePct: mean(pcts),
+      avgQuiz: mean(rk.map((r) => r.quiz_avg).filter((v): v is number => v != null).map(Number)),
+      avgFinal: mean(rk.map((r) => Number(r.final_score))),
+      rank: null,
+    }
+  })
+
+  // kelompok "tanpa satuan kerja" (key kosong) bukan satker sungguhan, jadi tidak diperingkat
+  const ranked = rows.filter((r) => r.avgFinal != null && r.key !== '').sort((a, b) => b.avgFinal! - a.avgFinal!)
+  ranked.forEach((r, i) => {
+    const prev = ranked[i - 1]
+    r.rank = prev && Math.round(prev.avgFinal! * 100) === Math.round(r.avgFinal! * 100) ? prev.rank : i + 1
+  })
+  return rows
 }
