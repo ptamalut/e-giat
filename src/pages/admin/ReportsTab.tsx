@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
-import { ROLE_LABEL, roleLine } from '../../lib/people'
+import { RoleBadge } from '../../components/RoleBadge'
+import { ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
   attendanceMatrix, gainTable, itemAnalysis, nGainCategory, quizResults,
@@ -57,7 +58,7 @@ export default function ReportsTab() {
     return { participants, sessions, attendances, quizzes, questions, attempts, ranking: (rank.data ?? []) as RankingRow[] }
   }, [activity.id])
 
-  // narasumber tidak mengerjakan kuis, jadi laporan kuis hanya memuat peserta
+  // narasumber & panitia tidak mengerjakan kuis, jadi laporan kuis hanya memuat peserta
   const pesertaData = useMemo(
     () => (data ? { ...data, participants: data.participants.filter((p) => p.role === 'peserta') } : null), [data])
 
@@ -159,9 +160,9 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
 
   return (
     <>
-      {data.participants.some((p) => p.role === 'narasumber') && (
+      {data.participants.some((p) => p.role !== 'peserta') && (
         <div className="pills no-print" role="group" aria-label="Filter peran">
-          {(['semua', 'peserta', 'narasumber'] as const).map((r) => (
+          {(['semua', ...ROLES] as const).map((r) => (
             <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
               {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
             </button>
@@ -192,7 +193,7 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
           <thead><tr><th>Nama</th>{data.sessions.map((s) => <th key={s.id} title={fmtDateTime(s.start_at)}>{short(s)}</th>)}<th className="num">Hadir</th><th className="num">%</th></tr></thead>
           <tbody>{rows.map((r) => (
             <tr key={r.participant.id}>
-              <td><b>{r.participant.name}</b>{r.participant.role === 'narasumber' && <span className="badge info" style={{ marginLeft: 8 }}>Narasumber</span>}<div className="muted small">{roleLine(r.participant)}</div></td>
+              <td><b>{r.participant.name}</b><RoleBadge role={r.participant.role} /><div className="muted small">{roleLine(r.participant)}</div></td>
               {data.sessions.map((s) => {
                 const a = r.cells[s.id]
                 return <td key={s.id}>{a ? <span className={`badge ${ATT_TONE[a.status]}`}>{ATT_LABEL[a.status]}</span> : <span className="muted">—</span>}</td>

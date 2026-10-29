@@ -3,7 +3,8 @@ import QRCode from 'qrcode'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
-import { GRADE_SUGGESTIONS, ROLE_LABEL, roleLine } from '../../lib/people'
+import { RoleBadge } from '../../components/RoleBadge'
+import { GRADE_SUGGESTIONS, isStaff, ROLE_HINT, ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
 import { participantLink } from '../../lib/format'
 import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
@@ -37,7 +38,7 @@ export default function ParticipantsTab() {
 
   const counts = useMemo(() => {
     const all = data ?? []
-    return { semua: all.length, peserta: all.filter((p) => p.role === 'peserta').length, narasumber: all.filter((p) => p.role === 'narasumber').length }
+    return Object.fromEntries([['semua', all.length], ...ROLES.map((r) => [r, all.filter((p) => p.role === r).length])]) as Record<'semua' | PersonRole, number>
   }, [data])
 
   const list = useMemo(() => {
@@ -46,8 +47,8 @@ export default function ParticipantsTab() {
   }, [data, q, roleFilter])
 
   const waText = (p: Participant) =>
-    p.role === 'narasumber'
-      ? `Yth. ${p.name}, berikut link pribadi Anda untuk absensi sebagai narasumber pada kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+    isStaff(p.role)
+      ? `Yth. ${p.name}, berikut link pribadi Anda untuk absensi sebagai ${ROLE_LABEL[p.role].toLowerCase()} pada kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
       : `Yth. ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
 
   async function remove(p: Participant) {
@@ -98,7 +99,7 @@ export default function ParticipantsTab() {
           <div className="row">
             <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, jabatan, atau satuan kerja" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
             <div className="pills" role="group" aria-label="Filter peran">
-              {(['semua', 'peserta', 'narasumber'] as const).map((r) => (
+              {(['semua', ...ROLES] as const).map((r) => (
                 <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                   {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{counts[r]}</span>
                 </button>
@@ -109,14 +110,14 @@ export default function ParticipantsTab() {
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
             <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
             <button className="btn sm" onClick={() => setBulk(true)}><ClipboardPaste size={15} /> Impor banyak</button>
-            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY, role: roleFilter === 'narasumber' ? 'narasumber' : 'peserta' })}><Plus size={16} /> Tambah</button>
+            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY, role: roleFilter === 'semua' ? 'peserta' : roleFilter })}><Plus size={16} /> Tambah</button>
           </div>
         </div>
 
         {loading && <Loading />}
         {error && <div style={{ padding: 16 }}><ErrorBox error={error} onRetry={() => void reload()} /></div>}
         {!loading && !error && !data?.length && (
-          <Empty icon={<Users size={26} />} title="Belum ada peserta atau narasumber">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
+          <Empty icon={<Users size={26} />} title="Belum ada peserta, narasumber, atau panitia">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
         )}
         {!!data?.length && (
           <div className="table-wrap">
@@ -126,7 +127,7 @@ export default function ParticipantsTab() {
                 {list.map((p, i) => (
                   <tr key={p.id}>
                     <td className="muted">{i + 1}</td>
-                    <td style={{ minWidth: 220 }}><b>{p.name}</b>{p.role === 'narasumber' && <span className="badge info" style={{ marginLeft: 8 }}>Narasumber</span>}<div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
+                    <td style={{ minWidth: 220 }}><b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
                     <td style={{ minWidth: 170 }}>
                       {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
                       {p.grade && <div className="muted small">{p.grade}</div>}
@@ -168,10 +169,10 @@ export default function ParticipantsTab() {
                 <div style={{ fontWeight: 700 }}>{activity.name}</div>
                 <img src={img} alt={`QR ${p.name}`} />
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.name}</div>
-                {p.role === 'narasumber' && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Narasumber</div>}
+                {isStaff(p.role) && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{ROLE_LABEL[p.role]}</div>}
                 <div>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</div>
                 <div>{roleLine(p)}</div>
-                <div style={{ fontSize: 10, marginTop: 4 }}>{p.role === 'narasumber' ? 'Scan untuk absen' : 'Scan untuk absen & mengerjakan kuis'}</div>
+                <div style={{ fontSize: 10, marginTop: 4 }}>{isStaff(p.role) ? 'Scan untuk absen' : 'Scan untuk absen & mengerjakan kuis'}</div>
               </div>
             ))}
           </div>
@@ -210,17 +211,17 @@ function ParticipantForm({ value, activityId, institutions, onClose, onSaved }: 
       : await supabase.from('participants').insert({ ...payload, activity_id: activityId })
     setBusy(false)
     if (error) return toast(errMsg(error), 'error')
-    toast(value.id ? 'Data diperbarui.' : f.role === 'narasumber' ? 'Narasumber ditambahkan.' : 'Peserta ditambahkan.', 'success')
+    toast(value.id ? 'Data diperbarui.' : `${ROLE_LABEL[f.role]} ditambahkan.`, 'success')
     onSaved()
   }
 
   return (
-    <Modal wide title={value.id ? 'Ubah data' : 'Tambah peserta / narasumber'} onClose={onClose}
+    <Modal wide title={value.id ? 'Ubah data' : 'Tambah peserta / narasumber / panitia'} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="pform" disabled={busy}>Simpan</button></>}>
       <form id="pform" onSubmit={submit}>
-        <Field label="Peran" hint={f.role === 'narasumber' ? 'Narasumber hanya melakukan absensi: tidak melihat atau mengerjakan kuis dan tidak masuk peringkat.' : 'Peserta melakukan absensi, mengerjakan kuis, dan masuk peringkat.'}>
+        <Field label="Peran" hint={ROLE_HINT[f.role]}>
           <div className="pills" role="radiogroup" aria-label="Peran">
-            {(['peserta', 'narasumber'] as const).map((r) => (
+            {ROLES.map((r) => (
               <button type="button" key={r} role="radio" aria-checked={f.role === r} className={`pill ${f.role === r ? 'active' : ''}`} onClick={() => setF({ ...f, role: r })}>{ROLE_LABEL[r]}</button>
             ))}
           </div>
@@ -274,18 +275,19 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
       ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Peran'],
       ['Dr. Budi Santoso, M.Si.', '198001012005011001', 'Pembina (IV/a)', 'Kepala Bidang', 'Dinas Pendidikan', '081234567890', 'Peserta'],
       ['Prof. Dr. Ahmad Fauzi, M.A.', '', '', 'Guru Besar', 'Universitas Negeri', '081200000000', 'Narasumber'],
+      ['Rina Marlina, S.E.', '199001012015012001', 'Penata Muda (III/a)', 'Staf Sekretariat', 'Dinas Pendidikan', '081211111111', 'Panitia'],
     ])
   }
 
   return (
-    <Modal wide title="Impor banyak peserta / narasumber" onClose={onClose}
+    <Modal wide title="Impor banyak peserta / narasumber / panitia" onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button>
         <button className="btn primary" disabled={busy || fresh.length === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${fresh.length} orang`}</button></>}>
       <p className="muted small" style={{ whiteSpace: 'pre-line' }}>{PARTICIPANT_FORMAT_HELP}</p>
       <div className="row" style={{ marginBottom: 12 }}>
         <span className="label">Impor sebagai:</span>
         <div className="pills" role="radiogroup" aria-label="Peran bawaan impor">
-          {(['peserta', 'narasumber'] as const).map((r) => (
+          {ROLES.map((r) => (
             <button type="button" key={r} role="radio" aria-checked={role === r} className={`pill ${role === r ? 'active' : ''}`} onClick={() => setRole(r)}>{ROLE_LABEL[r]}</button>
           ))}
         </div>
@@ -306,7 +308,7 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
               <table className="table">
                 <thead><tr><th>Nama</th><th>Peran</th><th>NIP</th><th>Pangkat/Gol.</th><th>Jabatan</th><th>Satuan kerja</th><th>WhatsApp</th></tr></thead>
                 <tbody>{fresh.slice(0, 5).map((i, n) => (
-                  <tr key={n}><td>{i.name}</td><td>{i.role === 'narasumber' ? <span className="badge info">Narasumber</span> : 'Peserta'}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
+                  <tr key={n}><td>{i.name}</td><td>{i.role === 'peserta' ? 'Peserta' : <RoleBadge role={i.role} style={{ marginLeft: 0 }} />}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
                 ))}</tbody>
               </table>
               {fresh.length > 5 && <div className="muted small" style={{ padding: '8px 16px' }}>…dan {fresh.length - 5} lainnya. Pastikan kolom di atas sudah benar sebelum menambahkan.</div>}

@@ -1,8 +1,8 @@
 export type ActivityStatus = 'draft' | 'aktif' | 'selesai'
 export type AttendanceStatus = 'hadir' | 'terlambat' | 'izin' | 'sakit' | 'alpa'
 export type QuizType = 'pre' | 'post' | 'lainnya'
-/** peserta: mengerjakan kuis & masuk peringkat. narasumber: hanya absen. */
-export type PersonRole = 'peserta' | 'narasumber'
+/** peserta: mengerjakan kuis & masuk peringkat. narasumber dan panitia: hanya absen. */
+export type PersonRole = 'peserta' | 'narasumber' | 'panitia'
 
 export interface Activity {
   id: string

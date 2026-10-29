@@ -4,7 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
-import { nameInitial, roleLine } from '../../lib/people'
+import { RoleBadge } from '../../components/RoleBadge'
+import { isStaff, nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
 import { rpc } from '../../lib/supabase'
 import type { Leaderboard, PortalData, PortalQuiz, PortalSession } from '../../lib/types'
 
@@ -80,7 +81,7 @@ export default function Portal() {
   if (!data) return <Loading />
   const { activity: a, participant: p } = data
   const closed = a.status === 'draft'
-  const isSpeaker = p.role === 'narasumber'
+  const staff = isStaff(p.role)
 
   return (
     <>
@@ -95,7 +96,7 @@ export default function Portal() {
           <div className="me">
             <span className="avatar" aria-hidden>{nameInitial(p.name)}</span>
             <div>
-              <b>{p.name}{isSpeaker && <em className="badge" style={{ marginLeft: 8, background: 'rgb(255 255 255 / 20%)', color: '#fff', fontStyle: 'normal' }}>Narasumber</em>}</b>
+              <b>{p.name}<RoleBadge role={p.role} style={{ background: 'rgb(255 255 255 / 20%)', color: '#fff' }} /></b>
               {(p.identifier || p.grade) && <span>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</span>}
               {roleLine(p) && <span>{roleLine(p)}</span>}
             </div>
@@ -106,7 +107,7 @@ export default function Portal() {
       <div className="container narrow portal-body stack" style={{ paddingBottom: 48 }}>
         {error && <div className="alert warn">Koneksi bermasalah, data mungkin tidak terbaru. {error}</div>}
         {closed && <div className="alert warn">Kegiatan ini belum dibuka oleh panitia. Absensi dan kuis belum tersedia.</div>}
-        {isSpeaker && <div className="alert info"><span>Anda terdaftar sebagai <b>narasumber</b>. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.</span></div>}
+        {staff && <div className="alert info"><span>Anda terdaftar sebagai <b>{ROLE_LABEL[p.role].toLowerCase()}</b>. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.</span></div>}
         {a.description && <div className="card"><p style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-2)' }}>{a.description}</p></div>}
 
         <section className="card">
@@ -140,13 +141,13 @@ export default function Portal() {
           })}
         </section>
 
-        {!isSpeaker && <section className="card">
+        {!staff && <section className="card">
           <div className="card-head"><CardTitle icon={<ClipboardList size={18} />}>Kuis</CardTitle></div>
           {data.quizzes.length === 0 && <Empty icon={<ClipboardList size={26} />} title="Belum ada kuis tersedia" />}
           {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
         </section>}
 
-        {a.show_leaderboard && !isSpeaker && (
+        {a.show_leaderboard && !staff && (
           <section className="card">
             <div className="card-head">
               <CardTitle icon={<Trophy size={18} />} tone="warn">Peringkat</CardTitle><span className="spacer" />
