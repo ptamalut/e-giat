@@ -2,31 +2,48 @@
 
 LAKSANA adalah aplikasi absensi, kuis, laporan, dan sertifikat untuk pelaksanaan kegiatan PTA Malut.
 
-Aplikasi web (React + Vite + TypeScript) dengan database **Supabase** untuk mengelola kegiatan: daftar peserta,
-absensi lewat link/QR pribadi, kuis pre test / post test berwaktu, dan laporan lengkap.
+Aplikasi web (React + Vite + TypeScript) dengan database **Supabase** untuk mengelola kegiatan: data pegawai per satuan kerja,
+peserta, absensi lewat link/QR pribadi, notula, kuis pre test / post test berwaktu, sertifikat, dokumentasi, dan laporan lengkap.
 
 ## Alur aplikasi
 
 | # | Langkah | Di mana |
 |---|---------|---------|
-| 1 | Tambah **kegiatan** | Panitia → Dashboard |
-| 2 | Input **peserta** (satu per satu atau tempel dari Excel) | Kegiatan → Peserta |
-| 3 | Buat **sesi absensi** (jam buka/tutup) → tiap peserta otomatis punya **link & QR pribadi** | Kegiatan → Absensi / Peserta |
+| 0 | Isi **data pegawai** per satuan kerja (satu per satu atau tempel dari Excel) | Data pegawai |
+| 1 | Tambah **kegiatan** lalu **aktifkan menu** yang dipakai (absensi, notula, kuis, sertifikat, dokumentasi) | Dashboard → Kegiatan → Ringkasan |
+| 2 | Pilih **peserta dari data pegawai**; tentukan jenis (peserta/narasumber/panitia) dan hak akses menu tiap orang | Kegiatan → Peserta |
+| 3 | Buat **sesi absensi** (jam buka/tutup) → tiap orang otomatis punya **link & QR pribadi** | Kegiatan → Absensi / Peserta |
 | 4 | Buat **kuis** pre test / post test lengkap dengan durasi, jadwal buka-tutup, dan aturan lain | Kegiatan → Kuis |
-| 5 | Lihat **laporan**: kehadiran, hasil kuis, peringkat, pre vs post, analisis soal | Kegiatan → Laporan |
+| 5 | Catat **notula**, unggah **sertifikat** dan **dokumentasi** | Kegiatan → Notula / Sertifikat / Dokumentasi |
+| 6 | Lihat **laporan**: kehadiran, hasil kuis, peringkat, pre vs post, analisis soal | Kegiatan → Laporan |
 
 Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p/<token>` (atau scan QR) di HP.
 
 ## Fitur
 
+**Menu per kegiatan, data pegawai, dan hak akses**
+- **Menu kegiatan**: di *Ringkasan → Menu kegiatan* panitia mengaktifkan/menonaktifkan *Absensi, Notula, Kuis, Sertifikat,
+  Dokumentasi* untuk tiap kegiatan (bawaan: semua aktif). Menu nonaktif hilang dari panitia dan peserta, dan ditolak di server;
+  datanya tetap tersimpan. *Peserta*, *Laporan*, dan *Data pegawai* selalu ada.
+- **Data pegawai** (menu di sidebar): induk data orang milik akun panitia, dikelompokkan per **satuan kerja** (penulisan yang
+  berbeda huruf besar/kecil atau spasi otomatis digabung), dengan impor dari Excel dan "Ubah nama" satker. NIP unik per akun.
+  Mengubah data pegawai ikut memperbarui salinannya di semua kegiatan yang memakainya.
+- **Peserta kegiatan dipilih dari data pegawai** (per satker, bisa pilih satu kelompok sekaligus). Tiap orang diberi **jenis**
+  (peserta / narasumber / panitia) dan **hak akses menu** (absensi, kuis, sertifikat) yang bisa diubah per orang atau massal.
+  Isian awal: peserta = semua menu; narasumber/panitia = absensi + sertifikat (tanpa kuis). Menu yang boleh dipakai seseorang
+  = menu aktif di kegiatan **dan** hak akses orang itu, dan ini ditegakkan di server (RPC portal).
+- **Notula**: catatan rapat/sesi (waktu, tempat, pimpinan, pencatat, peserta rapat — bisa diisi dari absensi —, agenda,
+  pembahasan, keputusan, dan **tindak lanjut** dengan penanggung jawab, tenggat, status selesai). Cetak/PDF dan unduh Word.
+- **Dokumentasi**: unggah foto (dikompres otomatis, disimpan di bucket privat) atau tambah tautan video/folder, dikelompokkan
+  per **album**, dengan galeri, keterangan, dan penampil foto. Hanya dapat dilihat panitia.
+
 **Kegiatan & peserta**
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
 - Data peserta: **Nama lengkap beserta gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp**
   (saran pangkat/golongan PNS tersedia di formulir; avatar melewati gelar di depan nama seperti Dr., Ir., H.).
-- **Peran**: setiap orang berperan *Peserta*, *Narasumber*, atau *Panitia*. Narasumber dan Panitia punya link/QR pribadi
-  dan melakukan absensi, tetapi tidak melihat atau mengerjakan kuis (ditegakkan di server) dan tidak masuk
-  peringkat/laporan kuis. Peran dipilih di formulir, lewat filter, saat impor ("Impor sebagai"), atau lewat kolom
-  opsional "Peran" di data Excel.
+- **Jenis**: setiap orang berjenis *Peserta*, *Narasumber*, atau *Panitia* dan punya link/QR pribadi. Menu yang tampil di
+  linknya mengikuti hak akses (bawaan narasumber/panitia: absensi + sertifikat, tanpa kuis); hanya *Peserta* yang masuk peringkat.
+  Laporan kuis memuat orang yang punya hak akses kuis, laporan kehadiran memuat yang punya hak akses absensi.
 - **Sertifikat**: admin mengunggah sertifikat (PDF/PNG/JPG, maks. 10 MB) per orang di tab *Sertifikat*, satu per satu atau
   banyak sekaligus. Berkas dicocokkan otomatis ke orangnya lewat **NIP** atau **nama** pada nama berkas
   (mis. `198001012005011001.pdf` atau `Budi Santoso.pdf`; gelar diabaikan, nama kembar/tidak cocok dipilih manual,
@@ -94,7 +111,10 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, lalu `006_selfie_lokasi.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, lalu `007_pegawai_menu.sql`).
+>
+> Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
+> tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
 > Skrip bersifat idempotent dan otomatis menambah kolom baru (mis. `grade` dan `job_title` untuk Pangkat/Gol. dan Jabatan)
 > tanpa menghapus data. Lakukan ini **sebelum** versi aplikasi baru dipakai.
 
@@ -129,6 +149,11 @@ berkas. Seperti link pribadi, alamat berkas yang sudah dibagikan oleh penerimany
   berumur 1 jam) atau menghapus foto; peserta tidak bisa membaca foto siapa pun, termasuk fotonya sendiri.
 - Foto ikut terhapus saat sesi, peserta, atau kegiatannya dihapus. Beri tahu peserta tujuan pengumpulan data ini sesuai
   kebijakan privasi lembaga Anda.
+
+## Dokumentasi (foto) dan data pegawai
+- Foto dokumentasi disimpan di bucket Storage `dokumentasi` yang **privat** (maks. 10 MB, JPEG/PNG/WebP); tampilannya memakai tautan
+  bertanda tangan berumur 1 jam, dan hanya pemilik kegiatan yang bisa mengunggah, melihat, atau menghapus (kebijakan per folder `<id kegiatan>/`).
+- Data pegawai (nama, NIP, WhatsApp) milik akun panitia yang menginputnya (RLS per akun); akun lain tidak dapat melihatnya.
 
 ## Keamanan
 

@@ -1,23 +1,28 @@
-import { ArrowUpDown, Building2, ClipboardPaste, Download, FileDown, ExternalLink, Link2, MessageCircle, Pencil, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
+import { ArrowUpDown, Contact, Download, FileDown, ExternalLink, KeyRound, Link2, MessageCircle, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
 import QRCode from 'qrcode'
-import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Empty, ErrorBox, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
-import { GRADE_SUGGESTIONS, isStaff, ROLE_HINT, ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
+import { ACCESS_KEYS, ACCESS_LABEL, ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
+import { menuOn } from '../../lib/menus'
 import { participantLink } from '../../lib/format'
-import { groupBySatker, matchesUnit, normSatker, roleSummary, sortPeople } from '../../lib/satker'
-import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
+import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
+import { waNumber } from '../../lib/parsers'
 import { removeParticipantCertificateFiles } from '../../lib/certificateApi'
 import { removeSelfiesOf } from '../../lib/selfieApi'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
-import type { Participant, PersonRole } from '../../lib/types'
+import type { Activity, Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 import ExportModal from './ExportModal'
 import OrderModal from './OrderModal'
+import { AccessModal, PickEmployees } from './ParticipantPicker'
 
-const EMPTY = { name: '', identifier: '', grade: '', job_title: '', institution: '', phone: '', role: 'peserta' as PersonRole }
+/** Menu yang boleh dipakai orang ini lewat link pribadinya (menu aktif di kegiatan DAN hak akses orang ini). */
+const MENU_FOR: Record<string, (a: Activity) => boolean> = { access_attendance: (a) => menuOn(a, 'attendance'), access_quiz: (a) => menuOn(a, 'quiz'), access_certificate: (a) => menuOn(a, 'certificate') }
+const allowedMenus = (p: Participant, a: Activity) => ACCESS_KEYS.filter((k) => MENU_FOR[k](a) && p[k]).map((k) => ACCESS_LABEL[k])
 
 async function copy(text: string): Promise<boolean> {
   try { await navigator.clipboard.writeText(text); return true } catch {
@@ -33,15 +38,15 @@ export default function ParticipantsTab() {
   const confirm = useConfirm()
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
-  const [editing, setEditing] = useState<Partial<Participant> | null>(null)
-  const [bulk, setBulk] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const [access, setAccess] = useState<Participant[] | null>(null)
+  const [sel, setSel] = useState<Set<string>>(new Set())
   const [qr, setQr] = useState<Participant | null>(null)
   const [grouped, setGrouped] = useState(true)
   const [unit, setUnit] = useState('')
   const { collapsed, toggle, setAll } = useCollapsed()
   const [ordering, setOrdering] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [renaming, setRenaming] = useState<{ label: string; ids: string[]; none: boolean } | null>(null)
   const [cards, setCards] = useState<{ p: Participant; img: string }[] | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
@@ -63,30 +68,31 @@ export default function ParticipantsTab() {
   }, [ordered, q, roleFilter, unit])
   const groups = useMemo(() => groupBySatker(list, (p) => p.institution, activity.satker_order), [list, activity.satker_order])
 
-  const waText = (p: Participant) =>
-    isStaff(p.role)
-      ? `Yth. ${p.name}, berikut link pribadi Anda untuk absensi sebagai ${ROLE_LABEL[p.role].toLowerCase()} pada kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
-      : `Yth. ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+  const waText = (p: Participant) => {
+    const m = allowedMenus(p, activity)
+    const what = m.length ? `untuk ${m.join(', ').toLowerCase()}` : 'kegiatan'
+    return `Yth. ${p.name}, berikut link pribadi Anda ${what} pada kegiatan "${activity.name}"${p.role !== 'peserta' ? ` (sebagai ${ROLE_LABEL[p.role].toLowerCase()})` : ''}:\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+  }
 
-  async function remove(p: Participant) {
+  async function remove(p: Participant) {  // mengeluarkan dari kegiatan (data pegawainya tidak terhapus)
     // hitung dulu apa yang ikut hilang supaya admin tahu dampaknya (hasil kuis hilang = peserta bisa mengulang dari nol)
     const [{ count: quizN }, { count: attN }] = await Promise.all([
       supabase.from('quiz_attempts').select('id', { count: 'exact', head: true }).eq('participant_id', p.id).not('submitted_at', 'is', null),
       supabase.from('attendances').select('id', { count: 'exact', head: true }).eq('participant_id', p.id),
     ])
-    const ok = await confirm({ title: `Hapus ${p.name}?`, danger: true, confirmText: quizN || attN ? 'Hapus beserta datanya' : 'Hapus',
+    const ok = await confirm({ title: `Keluarkan ${p.name} dari kegiatan?`, danger: true, confirmText: quizN || attN ? 'Keluarkan beserta datanya' : 'Keluarkan',
       message: <>
         {quizN ? <div className="alert error" style={{ marginBottom: 10 }}><span><b>{p.name} sudah mengerjakan kuis ({quizN} percobaan selesai).</b> Seluruh hasilnya akan hilang permanen
           dan tidak bisa dikembalikan; nilai, peringkat, dan N-Gain ikut berubah. Bila tujuannya hanya mengulang kuis, pakai <b>Laporan → Hasil kuis → Reset</b>
           agar orangnya dan link pribadinya tetap sama.</span></div> : null}
-        Data absensi{attN ? ` (${attN} sesi)` : ''} termasuk foto selfie &amp; lokasi, serta sertifikat peserta ini juga terhapus. Link pribadinya tidak berlaku lagi.
+        Data absensi{attN ? ` (${attN} sesi)` : ''} termasuk foto selfie &amp; lokasi, serta sertifikat peserta ini juga terhapus dan link pribadinya tidak berlaku lagi. Data pegawainya tetap ada di Data pegawai.
       </> })
     if (!ok) return
     await removeParticipantCertificateFiles([p.id]) // berkas sertifikatnya ikut dibersihkan
     await removeSelfiesOf({ participantIds: [p.id] }) // begitu pula foto selfie absensinya
     const { error } = await supabase.from('participants').delete().eq('id', p.id)
     if (error) return toast(errMsg(error), 'error')
-    toast('Peserta dihapus.', 'success'); void reload(true)
+    toast('Dikeluarkan dari kegiatan.', 'success'); setSel((s) => { const n = new Set(s); n.delete(p.id); return n }); void reload(true)
   }
 
   async function regenerate(p: Participant) {
@@ -121,32 +127,45 @@ export default function ParticipantsTab() {
     ])
   }
 
-  const cols = grouped ? 5 : 6
+  const cols = grouped ? 7 : 8
+  const taken = useMemo(() => new Set((data ?? []).map((p) => p.employee_id).filter((v): v is string => !!v)), [data])
+  const selected = (data ?? []).filter((p) => sel.has(p.id))
+  const toggleSel = (id: string) => setSel((s0) => { const n = new Set(s0); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const setMany = (items: Participant[], on: boolean) => setSel((s0) => { const n = new Set(s0); items.forEach((p) => (on ? n.add(p.id) : n.delete(p.id))); return n })
+
   const renderRow = (p: Participant, i: number) => (
     <tr key={p.id}>
-                    <td className="muted">{i + 1}</td>
-                    <td style={{ minWidth: 220 }}><b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
-                    <td style={{ minWidth: 170 }}>
-                      {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
-                      {p.grade && <div className="muted small">{p.grade}</div>}
-                    </td>
-                    {!grouped && <td style={{ minWidth: 140 }}>{p.institution ?? <span className="muted">—</span>}</td>}
-                    <td className="nowrap mono">{p.phone ?? <span className="muted">—</span>}</td>
-                    <td className="actions">
-                      <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                        <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')} aria-label="Salin link" title="Salin link"><Link2 size={15} /></button>
-                        <button className="btn sm" onClick={() => setQr(p)} aria-label="Tampilkan QR" title="Tampilkan QR"><QrCode size={15} /></button>
-                        <a className="btn sm" target="_blank" rel="noreferrer" aria-label="Kirim lewat WhatsApp"
-                          href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
-                          title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'No. WhatsApp kosong, pilih kontak sendiri'}><MessageCircle size={15} /></a>
-                        <a className="btn sm" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={15} /></a>
-                        <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} aria-hidden />
-                        <button className="icon-btn" onClick={() => setEditing(p)} aria-label="Ubah" title="Ubah"><Pencil size={16} /></button>
-                        <button className="icon-btn" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link"><RefreshCcw size={16} /></button>
-                        <button className="icon-btn danger" onClick={() => void remove(p)} aria-label="Hapus" title="Hapus"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
-                  </tr>
+      <td><input type="checkbox" className="rowcheck" checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} aria-label={`Pilih ${p.name}`} /></td>
+      <td className="muted">{i + 1}</td>
+      <td style={{ minWidth: 220 }}>
+        <b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div>
+        <div className="access-chips" title="Menu yang boleh dipakai lewat link pribadinya" style={{ marginTop: 5 }}>
+          {ACCESS_KEYS.filter((k) => MENU_FOR[k](activity)).map((k) => (
+            <span key={k} className={`access-chip ${p[k] ? '' : 'off'}`}>{ACCESS_LABEL[k]}</span>
+          ))}
+        </div>
+      </td>
+      <td style={{ minWidth: 170 }}>
+        {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
+        {p.grade && <div className="muted small">{p.grade}</div>}
+      </td>
+      {!grouped && <td style={{ minWidth: 140 }}>{p.institution ?? <span className="muted">—</span>}</td>}
+      <td className="nowrap mono">{p.phone ?? <span className="muted">—</span>}</td>
+      <td className="actions">
+        <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+          <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')} aria-label={`Salin link ${p.name}`} title="Salin link"><Link2 size={15} /></button>
+          <button className="btn sm" onClick={() => setQr(p)} aria-label="Tampilkan QR" title="Tampilkan QR"><QrCode size={15} /></button>
+          <a className="btn sm" target="_blank" rel="noreferrer" aria-label="Kirim lewat WhatsApp"
+            href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
+            title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'No. WhatsApp kosong, pilih kontak sendiri'}><MessageCircle size={15} /></a>
+          <a className="btn sm" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={15} /></a>
+          <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} aria-hidden />
+          <button className="icon-btn" onClick={() => setAccess([p])} aria-label={`Jenis & hak akses ${p.name}`} title="Jenis & hak akses"><KeyRound size={16} /></button>
+          <button className="icon-btn" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link"><RefreshCcw size={16} /></button>
+          <button className="icon-btn danger" onClick={() => void remove(p)} aria-label={`Keluarkan ${p.name}`} title="Keluarkan dari kegiatan"><Trash2 size={16} /></button>
+        </div>
+      </td>
+    </tr>
   )
 
   return (
@@ -155,7 +174,7 @@ export default function ParticipantsTab() {
         <div className="toolbar">
           <div className="row">
             <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, jabatan, atau satuan kerja" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
-            <div className="pills" role="group" aria-label="Filter peran">
+            <div className="pills" role="group" aria-label="Filter jenis">
               {(['semua', ...ROLES] as const).map((r) => (
                 <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                   {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{counts[r]}</span>
@@ -174,34 +193,47 @@ export default function ParticipantsTab() {
             <button className="btn sm" onClick={() => setExporting(true)} disabled={!data?.length}><FileDown size={15} /> Ekspor Word / PDF</button>
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
             <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
-            <button className="btn sm" onClick={() => setBulk(true)}><ClipboardPaste size={15} /> Impor banyak</button>
-            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY, role: roleFilter === 'semua' ? 'peserta' : roleFilter })}><Plus size={16} /> Tambah</button>
+            <button className="btn primary sm" onClick={() => setPicking(true)}><Plus size={16} /> Tambah dari data pegawai</button>
           </div>
         </div>
 
-        {loading && <Loading />}
+        {selected.length > 0 && (
+          <div className="bulkbar" role="region" aria-label="Aksi untuk yang dipilih">
+            <b>{selected.length} dipilih</b>
+            <button className="btn sm" onClick={() => setAccess(selected)}><KeyRound size={14} /> Atur jenis &amp; hak akses</button>
+            <button className="btn ghost sm" onClick={() => setSel(new Set())}>Batal pilih</button>
+          </div>
+        )}
+
+        {loading && !data && <Loading />}
         {error && <div style={{ padding: 16 }}><ErrorBox error={error} onRetry={() => void reload()} /></div>}
         {!loading && !error && !data?.length && (
-          <Empty icon={<Users size={26} />} title="Belum ada peserta, narasumber, atau panitia">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
+          <Empty icon={<Users size={26} />} title="Belum ada peserta, narasumber, atau panitia">
+            Peserta dipilih dari <Link to="/admin/pegawai">data pegawai</Link>, lalu ditentukan jenis (peserta/narasumber/panitia) dan hak akses menunya.
+            <div style={{ marginTop: 12 }}>
+              <button className="btn primary" onClick={() => setPicking(true)}><Contact size={16} /> Pilih dari data pegawai</button>
+            </div>
+          </Empty>
         )}
         {!!data?.length && (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>#</th><th>Nama &amp; NIP</th><th>Pangkat/Gol. &amp; jabatan</th>{!grouped && <th>Satuan kerja</th>}<th>WhatsApp</th><th className="actions">Link pribadi &amp; aksi</th></tr></thead>
+              <thead><tr>
+                <th style={{ width: 34 }}><input type="checkbox" className="rowcheck" aria-label="Pilih semua yang tampil"
+                  checked={list.length > 0 && list.every((p) => sel.has(p.id))} onChange={(e) => setMany(list, e.target.checked)} /></th>
+                <th>#</th><th>Nama, NIP &amp; akses menu</th><th>Pangkat/Gol. &amp; jabatan</th>{!grouped && <th>Satuan kerja</th>}<th>WhatsApp</th><th className="actions">Link pribadi &amp; aksi</th>
+              </tr></thead>
               <tbody>
                 {grouped
                   ? groups.map((g) => {
-                      const full = allGroups.find((x) => x.key === g.key)
                       const isCollapsed = collapsed.has(g.key)
                       return (
                         <Fragment key={g.key || '__none__'}>
                           <SatkerGroupRow label={g.label} colSpan={cols} collapsed={isCollapsed} onToggle={() => toggle(g.key)}
                             meta={`${g.items.length} orang · ${roleSummary(g.items)}`}
-                            actions={full && (
-                              <button className="btn ghost sm" onClick={() => setRenaming({ label: g.label, ids: full.items.map((p) => p.id), none: g.key === '' })}>
-                                <Building2 size={14} /> {g.key === '' ? 'Isi satuan kerja' : 'Ubah nama'}
-                              </button>
-                            )} />
+                            actions={<button className="btn ghost sm" onClick={() => setMany(g.items, !g.items.every((p) => sel.has(p.id)))}>
+                              {g.items.every((p) => sel.has(p.id)) ? 'Batal pilih kelompok' : 'Pilih kelompok'}
+                            </button>} />
                           {!isCollapsed && g.items.map((p, i) => renderRow(p, i))}
                         </Fragment>
                       )
@@ -214,14 +246,12 @@ export default function ParticipantsTab() {
         )}
       </div>
 
-      {editing && <ParticipantForm institutions={[...new Set((data ?? []).map((p) => p.institution).filter((v): v is string => !!v))]} value={editing} activityId={activity.id} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(true) }} />}
+      {picking && <PickEmployees activity={activity} taken={taken} onClose={() => setPicking(false)} onSaved={() => { setPicking(false); void reload(true) }} />}
+      {access && <AccessModal activity={activity} people={access} onClose={() => setAccess(null)} onSaved={() => { setAccess(null); setSel(new Set()); void reload(true) }} />}
       {ordering && data && <OrderModal activity={activity} people={data} onClose={() => setOrdering(false)}
         onSaved={() => { setOrdering(false); void reloadActivity(); void reload(true) }} />}
       {exporting && data && <ExportModal activity={activity} people={ordered} onClose={() => setExporting(false)}
         onOrder={() => { setExporting(false); setOrdering(true) }} />}
-      {renaming && <RenameSatker target={renaming} others={allGroups.map((g) => g.label).filter((l) => l !== renaming.label)}
-        onClose={() => setRenaming(null)} onSaved={() => { setRenaming(null); void reload(true) }} />}
-      {bulk && <BulkImport activityId={activity.id} existing={data ?? []} onClose={() => setBulk(false)} onSaved={() => { setBulk(false); void reload(true) }} />}
       {qr && <QrModal p={qr} activityName={activity.name} onClose={() => setQr(null)} />}
 
       <div className="print-cards-wrap">
@@ -232,185 +262,16 @@ export default function ParticipantsTab() {
                 <div style={{ fontWeight: 700 }}>{activity.name}</div>
                 <img src={img} alt={`QR ${p.name}`} />
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.name}</div>
-                {isStaff(p.role) && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{ROLE_LABEL[p.role]}</div>}
+                {p.role !== 'peserta' && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{ROLE_LABEL[p.role]}</div>}
                 <div>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</div>
                 <div>{roleLine(p)}</div>
-                <div style={{ fontSize: 10, marginTop: 4 }}>{isStaff(p.role) ? 'Scan untuk absen' : 'Scan untuk absen & mengerjakan kuis'}</div>
+                <div style={{ fontSize: 10, marginTop: 4 }}>{allowedMenus(p, activity).length ? `Scan untuk ${allowedMenus(p, activity).join(', ').toLowerCase()}` : 'Scan untuk membuka halaman kegiatan'}</div>
               </div>
             ))}
           </div>
         )}
       </div>
     </>
-  )
-}
-
-function ParticipantForm({ value, activityId, institutions, onClose, onSaved }: {
-  value: Partial<Participant>; activityId: string; institutions: string[]; onClose: () => void; onSaved: () => void
-}) {
-  const toast = useToast()
-  const [f, setF] = useState({
-    name: value.name ?? '', identifier: value.identifier ?? '', grade: value.grade ?? '',
-    job_title: value.job_title ?? '', institution: value.institution ?? '', phone: value.phone ?? '',
-    role: (value.role ?? 'peserta') as PersonRole,
-  })
-  const [busy, setBusy] = useState(false)
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
-
-  async function submit(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    const payload = {
-      name: f.name.trim().replace(/\s+/g, ' '),
-      identifier: normalizeNip(f.identifier) || null,
-      grade: f.grade.trim() || null,
-      job_title: f.job_title.trim() || null,
-      institution: f.institution.trim() || null,
-      phone: f.phone.trim() || null,
-      role: f.role,
-    }
-    const { error } = value.id
-      ? await supabase.from('participants').update(payload).eq('id', value.id)
-      : await supabase.from('participants').insert({ ...payload, activity_id: activityId })
-    setBusy(false)
-    if (error) return toast(errMsg(error), 'error')
-    toast(value.id ? 'Data diperbarui.' : `${ROLE_LABEL[f.role]} ditambahkan.`, 'success')
-    onSaved()
-  }
-
-  return (
-    <Modal wide title={value.id ? 'Ubah data' : 'Tambah peserta / narasumber / panitia'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="pform" disabled={busy}>Simpan</button></>}>
-      <form id="pform" onSubmit={submit}>
-        <Field label="Peran" hint={ROLE_HINT[f.role]}>
-          <div className="pills" role="radiogroup" aria-label="Peran">
-            {ROLES.map((r) => (
-              <button type="button" key={r} role="radio" aria-checked={f.role === r} className={`pill ${f.role === r ? 'active' : ''}`} onClick={() => setF({ ...f, role: r })}>{ROLE_LABEL[r]}</button>
-            ))}
-          </div>
-        </Field>
-        <Field label="Nama lengkap beserta gelar *" hint="Tulis lengkap dengan gelar, mis. Dr. Budi Santoso, S.Pd., M.Si.">
-          <input className="input" required autoFocus value={f.name} onChange={set('name')} />
-        </Field>
-        <div className="form-grid">
-          <Field label="NIP" hint="Spasi otomatis dihapus. Kosongkan jika tidak ada.">
-            <input className="input mono" inputMode="numeric" value={f.identifier} onChange={set('identifier')} placeholder="18 digit" />
-          </Field>
-          <Field label="Pangkat / Gol. Ruang" hint="Pilih dari saran atau ketik sendiri (mis. golongan PPPK)">
-            <input className="input" list="grade-list" value={f.grade} onChange={set('grade')} placeholder="mis. Penata Muda (III/a)" />
-          </Field>
-          <Field label="Jabatan"><input className="input" value={f.job_title} onChange={set('job_title')} placeholder="mis. Kepala Seksi Perencanaan" /></Field>
-          <Field label="Satuan kerja"><input className="input" list="unit-list" value={f.institution} onChange={set('institution')} placeholder="mis. Dinas Pendidikan" /></Field>
-          <Field label="No. WhatsApp" hint="Dipakai untuk tombol kirim link lewat WhatsApp">
-            <input className="input" type="tel" inputMode="tel" value={f.phone} onChange={set('phone')} placeholder="08xxxxxxxxxx" />
-          </Field>
-        </div>
-        <datalist id="grade-list">{GRADE_SUGGESTIONS.map((g) => <option key={g} value={g} />)}</datalist>
-        <datalist id="unit-list">{institutions.map((g) => <option key={g} value={g} />)}</datalist>
-      </form>
-    </Modal>
-  )
-}
-
-function BulkImport({ activityId, existing, onClose, onSaved }: {
-  activityId: string; existing: Participant[]; onClose: () => void; onSaved: () => void
-}) {
-  const toast = useToast()
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [role, setRole] = useState<PersonRole>('peserta')
-  const parsed = useMemo(() => parseParticipants(text, role), [text, role])
-  const known = new Set(existing.map((p) => (p.identifier || p.name).toLowerCase()))
-  const fresh = parsed.items.filter((i) => !known.has((i.identifier || i.name).toLowerCase()))
-  const skipped = parsed.items.length - fresh.length
-
-  async function save() {
-    setBusy(true)
-    const { error } = await supabase.from('participants').insert(fresh.map((i) => ({ ...i, activity_id: activityId })))
-    setBusy(false)
-    if (error) return toast(errMsg(error), 'error')
-    toast(`${fresh.length} data ditambahkan.`, 'success')
-    onSaved()
-  }
-
-  function downloadTemplate() {
-    downloadCsv('templat-peserta', [
-      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Peran'],
-      ['Dr. Budi Santoso, M.Si.', '198001012005011001', 'Pembina (IV/a)', 'Kepala Bidang', 'Dinas Pendidikan', '081234567890', 'Peserta'],
-      ['Prof. Dr. Ahmad Fauzi, M.A.', '', '', 'Guru Besar', 'Universitas Negeri', '081200000000', 'Narasumber'],
-      ['Rina Marlina, S.E.', '199001012015012001', 'Penata Muda (III/a)', 'Staf Sekretariat', 'Dinas Pendidikan', '081211111111', 'Panitia'],
-    ])
-  }
-
-  return (
-    <Modal wide title="Impor banyak peserta / narasumber / panitia" onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Batal</button>
-        <button className="btn primary" disabled={busy || fresh.length === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${fresh.length} orang`}</button></>}>
-      <p className="muted small" style={{ whiteSpace: 'pre-line' }}>{PARTICIPANT_FORMAT_HELP}</p>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <span className="label">Impor sebagai:</span>
-        <div className="pills" role="radiogroup" aria-label="Peran bawaan impor">
-          {ROLES.map((r) => (
-            <button type="button" key={r} role="radio" aria-checked={role === r} className={`pill ${role === r ? 'active' : ''}`} onClick={() => setRole(r)}>{ROLE_LABEL[r]}</button>
-          ))}
-        </div>
-        <span className="spacer" />
-        <button className="btn sm" onClick={downloadTemplate}><Download size={14} /> Unduh templat (CSV)</button>
-      </div>
-      <textarea className="input mono" style={{ minHeight: 160, whiteSpace: 'pre' }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Tempel data dari Excel di sini…" autoFocus />
-      {text.trim() && (
-        <div style={{ marginTop: 14 }}>
-          <div className="row tight">
-            <span className="badge success">{fresh.length} siap diimpor</span>
-            {skipped > 0 && <span className="badge warn">{skipped} sudah ada, dilewati</span>}
-            {parsed.errors.length > 0 && <span className="badge danger">{parsed.errors.length} baris bermasalah</span>}
-          </div>
-          {parsed.errors.length > 0 && <ul className="small" style={{ color: 'var(--danger)', paddingLeft: 18 }}>{parsed.errors.slice(0, 8).map((e) => <li key={e}>{e}</li>)}</ul>}
-          {fresh.length > 0 && (
-            <div className="table-wrap" style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 10 }}>
-              <table className="table">
-                <thead><tr><th>Nama</th><th>Peran</th><th>NIP</th><th>Pangkat/Gol.</th><th>Jabatan</th><th>Satuan kerja</th><th>WhatsApp</th></tr></thead>
-                <tbody>{fresh.slice(0, 5).map((i, n) => (
-                  <tr key={n}><td>{i.name}</td><td>{i.role === 'peserta' ? 'Peserta' : <RoleBadge role={i.role} style={{ marginLeft: 0 }} />}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
-                ))}</tbody>
-              </table>
-              {fresh.length > 5 && <div className="muted small" style={{ padding: '8px 16px' }}>…dan {fresh.length - 5} lainnya. Pastikan kolom di atas sudah benar sebelum menambahkan.</div>}
-            </div>
-          )}
-        </div>
-      )}
-    </Modal>
-  )
-}
-
-function RenameSatker({ target, others, onClose, onSaved }: {
-  target: { label: string; ids: string[]; none: boolean }; others: string[]; onClose: () => void; onSaved: () => void
-}) {
-  const toast = useToast()
-  const [name, setName] = useState(target.none ? '' : target.label)
-  const [busy, setBusy] = useState(false)
-  const merging = others.some((o) => o.toLowerCase() === normSatker(name).toLowerCase())
-
-  async function save() {
-    setBusy(true)
-    const { error } = await supabase.from('participants').update({ institution: normSatker(name) || null }).in('id', target.ids)
-    setBusy(false)
-    if (error) return toast(errMsg(error), 'error')
-    toast(`${target.ids.length} orang dipindahkan ke "${normSatker(name)}".`, 'success')
-    onSaved()
-  }
-
-  return (
-    <Modal title={target.none ? 'Isi satuan kerja' : 'Ubah nama satuan kerja'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Batal</button>
-        <button className="btn primary" disabled={busy || !normSatker(name)} onClick={() => void save()}>{busy ? 'Menyimpan…' : 'Simpan'}</button></>}>
-      <p className="muted">Berlaku untuk <b>{target.ids.length} orang</b> di kelompok <b>{target.label}</b>.</p>
-      <Field label="Nama satuan kerja" hint="Ketik nama satuan kerja lain yang sudah ada untuk menggabungkan kelompok, atau pilih dari saran.">
-        <input className="input" list="satker-others" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-      </Field>
-      <datalist id="satker-others">{others.map((o) => <option key={o} value={o} />)}</datalist>
-      {merging && <div className="alert info"><span>Nama ini sudah dipakai kelompok lain, jadi kedua kelompok akan <b>digabung</b>.</span></div>}
-    </Modal>
   )
 }
 

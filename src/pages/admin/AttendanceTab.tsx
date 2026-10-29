@@ -71,9 +71,9 @@ export default function AttendanceTab() {
     return () => { alive = false; clearInterval(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey])
-  const roleCount = (r: 'semua' | PersonRole) => (data?.participants ?? []).filter((p) => r === 'semua' || p.role === r).length
+  const roleCount = (r: 'semua' | PersonRole) => (data?.participants ?? []).filter((p) => p.access_attendance && (r === 'semua' || p.role === r)).length
   // urutan mengikuti pengaturan satker & orang (tab Peserta -> Atur urutan)
-  const orderedAll = useMemo(() => groupBySatker(data?.participants ?? [], (p) => p.institution, activity.satker_order).flatMap((g) => g.items), [data, activity.satker_order])
+  const orderedAll = useMemo(() => groupBySatker((data?.participants ?? []).filter((p) => p.access_attendance), (p) => p.institution, activity.satker_order).flatMap((g) => g.items), [data, activity.satker_order])
   const group = orderedAll.filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution))
   const counts = current ? sessionCounts(group, data!.attendances, current.id) : null
   const rows = group.filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))

@@ -4,11 +4,18 @@ export const ROLES: PersonRole[] = ['peserta', 'narasumber', 'panitia']
 export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber', panitia: 'Panitia' }
 export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 'info', panitia: 'warn' }
 export const ROLE_HINT: Record<PersonRole, string> = {
-  peserta: 'Peserta melakukan absensi, mengerjakan kuis, dan masuk peringkat.',
-  narasumber: 'Narasumber hanya melakukan absensi: tidak melihat atau mengerjakan kuis dan tidak masuk peringkat.',
-  panitia: 'Panitia hanya melakukan absensi: tidak melihat atau mengerjakan kuis dan tidak masuk peringkat.',
+  peserta: 'Bawaan: absensi, kuis, dan sertifikat; masuk peringkat.',
+  narasumber: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
+  panitia: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
 }
-/** Peran yang hanya absen (tanpa kuis). */
+
+/** Hak akses menu per orang (berlaku bila menunya aktif di kegiatan). */
+export interface Access { access_attendance: boolean; access_quiz: boolean; access_certificate: boolean }
+export const ACCESS_KEYS = ['access_attendance', 'access_quiz', 'access_certificate'] as const
+export const ACCESS_LABEL: Record<keyof Access, string> = { access_attendance: 'Absensi', access_quiz: 'Kuis', access_certificate: 'Sertifikat' }
+/** Isi awal hak akses mengikuti jenis: narasumber dan panitia tidak mengerjakan kuis, tetapi bisa diubah per orang. */
+export const defaultAccess = (r: PersonRole): Access => ({ access_attendance: true, access_quiz: r === 'peserta', access_certificate: true })
+/** Peran yang hanya absen (tanpa kuis) menurut isian awalnya. */
 export const isStaff = (r: PersonRole) => r !== 'peserta'
 
 /** Pangkat/golongan ruang PNS, dipakai sebagai saran isian (boleh mengetik bebas, mis. golongan PPPK). */

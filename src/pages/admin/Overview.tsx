@@ -1,10 +1,12 @@
-import { Award, CalendarCheck, CheckCheck, ClipboardList, Trash2, Trophy, Users } from 'lucide-react'
+import { Award, CalendarCheck, CheckCheck, ClipboardList, LayoutGrid, Trash2, Trophy, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CardTitle, Check, ErrorBox, Field, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtPct, fmtScore } from '../../lib/format'
+import { MENUS, menuOn, type MenuDef } from '../../lib/menus'
 import { removeActivityCertificateFiles } from '../../lib/certificateApi'
 import { removeSelfiesOf } from '../../lib/selfieApi'
+import { removeActivityDocFiles } from '../../lib/docsApi'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { ActivityStatus, RankingRow } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -20,6 +22,9 @@ export default function Overview() {
     weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard,
   })
   const [saving, setSaving] = useState(false)
+  const [savingMenu, setSavingMenu] = useState<string | null>(null)
+  // tampilan langsung berubah saat dicentang; dikembalikan bila penyimpanan gagal
+  const [flags, setFlags] = useState(() => Object.fromEntries(MENUS.map((m) => [m.key, a[m.flag]])) as Record<MenuDef['key'], boolean>)
 
   const { data, error, loading, reload: refresh } = useAsync(async () => {
     const [p, s, q, att, rank, spk] = await Promise.all([
@@ -63,14 +68,25 @@ export default function Overview() {
     void refresh(true)
   }
 
+  async function toggleMenu(m: MenuDef, on: boolean) {
+    setSavingMenu(m.key)
+    setFlags((f) => ({ ...f, [m.key]: on }))
+    const { error } = await supabase.from('activities').update({ [m.flag]: on }).eq('id', a.id)
+    setSavingMenu(null)
+    if (error) { setFlags((f) => ({ ...f, [m.key]: !on })); return toast(errMsg(error), 'error') }
+    toast(`Menu ${m.label} ${on ? 'diaktifkan' : 'dinonaktifkan'}.`, 'success')
+    await reload()
+  }
+
   async function remove() {
     const ok = await confirm({
       title: 'Hapus kegiatan?', danger: true, confirmText: 'Hapus permanen',
-      message: <>Semua peserta, absensi, kuis, dan hasil di kegiatan <b>{a.name}</b> akan ikut terhapus dan <b>tidak bisa dikembalikan</b>.</>,
+      message: <>Semua peserta, absensi, kuis, notula, dokumentasi, dan hasil di kegiatan <b>{a.name}</b> akan ikut terhapus dan <b>tidak bisa dikembalikan</b>.</>,
     })
     if (!ok) return
     await removeActivityCertificateFiles(a.id) // bersihkan berkas sertifikat di Storage
     await removeSelfiesOf({ activityId: a.id }) // dan foto selfie absensi
+    await removeActivityDocFiles(a.id) // dan foto dokumentasi
     const { error } = await supabase.from('activities').delete().eq('id', a.id)
     if (error) return toast(errMsg(error), 'error')
     toast('Kegiatan dihapus.', 'success')
@@ -82,22 +98,23 @@ export default function Overview() {
 
   const avgAtt = data.ranking.length && data.sessions
     ? data.ranking.reduce((s, r) => s + Number(r.attendance_pct ?? 0), 0) / data.ranking.length : null
+  const hasPeople = data.participants + data.speakers > 0
   const steps = [
-    { done: data.participants + data.speakers > 0, text: 'Tambahkan peserta (serta narasumber/panitia) kegiatan', to: 'peserta', cta: 'Tambah peserta' },
-    { done: data.sessions > 0, text: 'Buat sesi absensi (hari/sesi + jam buka & tutup)', to: 'absensi', cta: 'Buat sesi' },
-    { done: data.participants + data.speakers > 0 && data.sessions > 0, text: 'Bagikan link / QR unik ke setiap orang', to: 'peserta', cta: 'Lihat link' },
-    { done: data.readyQuizzes > 0, text: 'Buat kuis pre test / post test lalu terbitkan', to: 'kuis', cta: 'Buat kuis' },
-    { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
-    { done: a.certificates_open, text: 'Unggah sertifikat lalu buka unduhan untuk peserta', to: 'sertifikat', cta: 'Kelola sertifikat' },
-  ]
+    { done: hasPeople, text: 'Pilih peserta kegiatan dari data pegawai (tentukan jenis dan hak akses menunya)', to: 'peserta', cta: 'Tambah peserta' },
+    menuOn(a, 'attendance') && { done: data.sessions > 0, text: 'Buat sesi absensi (hari/sesi + jam buka & tutup)', to: 'absensi', cta: 'Buat sesi' },
+    { done: hasPeople && (!menuOn(a, 'attendance') || data.sessions > 0), text: 'Bagikan link / QR unik ke setiap orang', to: 'peserta', cta: 'Lihat link' },
+    menuOn(a, 'quiz') && { done: data.readyQuizzes > 0, text: 'Buat kuis pre test / post test lalu terbitkan', to: 'kuis', cta: 'Buat kuis' },
+    menuOn(a, 'quiz') && { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
+    menuOn(a, 'certificate') && { done: a.certificates_open, text: 'Unggah sertifikat lalu buka unduhan untuk peserta', to: 'sertifikat', cta: 'Kelola sertifikat' },
+  ].filter((x): x is { done: boolean; text: string; to: string; cta: string } => !!x)
 
   return (
     <div className="stack">
       <div className="grid cols-4">
         <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} narasumber/panitia` : undefined} />
-        <Stat icon={<CalendarCheck size={20} />} tone="success" value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />
-        <Stat icon={<ClipboardList size={20} />} tone="warn" value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />
-        <Stat icon={<CheckCheck size={20} />} tone="info" value={data.attempts} label="Kuis terkumpul" />
+        {menuOn(a, 'attendance') && <Stat icon={<CalendarCheck size={20} />} tone="success" value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />}
+        {menuOn(a, 'quiz') && <Stat icon={<ClipboardList size={20} />} tone="warn" value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />}
+        {menuOn(a, 'quiz') && <Stat icon={<CheckCheck size={20} />} tone="info" value={data.attempts} label="Kuis terkumpul" />}
       </div>
 
       <div className="grid cols-2">
@@ -124,6 +141,23 @@ export default function Overview() {
             </div>
           ))}
           {!data.ranking.some((r) => r.final_score > 0) && <p className="muted">Peringkat akan muncul setelah ada peserta yang absen atau mengerjakan kuis.</p>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><CardTitle icon={<LayoutGrid size={18} />}>Menu kegiatan</CardTitle></div>
+        <p className="muted small" style={{ marginTop: -4 }}>
+          Aktifkan hanya menu yang dipakai pada kegiatan ini. Menu yang dinonaktifkan tidak tampil bagi panitia maupun peserta (dan ditolak di server);
+          datanya tetap tersimpan sehingga bisa diaktifkan lagi. Peserta, Laporan, dan Data pegawai selalu tersedia.
+        </p>
+        <div className="menu-grid">
+          {MENUS.map((m) => (
+            <label key={m.key} className={`menu-opt ${flags[m.key] ? 'on' : ''}`}>
+              <input type="checkbox" checked={flags[m.key]} disabled={savingMenu === m.key}
+                onChange={(e) => void toggleMenu(m, e.target.checked)} />
+              <span><b>{m.label}</b><span className="hint" style={{ display: 'block' }}>{m.hint}</span></span>
+            </label>
+          ))}
         </div>
       </div>
 

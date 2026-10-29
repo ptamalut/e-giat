@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useToast } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
+import { MENUS } from '../../lib/menus'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity, ActivityStatus } from '../../lib/types'
 
@@ -40,6 +41,7 @@ export default function Dashboard() {
       location: String(f.get('location') || '').trim() || null,
       start_date: String(f.get('start_date') || '') || null,
       end_date: String(f.get('end_date') || '') || null,
+      ...Object.fromEntries(MENUS.map((m) => [m.flag, f.get(m.flag) === 'on'])), // menu yang dicentang
     }).select('id').single()
     if (error) return toast(errMsg(error), 'error')
     toast('Kegiatan dibuat. Lanjut tambahkan peserta.', 'success')
@@ -112,6 +114,13 @@ export default function Dashboard() {
               <Field label="Tanggal mulai"><input className="input" type="date" name="start_date" /></Field>
               <Field label="Tanggal selesai"><input className="input" type="date" name="end_date" /></Field>
             </div>
+            <Field label="Menu yang dipakai" hint="Bisa diubah kapan saja di Ringkasan kegiatan. Menu nonaktif tidak tampil bagi panitia maupun peserta.">
+              <div className="menu-grid">
+                {MENUS.map((m) => (
+                  <label key={m.key} className="menu-opt on"><input type="checkbox" name={m.flag} defaultChecked /><span><b>{m.label}</b></span></label>
+                ))}
+              </div>
+            </Field>
           </form>
         </Modal>
       )}

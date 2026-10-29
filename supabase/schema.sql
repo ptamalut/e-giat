@@ -38,7 +38,31 @@ create table if not exists public.activities (
 );
 alter table public.activities add column if not exists satker_order jsonb;
 alter table public.activities add column if not exists certificates_open boolean not null default false;
+-- menu yang diaktifkan untuk kegiatan ini (menu nonaktif tidak tampil bagi panitia maupun peserta, dan ditolak di server)
+alter table public.activities add column if not exists enable_attendance    boolean not null default true;
+alter table public.activities add column if not exists enable_notes         boolean not null default true;
+alter table public.activities add column if not exists enable_quiz          boolean not null default true;
+alter table public.activities add column if not exists enable_certificate   boolean not null default true;
+alter table public.activities add column if not exists enable_documentation boolean not null default true;
 create index if not exists activities_owner_idx on public.activities (owner_id, created_at desc);
+
+-- Data pegawai (induk data orang, milik satu akun panitia). Peserta kegiatan dipilih dari sini.
+-- Satuan kerja diketik bebas lalu dikelompokkan di aplikasi (huruf besar/kecil & spasi dinormalkan).
+create table if not exists public.employees (
+  id           uuid primary key default gen_random_uuid(),
+  owner_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name         text not null check (length(trim(name)) > 0),   -- nama lengkap beserta gelar
+  identifier   text,                -- NIP
+  grade        text,                -- pangkat / golongan ruang
+  job_title    text,                -- jabatan
+  institution  text,                -- satuan kerja
+  phone        text,                -- nomor WhatsApp
+  created_at   timestamptz not null default now()
+);
+create index if not exists employees_owner_idx on public.employees (owner_id, institution, name);
+-- satu NIP hanya boleh sekali per akun
+create unique index if not exists employees_owner_nip_uq on public.employees (owner_id, identifier)
+  where identifier is not null and length(trim(identifier)) > 0;
 
 create table if not exists public.participants (
   id           uuid primary key default gen_random_uuid(),
@@ -66,6 +90,51 @@ alter table public.participants add column if not exists grade     text;
 alter table public.participants add column if not exists job_title text;
 alter table public.participants add column if not exists role text not null default 'peserta';
 alter table public.participants add column if not exists sort_order int;
+-- Hubungan ke data pegawai dan hak akses menu per orang (absensi, kuis, sertifikat)
+alter table public.participants add column if not exists employee_id uuid references public.employees (id) on delete set null;
+do $$
+declare
+  r     record;
+  v_emp uuid;
+begin
+  -- Hanya saat kolom hak akses baru dibuat: isi awal mengikuti peran lama (narasumber/panitia tidak mengerjakan kuis),
+  -- lalu bentuk data pegawai dari peserta yang sudah ada agar kegiatan lama tetap utuh. Tidak diulang pada eksekusi berikutnya.
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'participants' and column_name = 'access_quiz') then
+    alter table public.participants add column access_attendance  boolean not null default true;
+    alter table public.participants add column access_quiz        boolean not null default true;
+    alter table public.participants add column access_certificate boolean not null default true;
+    update public.participants set access_quiz = false where role <> 'peserta';
+
+    -- satu pegawai per NIP (per pemilik); tanpa NIP: satu pegawai per orang
+    for r in
+      select p.id as pid, p.activity_id, a.owner_id, p.name, nullif(trim(p.identifier), '') as nip,
+             p.grade, p.job_title, p.institution, p.phone, p.created_at
+        from public.participants p join public.activities a on a.id = p.activity_id
+       order by p.created_at desc, p.id   -- data terbaru dipakai sebagai data pegawai
+    loop
+      v_emp := null;
+      if r.nip is not null then
+        select id into v_emp from public.employees where owner_id = r.owner_id and identifier = r.nip;
+        -- NIP yang sama dua kali dalam satu kegiatan: orang kedua dibuat sebagai pegawai terpisah tanpa NIP
+        if v_emp is not null and exists (select 1 from public.participants where activity_id = r.activity_id and employee_id = v_emp) then
+          v_emp := null; r.nip := null;
+        end if;
+      end if;
+      if v_emp is null then
+        insert into public.employees (owner_id, name, identifier, grade, job_title, institution, phone, created_at)
+        values (r.owner_id, r.name, r.nip, r.grade, r.job_title, r.institution, r.phone, r.created_at)
+        returning id into v_emp;
+      end if;
+      update public.participants set employee_id = v_emp where id = r.pid;
+    end loop;
+  end if;
+end $$;
+alter table public.participants add column if not exists access_attendance  boolean not null default true;
+alter table public.participants add column if not exists access_quiz        boolean not null default true;
+alter table public.participants add column if not exists access_certificate boolean not null default true;
+-- satu pegawai hanya sekali per kegiatan
+create unique index if not exists participants_employee_uq on public.participants (activity_id, employee_id) where employee_id is not null;
 -- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
 alter table public.participants drop constraint if exists participants_role_check;
 alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'panitia'));
@@ -204,6 +273,46 @@ create table if not exists public.certificates (
 );
 create index if not exists certificates_activity_idx on public.certificates (activity_id);
 
+-- Notula: catatan hasil rapat/sesi kegiatan (hanya untuk panitia)
+create table if not exists public.meeting_notes (
+  id           uuid primary key default gen_random_uuid(),
+  activity_id  uuid not null references public.activities (id) on delete cascade,
+  title        text not null check (length(trim(title)) > 0),
+  held_at      timestamptz,                 -- waktu pelaksanaan
+  location     text,
+  leader       text,                        -- pimpinan rapat
+  notetaker    text,                        -- pencatat
+  attendees    text,                        -- daftar/ringkasan peserta rapat
+  agenda       text,
+  discussion   text,                        -- pembahasan
+  decisions    text,                        -- keputusan / kesimpulan
+  -- tindak lanjut: [{ "id": "...", "task": "...", "pic": "...", "due": "2026-01-31", "done": false }]
+  follow_ups   jsonb not null default '[]'::jsonb check (jsonb_typeof(follow_ups) = 'array'),
+  status       text not null default 'draft' check (status in ('draft', 'final')),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists meeting_notes_activity_idx on public.meeting_notes (activity_id, held_at desc);
+
+-- Dokumentasi: foto kegiatan (berkas di bucket privat "dokumentasi") atau tautan (video/Drive/dll.)
+create table if not exists public.documentation (
+  id            uuid primary key default gen_random_uuid(),
+  activity_id   uuid not null references public.activities (id) on delete cascade,
+  kind          text not null default 'foto' check (kind in ('foto', 'tautan')),
+  storage_path  text unique,                -- untuk kind = foto
+  file_name     text,
+  mime_type     text,
+  size_bytes    bigint,
+  url           text,                       -- untuk kind = tautan
+  title         text,
+  caption       text,
+  album         text,                       -- pengelompokan, mis. "Hari 1" atau "Pembukaan"
+  taken_on      date,
+  uploaded_at   timestamptz not null default now(),
+  check ((kind = 'foto' and storage_path is not null) or (kind = 'tautan' and url is not null))
+);
+create index if not exists documentation_activity_idx on public.documentation (activity_id, album, taken_on);
+
 -- ---------------------------------------------------------------------------
 -- RLS (akses panitia)
 -- ---------------------------------------------------------------------------
@@ -225,16 +334,60 @@ alter table public.quizzes             enable row level security;
 alter table public.questions           enable row level security;
 alter table public.quiz_attempts       enable row level security;
 alter table public.certificates        enable row level security;
+alter table public.employees           enable row level security;
+alter table public.meeting_notes       enable row level security;
+alter table public.documentation       enable row level security;
 
 drop policy if exists activities_owner on public.activities;
 create policy activities_owner on public.activities
   for all to authenticated
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
+-- Apakah pegawai ini milik akun yang sedang login?
+create or replace function public.is_employee_owner(p_employee uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.employees e where e.id = p_employee and e.owner_id = auth.uid());
+$$;
+
+drop policy if exists employees_owner on public.employees;
+create policy employees_owner on public.employees
+  for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
 drop policy if exists participants_owner on public.participants;
 create policy participants_owner on public.participants
   for all to authenticated
+  using (public.is_activity_owner(activity_id))
+  with check (public.is_activity_owner(activity_id) and (employee_id is null or public.is_employee_owner(employee_id)));
+
+drop policy if exists meeting_notes_owner on public.meeting_notes;
+create policy meeting_notes_owner on public.meeting_notes
+  for all to authenticated
   using (public.is_activity_owner(activity_id)) with check (public.is_activity_owner(activity_id));
+
+drop policy if exists documentation_owner on public.documentation;
+create policy documentation_owner on public.documentation
+  for all to authenticated
+  using (public.is_activity_owner(activity_id)) with check (public.is_activity_owner(activity_id));
+
+-- Mengubah data pegawai ikut memperbarui salinannya pada kegiatan-kegiatan yang memakainya
+create or replace function public._sync_employee()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.participants
+     set name = new.name, identifier = new.identifier, grade = new.grade,
+         job_title = new.job_title, institution = new.institution, phone = new.phone
+   where employee_id = new.id;
+  return new;
+end $$;
+drop trigger if exists employees_sync on public.employees;
+create trigger employees_sync after update on public.employees
+  for each row when (old.name is distinct from new.name or old.identifier is distinct from new.identifier
+                  or old.grade is distinct from new.grade or old.job_title is distinct from new.job_title
+                  or old.institution is distinct from new.institution or old.phone is distinct from new.phone)
+  execute function public._sync_employee();
 
 drop policy if exists sessions_owner on public.attendance_sessions;
 create policy sessions_owner on public.attendance_sessions
@@ -380,14 +533,16 @@ returns table (
 )
 language sql stable security definer set search_path = public as $$
   with w as (
-    select weight_attendance from public.activities where id = p_activity
+    select weight_attendance, enable_attendance, enable_quiz from public.activities where id = p_activity
   ),
   sess as (
-    select count(*)::int as n from public.attendance_sessions where activity_id = p_activity
+    -- menu absensi dimatikan: kehadiran tidak ikut dihitung
+    select case when (select enable_attendance from w) then count(*)::int else 0 end as n
+      from public.attendance_sessions where activity_id = p_activity
   ),
   qz as (
     select id from public.quizzes
-     where activity_id = p_activity and is_published and counts_toward_final
+     where activity_id = p_activity and is_published and counts_toward_final and (select enable_quiz from w)
   ),
   att as (
     select p.id as pid,
@@ -398,12 +553,13 @@ language sql stable security definer set search_path = public as $$
      group by p.id
   ),
   best as (
+    -- hanya orang yang punya hak akses kuis; yang tidak punya dinilai dari kehadiran saja
     select p.id as pid, qz.id as qid, coalesce(max(t.score), 0) as s
       from public.participants p
      cross join qz
       left join public.quiz_attempts t
              on t.participant_id = p.id and t.quiz_id = qz.id and t.submitted_at is not null
-     where p.activity_id = p_activity and p.role = 'peserta'
+     where p.activity_id = p_activity and p.role = 'peserta' and p.access_quiz
      group by p.id, qz.id
   ),
   qavg as (
@@ -411,7 +567,7 @@ language sql stable security definer set search_path = public as $$
   ),
   base as (
     select p.id as pid, p.name, p.institution, att.c, sess.n,
-           case when sess.n > 0 then round(att.c::numeric * 100 / sess.n, 2) end as ap,
+           case when sess.n > 0 and p.access_attendance then round(att.c::numeric * 100 / sess.n, 2) end as ap,
            qavg.v as qa,
            w.weight_attendance as wt
       from public.participants p
@@ -477,7 +633,7 @@ begin
     into v_sess
     from public.attendance_sessions s
     left join public.attendances at on at.session_id = s.id and at.participant_id = p.id
-   where s.activity_id = a.id;
+   where s.activity_id = a.id and a.enable_attendance and p.access_attendance;
 
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', q.id,
@@ -514,19 +670,24 @@ begin
          ) order by q.created_at), '[]'::jsonb)
     into v_quiz
     from public.quizzes q
-   where q.activity_id = a.id and q.is_published and p.role = 'peserta';  -- narasumber & panitia tidak melihat kuis
+   where q.activity_id = a.id and q.is_published and a.enable_quiz and p.access_quiz;  -- menu kuis & hak akses orang ini
 
   return jsonb_build_object(
     'now', v_now,
     'participant', jsonb_build_object(
       'id', p.id, 'name', p.name, 'identifier', p.identifier, 'grade', p.grade,
       'job_title', p.job_title, 'institution', p.institution, 'role', p.role),
+    -- menu yang boleh dipakai orang ini = menu aktif di kegiatan DAN hak akses orang ini
+    'features', jsonb_build_object(
+      'attendance', a.enable_attendance and p.access_attendance,
+      'quiz', a.enable_quiz and p.access_quiz,
+      'certificate', a.enable_certificate and p.access_certificate),
     'activity', jsonb_build_object(
       'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
       'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
       'show_leaderboard', a.show_leaderboard),
     -- ringkasan sertifikat (tanpa alamat berkas; alamat baru dibuka oleh portal_certificate)
-    'certificate', case when a.certificates_open or c.id is not null then jsonb_build_object(
+    'certificate', case when a.enable_certificate and p.access_certificate and (a.certificates_open or c.id is not null) then jsonb_build_object(
       'open', a.certificates_open,
       'available', c.id is not null,
       'file_name', case when a.certificates_open then c.file_name end,
@@ -551,6 +712,9 @@ begin
   select * into a from public.activities where id = p.activity_id;
   if a.status = 'draft' then
     raise exception 'Kegiatan belum dibuka.' using errcode = 'P0001';
+  end if;
+  if not a.enable_attendance or not p.access_attendance then
+    raise exception 'Absensi tidak tersedia untuk Anda pada kegiatan ini.' using errcode = 'P0001';
   end if;
   select * into s from public.attendance_sessions where id = p_session and activity_id = p.activity_id;
   if not found then
@@ -597,6 +761,9 @@ begin
   select * into a from public.activities where id = p.activity_id;
   if a.status = 'draft' then
     raise exception 'Kegiatan belum dibuka.' using errcode = 'P0001';
+  end if;
+  if not a.enable_attendance or not p.access_attendance then
+    raise exception 'Absensi tidak tersedia untuk Anda pada kegiatan ini.' using errcode = 'P0001';
   end if;
 
   select * into s from public.attendance_sessions where id = p_session and activity_id = p.activity_id;
@@ -665,15 +832,15 @@ declare
   v_dead  timestamptz;
 begin
   p := public._participant_by_token(p_token);
-  if p.role <> 'peserta' then
-    raise exception 'Kuis hanya untuk peserta. Narasumber dan panitia cukup melakukan absensi.' using errcode = 'P0001';
-  end if;
   perform pg_advisory_xact_lock(hashtextextended(p.id::text || p_quiz::text, 0));
   perform public._close_expired(p.id);
 
   select * into a from public.activities where id = p.activity_id;
   if a.status = 'draft' then
     raise exception 'Kegiatan belum dibuka.' using errcode = 'P0001';
+  end if;
+  if not a.enable_quiz or not p.access_quiz then
+    raise exception 'Kuis tidak tersedia untuk Anda pada kegiatan ini.' using errcode = 'P0001';
   end if;
   select * into z from public.quizzes where id = p_quiz and activity_id = p.activity_id and is_published;
   if not found then
@@ -692,7 +859,7 @@ begin
     if z.close_at is not null and v_now > z.close_at then
       raise exception 'Kuis sudah ditutup.' using errcode = 'P0001';
     end if;
-    if z.require_checkin and not exists (
+    if z.require_checkin and a.enable_attendance and p.access_attendance and not exists (
          select 1 from public.attendances at
           where at.participant_id = p.id and at.status in ('hadir', 'terlambat')) then
       raise exception 'Anda harus melakukan absensi terlebih dahulu sebelum mengerjakan kuis ini.' using errcode = 'P0001';
@@ -862,7 +1029,7 @@ declare
 begin
   p := public._participant_by_token(p_token);
   select * into a from public.activities where id = p.activity_id;
-  if not a.show_leaderboard or p.role <> 'peserta' then
+  if not a.show_leaderboard or p.role <> 'peserta' or not (a.enable_attendance or a.enable_quiz) then
     return jsonb_build_object('enabled', false, 'rows', '[]'::jsonb);
   end if;
   return jsonb_build_object(
@@ -891,6 +1058,9 @@ declare
 begin
   p := public._participant_by_token(p_token);
   select * into a from public.activities where id = p.activity_id;
+  if not a.enable_certificate or not p.access_certificate then
+    raise exception 'Sertifikat tidak tersedia untuk Anda pada kegiatan ini.' using errcode = 'P0001';
+  end if;
   if not a.certificates_open then
     raise exception 'Unduhan sertifikat belum dibuka oleh panitia.' using errcode = 'P0001';
   end if;
@@ -989,6 +1159,31 @@ create policy selfies_obj_delete on storage.objects for delete to authenticated
   using (bucket_id = 'selfies' and public.owns_selfie_object(name));
 
 -- ---------------------------------------------------------------------------
+-- STORAGE: bucket dokumentasi kegiatan (PRIVAT)
+--   * hanya pemilik kegiatan yang boleh mengunggah/melihat/mengganti/menghapus, dibatasi pada folder `<activity_id>/`
+--   * tampilan memakai signed URL berumur pendek
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('dokumentasi', 'dokumentasi', false, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists dokumentasi_obj_select on storage.objects;
+create policy dokumentasi_obj_select on storage.objects for select to authenticated
+  using (bucket_id = 'dokumentasi' and public.owns_certificate_object(name));
+drop policy if exists dokumentasi_obj_insert on storage.objects;
+create policy dokumentasi_obj_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'dokumentasi' and public.owns_certificate_object(name));
+drop policy if exists dokumentasi_obj_update on storage.objects;
+create policy dokumentasi_obj_update on storage.objects for update to authenticated
+  using (bucket_id = 'dokumentasi' and public.owns_certificate_object(name))
+  with check (bucket_id = 'dokumentasi' and public.owns_certificate_object(name));
+drop policy if exists dokumentasi_obj_delete on storage.objects;
+create policy dokumentasi_obj_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'dokumentasi' and public.owns_certificate_object(name));
+
+-- ---------------------------------------------------------------------------
 -- RPC UNTUK PANITIA
 -- ---------------------------------------------------------------------------
 
@@ -1075,3 +1270,7 @@ grant execute on function public.save_activity_order(uuid, jsonb, uuid[]) to aut
 
 grant execute on function public.activity_ranking(uuid), public.is_activity_owner(uuid) to authenticated;
 revoke execute on function public.activity_ranking(uuid), public.is_activity_owner(uuid) from anon;
+
+revoke all on function public.is_employee_owner(uuid) from public, anon;
+grant execute on function public.is_employee_owner(uuid) to authenticated;
+revoke all on function public._sync_employee() from public, anon, authenticated;
