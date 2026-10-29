@@ -79,10 +79,15 @@ create table if not exists public.attendance_sessions (
   end_at        timestamptz not null,
   -- check-in setelah start_at + late_minutes dianggap "terlambat"
   late_minutes  int not null default 15 check (late_minutes >= 0),
+  -- wajib foto selfie / lokasi saat absen mandiri (ditegakkan di server)
+  require_selfie   boolean not null default false,
+  require_location boolean not null default false,
   created_at    timestamptz not null default now(),
   check (end_at > start_at),
   unique (id, activity_id)
 );
+alter table public.attendance_sessions add column if not exists require_selfie   boolean not null default false;
+alter table public.attendance_sessions add column if not exists require_location boolean not null default false;
 create index if not exists sessions_activity_idx on public.attendance_sessions (activity_id, start_at);
 
 create table if not exists public.attendances (
@@ -94,11 +99,32 @@ create table if not exists public.attendances (
   checked_in_at  timestamptz not null default now(),
   note           text,
   manual         boolean not null default false,   -- diisi manual oleh panitia
+  selfie_path    text,                             -- path foto selfie di bucket privat "selfies"
+  lat            double precision,                 -- lokasi saat absen (derajat)
+  lng            double precision,
+  accuracy_m     real,                             -- akurasi lokasi dalam meter
   unique (session_id, participant_id),
   foreign key (session_id, activity_id) references public.attendance_sessions (id, activity_id) on delete cascade,
   foreign key (participant_id, activity_id) references public.participants (id, activity_id) on delete cascade
 );
+alter table public.attendances add column if not exists selfie_path text;
+alter table public.attendances add column if not exists lat double precision;
+alter table public.attendances add column if not exists lng double precision;
+alter table public.attendances add column if not exists accuracy_m real;
 create index if not exists attendances_activity_idx on public.attendances (activity_id);
+
+-- Slot unggah foto selfie: path acak yang dicadangkan server untuk satu orang & satu sesi (berlaku 20 menit, sekali pakai).
+-- Hanya path yang dicadangkan yang boleh diunggah peserta (lihat kebijakan storage di bawah).
+create table if not exists public.selfie_slots (
+  path            text primary key,
+  activity_id     uuid not null,
+  session_id      uuid not null,
+  participant_id  uuid not null references public.participants (id) on delete cascade,
+  used            boolean not null default false,
+  created_at      timestamptz not null default now()
+);
+create index if not exists selfie_slots_lookup_idx on public.selfie_slots (participant_id, session_id);
+alter table public.selfie_slots enable row level security; -- tanpa kebijakan: hanya fungsi security definer yang boleh mengakses
 
 create table if not exists public.quizzes (
   id                  uuid primary key default gen_random_uuid(),
@@ -247,6 +273,7 @@ create policy attempts_owner_delete on public.quiz_attempts
 revoke all on all tables in schema public from anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 revoke insert, update on public.quiz_attempts from authenticated;
+revoke all on public.selfie_slots from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- FUNGSI INTERNAL (tidak bisa dipanggil klien)
@@ -437,11 +464,15 @@ begin
            'start_at', s.start_at,
            'end_at', s.end_at,
            'late_minutes', s.late_minutes,
+           'require_selfie', s.require_selfie,
+           'require_location', s.require_location,
            'state', case when v_now < s.start_at then 'upcoming'
                          when v_now > s.end_at then 'closed'
                          else 'open' end,
            'attendance', case when at.id is null then null
-                              else jsonb_build_object('status', at.status, 'checked_in_at', at.checked_in_at) end
+                              else jsonb_build_object('status', at.status, 'checked_in_at', at.checked_in_at,
+                                                      'has_selfie', at.selfie_path is not null,
+                                                      'has_location', at.lat is not null) end
          ) order by s.start_at), '[]'::jsonb)
     into v_sess
     from public.attendance_sessions s
@@ -505,8 +536,50 @@ begin
   );
 end $$;
 
--- Absen mandiri
-create or replace function public.portal_check_in(p_token text, p_session uuid)
+-- Cadangkan path unggah foto selfie (hanya bila sesi sedang dibuka dan orang ini belum absen)
+create or replace function public.portal_selfie_slot(p_token text, p_session uuid)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  p      public.participants;
+  a      public.activities;
+  s      public.attendance_sessions;
+  v_now  timestamptz := now();
+  v_path text;
+begin
+  p := public._participant_by_token(p_token);
+  select * into a from public.activities where id = p.activity_id;
+  if a.status = 'draft' then
+    raise exception 'Kegiatan belum dibuka.' using errcode = 'P0001';
+  end if;
+  select * into s from public.attendance_sessions where id = p_session and activity_id = p.activity_id;
+  if not found then
+    raise exception 'Sesi absensi tidak ditemukan.' using errcode = 'P0002';
+  end if;
+  if v_now < s.start_at then raise exception 'Absensi belum dibuka.' using errcode = 'P0001'; end if;
+  if v_now > s.end_at   then raise exception 'Absensi sudah ditutup.' using errcode = 'P0001'; end if;
+  if exists (select 1 from public.attendances where session_id = s.id and participant_id = p.id) then
+    raise exception 'Anda sudah tercatat hadir pada sesi ini.' using errcode = 'P0001';
+  end if;
+
+  delete from public.selfie_slots where created_at < now() - interval '1 day';
+  if (select count(*) from public.selfie_slots
+       where participant_id = p.id and session_id = s.id and not used
+         and created_at > now() - interval '20 minutes') >= 5 then
+    raise exception 'Terlalu banyak percobaan foto. Tunggu beberapa menit lalu coba lagi.' using errcode = 'P0001';
+  end if;
+
+  v_path := p.activity_id::text || '/' || s.id::text || '/' || replace(gen_random_uuid()::text, '-', '') || '.jpg';
+  insert into public.selfie_slots (path, activity_id, session_id, participant_id) values (v_path, p.activity_id, s.id, p.id);
+  return jsonb_build_object('path', v_path);
+end $$;
+
+-- Absen mandiri, opsional dengan lokasi dan foto selfie (wajib bila diatur pada sesi)
+drop function if exists public.portal_check_in(text, uuid);
+create or replace function public.portal_check_in(
+  p_token text, p_session uuid,
+  p_lat double precision default null, p_lng double precision default null,
+  p_accuracy double precision default null, p_selfie_path text default null)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -516,6 +589,9 @@ declare
   v_now  timestamptz := now();
   v_stat text;
   v_row  public.attendances;
+  v_lat  double precision;
+  v_lng  double precision;
+  v_acc  real;
 begin
   p := public._participant_by_token(p_token);
   select * into a from public.activities where id = p.activity_id;
@@ -539,13 +615,39 @@ begin
     return jsonb_build_object('already', true, 'status', v_row.status, 'checked_in_at', v_row.checked_in_at);
   end if;
 
+  -- lokasi: hanya nilai yang masuk akal yang disimpan
+  if p_lat is not null and p_lng is not null and p_lat between -90 and 90 and p_lng between -180 and 180 then
+    v_lat := p_lat;
+    v_lng := p_lng;
+    v_acc := case when p_accuracy is not null and p_accuracy >= 0 then least(p_accuracy, 100000)::real end;
+  end if;
+  if s.require_location and v_lat is null then
+    raise exception 'Lokasi wajib diaktifkan untuk absen pada sesi ini.' using errcode = 'P0001';
+  end if;
+
+  -- foto: harus slot milik orang ini untuk sesi ini, belum dipakai, dan berkasnya sudah ada di Storage
+  if p_selfie_path is not null then
+    update public.selfie_slots set used = true
+     where path = p_selfie_path and participant_id = p.id and session_id = s.id and not used
+       and created_at > now() - interval '20 minutes';
+    if not found then
+      raise exception 'Foto selfie tidak valid atau kedaluwarsa. Silakan ambil foto lagi.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from storage.objects where bucket_id = 'selfies' and name = p_selfie_path) then
+      raise exception 'Foto belum berhasil terunggah. Silakan coba lagi.' using errcode = 'P0001';
+    end if;
+  elsif s.require_selfie then
+    raise exception 'Foto selfie wajib untuk absen pada sesi ini.' using errcode = 'P0001';
+  end if;
+
   v_stat := case when v_now > s.start_at + make_interval(mins => s.late_minutes) then 'terlambat' else 'hadir' end;
-  insert into public.attendances (activity_id, session_id, participant_id, status, checked_in_at)
-  values (p.activity_id, s.id, p.id, v_stat, v_now)
+  insert into public.attendances (activity_id, session_id, participant_id, status, checked_in_at, selfie_path, lat, lng, accuracy_m)
+  values (p.activity_id, s.id, p.id, v_stat, v_now, p_selfie_path, v_lat, v_lng, v_acc)
   on conflict (session_id, participant_id) do nothing
   returning * into v_row;
 
-  return jsonb_build_object('already', false, 'status', v_stat, 'checked_in_at', v_now);
+  return jsonb_build_object('already', false, 'status', v_stat, 'checked_in_at', v_now,
+                            'has_selfie', p_selfie_path is not null, 'has_location', v_lat is not null);
 end $$;
 
 -- Mulai (atau lanjutkan) pengerjaan kuis. Kunci jawaban TIDAK dikirim.
@@ -841,6 +943,52 @@ create policy certificates_obj_delete on storage.objects for delete to authentic
   using (bucket_id = 'certificates' and public.owns_certificate_object(name));
 
 -- ---------------------------------------------------------------------------
+-- STORAGE: bucket foto selfie absensi (PRIVAT)
+--   * peserta (anon) hanya boleh mengunggah ke path yang dicadangkan server lewat portal_selfie_slot
+--     (sekali pakai, 20 menit) -> tidak bisa mengunggah sembarang berkas
+--   * hanya pemilik kegiatan yang boleh melihat/menghapus; tampilan memakai signed URL berumur pendek
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('selfies', 'selfies', false, 524288, array['image/jpeg'])
+on conflict (id) do update
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+create or replace function public.selfie_slot_ok(p_name text)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.selfie_slots
+     where path = p_name and not used and created_at > now() - interval '20 minutes'
+  );
+$$;
+
+create or replace function public.owns_selfie_object(p_name text)
+returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare v uuid;
+begin
+  begin
+    v := (string_to_array(p_name, '/'))[1]::uuid;
+  exception when others then
+    return false;
+  end;
+  return public.is_activity_owner(v);
+end $$;
+
+grant execute on function public.selfie_slot_ok(text), public.owns_selfie_object(text) to anon, authenticated;
+
+drop policy if exists selfies_obj_insert on storage.objects;
+create policy selfies_obj_insert on storage.objects for insert to anon, authenticated
+  with check (bucket_id = 'selfies' and public.selfie_slot_ok(name));
+drop policy if exists selfies_obj_select on storage.objects;
+create policy selfies_obj_select on storage.objects for select to authenticated
+  using (bucket_id = 'selfies' and public.owns_selfie_object(name));
+drop policy if exists selfies_obj_delete on storage.objects;
+create policy selfies_obj_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'selfies' and public.owns_selfie_object(name));
+
+-- ---------------------------------------------------------------------------
 -- RPC UNTUK PANITIA
 -- ---------------------------------------------------------------------------
 
@@ -898,7 +1046,8 @@ from public, anon, authenticated;
 
 revoke all on function
   public.portal_get(text),
-  public.portal_check_in(text, uuid),
+  public.portal_check_in(text, uuid, double precision, double precision, double precision, text),
+  public.portal_selfie_slot(text, uuid),
   public.portal_start_attempt(text, uuid),
   public.portal_save_answers(text, uuid, jsonb),
   public.portal_submit_attempt(text, uuid, jsonb),
@@ -911,7 +1060,8 @@ from public;
 
 grant execute on function
   public.portal_get(text),
-  public.portal_check_in(text, uuid),
+  public.portal_check_in(text, uuid, double precision, double precision, double precision, text),
+  public.portal_selfie_slot(text, uuid),
   public.portal_start_attempt(text, uuid),
   public.portal_save_answers(text, uuid, jsonb),
   public.portal_submit_attempt(text, uuid, jsonb),

@@ -57,6 +57,9 @@ export interface AttendanceSession {
   start_at: string
   end_at: string
   late_minutes: number
+  /** wajib foto selfie / lokasi saat absen mandiri */
+  require_selfie: boolean
+  require_location: boolean
 }
 
 export interface Attendance {
@@ -68,6 +71,11 @@ export interface Attendance {
   checked_in_at: string
   note: string | null
   manual: boolean
+  /** path foto di bucket privat "selfies" */
+  selfie_path: string | null
+  lat: number | null
+  lng: number | null
+  accuracy_m: number | null
 }
 
 export interface Quiz {
@@ -141,8 +149,10 @@ export interface PortalSession {
   start_at: string
   end_at: string
   late_minutes: number
+  require_selfie: boolean
+  require_location: boolean
   state: TimeState
-  attendance: { status: AttendanceStatus; checked_in_at: string } | null
+  attendance: { status: AttendanceStatus; checked_in_at: string; has_selfie?: boolean; has_location?: boolean } | null
 }
 
 export interface PortalAttempt {

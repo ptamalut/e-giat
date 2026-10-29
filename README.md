@@ -30,6 +30,12 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
   (mis. `198001012005011001.pdf` atau `Budi Santoso.pdf`; gelar diabaikan, nama kembar/tidak cocok dipilih manual,
   tipe berkas dicek dari isinya). Setelah semua siap, admin menekan **Buka unduhan**; peserta, narasumber, dan panitia
   lalu mengunduh dari link pribadi masing-masing (tombol Unduh/Lihat). Ada daftar siapa yang belum punya sertifikat.
+- **Foto selfie & lokasi saat absen**: tiap sesi absensi punya pilihan *Wajib foto selfie* dan *Wajib lokasi* (bawaan aktif;
+  keduanya bisa dimatikan agar peserta absen satu ketukan). Bila aktif, peserta lebih dulu melihat penjelasan, baru
+  menekan **Izinkan kamera & lokasi** sehingga browser meminta izin pada saat yang tepat. Foto dikompres di perangkat
+  (sisi terpanjang 720 px, maks. ±450 KB), koordinat dicatat bersama akurasinya. Syarat ditegakkan di server: absen ditolak
+  bila foto/lokasi kosong atau tidak valid. Di tab *Absensi* admin melihat kolom **Foto** (klik untuk memperbesar) dan **Lokasi**
+  (tautan Google Maps), keduanya juga masuk ke CSV; tombol *Hapus foto* membersihkan foto satu sesi.
 - **Pengelompokan per satuan kerja (satker)**: tab Peserta, Absensi, dan rekap kehadiran dikelompokkan per satker
   (peserta, narasumber, dan panitia dalam satu kelompok) dengan jumlah per peran, lipat/buka kelompok, filter satker,
   dan tampilan "Daftar" bila ingin tanpa kelompok. Penulisan nama satker yang berbeda huruf besar/kecil atau spasi
@@ -86,7 +92,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, lalu `005_sertifikat.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, lalu `006_selfie_lokasi.sql`).
 > Skrip bersifat idempotent dan otomatis menambah kolom baru (mis. `grade` dan `job_title` untuk Pangkat/Gol. dan Jabatan)
 > tanpa menghapus data. Lakukan ini **sebelum** versi aplikasi baru dipakai.
 
@@ -112,6 +118,15 @@ Berkas disimpan di bucket Supabase Storage `certificates` dengan nama acak (`<id
 publik, tetapi alamat berkas **tidak bisa ditebak** dan hanya diberikan oleh server (`portal_certificate`) setelah token pribadi
 valid **dan** unduhan dibuka panitia; hanya pemilik kegiatan yang boleh mengunggah, mengganti, menghapus, atau melihat daftar
 berkas. Seperti link pribadi, alamat berkas yang sudah dibagikan oleh penerimanya bisa dibuka siapa pun yang memilikinya.
+
+## Privasi foto selfie & lokasi
+- Absen dengan selfie/lokasi memerlukan **HTTPS** (Vercel/Netlify sudah HTTPS; `localhost` juga diizinkan browser).
+- Foto disimpan di bucket Storage `selfies` yang **privat** (maks. 512 KB, hanya JPEG). Peserta tidak punya akun, jadi unggahan
+  hanya bisa lewat *slot sekali pakai* yang dicadangkan server (`portal_selfie_slot`) setelah token pribadi, jam sesi, dan
+  status belum-absen divalidasi; path berkas acak. Hanya pemilik kegiatan yang bisa melihat (lewat tautan bertanda tangan
+  berumur 1 jam) atau menghapus foto; peserta tidak bisa membaca foto siapa pun, termasuk fotonya sendiri.
+- Foto ikut terhapus saat sesi, peserta, atau kegiatannya dihapus. Beri tahu peserta tujuan pengumpulan data ini sesuai
+  kebijakan privasi lembaga Anda.
 
 ## Keamanan
 
