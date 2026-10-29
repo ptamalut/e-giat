@@ -15,6 +15,8 @@ export interface Activity {
   status: ActivityStatus
   weight_attendance: number
   show_leaderboard: boolean
+  /** urutan tampil satuan kerja (kunci huruf kecil); null = abjad */
+  satker_order: string[] | null
   created_at: string
 }
 
@@ -29,6 +31,8 @@ export interface Participant {
   email: string | null
   phone: string | null
   role: PersonRole
+  /** urutan di dalam satuan kerja; null = setelah yang berurutan */
+  sort_order: number | null
   token: string
   created_at: string
 }

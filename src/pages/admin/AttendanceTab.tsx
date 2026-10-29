@@ -7,7 +7,7 @@ import { sessionCounts } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
-import { groupBySatker, matchesUnit, roleSummary } from '../../lib/satker'
+import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
 import { ROLE_LABEL, ROLES } from '../../lib/people'
 import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -39,7 +39,7 @@ export default function AttendanceTab() {
       fetchAll<Participant>((a, b) => supabase.from('participants').select('*').eq('activity_id', activity.id).order('name').order('id').range(a, b)),
       fetchAll<Attendance>((a, b) => supabase.from('attendances').select('*').eq('activity_id', activity.id).order('id').range(a, b)),
     ])
-    return { sessions, participants, attendances }
+    return { sessions, participants: sortPeople(participants), attendances }
   }, [activity.id])
 
   // pantau kehadiran secara berkala selama tab terbuka
@@ -56,14 +56,16 @@ export default function AttendanceTab() {
     return m
   }, [data, current?.id])
   const roleCount = (r: 'semua' | PersonRole) => (data?.participants ?? []).filter((p) => r === 'semua' || p.role === r).length
-  const group = (data?.participants ?? []).filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution))
+  // urutan mengikuti pengaturan satker & orang (tab Peserta -> Atur urutan)
+  const orderedAll = useMemo(() => groupBySatker(data?.participants ?? [], (p) => p.institution, activity.satker_order).flatMap((g) => g.items), [data, activity.satker_order])
+  const group = orderedAll.filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution))
   const counts = current ? sessionCounts(group, data!.attendances, current.id) : null
   const rows = group.filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))
   // pilihan satker dihitung dari peran terpilih, tanpa filter satker itu sendiri
   const unitGroups = useMemo(
-    () => groupBySatker((data?.participants ?? []).filter((p) => roleFilter === 'semua' || p.role === roleFilter), (p) => p.institution),
-    [data, roleFilter])
-  const rowGroups = useMemo(() => groupBySatker(rows, (p) => p.institution), [rows])
+    () => groupBySatker(orderedAll.filter((p) => roleFilter === 'semua' || p.role === roleFilter), (p) => p.institution, activity.satker_order),
+    [orderedAll, roleFilter, activity.satker_order])
+  const rowGroups = useMemo(() => groupBySatker(rows, (p) => p.institution, activity.satker_order), [rows, activity.satker_order])
   const attendedOf = (items: Participant[]) => items.filter((p) => { const st = attByP.get(p.id)?.status; return st === 'hadir' || st === 'terlambat' }).length
 
   async function setStatus(p: Participant, status: AttendanceStatus | '') {

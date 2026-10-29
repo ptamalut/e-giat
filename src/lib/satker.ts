@@ -18,7 +18,9 @@ export interface SatkerGroup<T> { key: string; label: string; items: T[] }
  * Kelompokkan berdasarkan satuan kerja. Urutan kelompok alfabetis (Indonesia), kelompok "tanpa satuan kerja" di akhir.
  * Nama yang ditampilkan memakai penulisan yang paling sering dipakai di kelompok itu (seri: yang lebih banyak huruf kapital). Urutan anggota dipertahankan.
  */
-export function groupBySatker<T>(items: readonly T[], get: (t: T) => string | null | undefined): SatkerGroup<T>[] {
+export function groupBySatker<T>(
+  items: readonly T[], get: (t: T) => string | null | undefined, order?: readonly string[] | null,
+): SatkerGroup<T>[] {
   const map = new Map<string, { items: T[]; spellings: Map<string, number> }>()
   for (const it of items) {
     const key = satkerKey(get(it))
@@ -34,7 +36,30 @@ export function groupBySatker<T>(items: readonly T[], get: (t: T) => string | nu
       : [...g.spellings.entries()].sort((a, b) => b[1] - a[1] || upper(b[0]) - upper(a[0]) || a[0].localeCompare(b[0], 'id'))[0][0]
     return { key, label, items: g.items }
   })
-  return groups.sort((a, b) => (a.key === '' ? 1 : b.key === '' ? -1 : a.label.localeCompare(b.label, 'id', { sensitivity: 'base' })))
+  const idx = new Map((order ?? []).map((k, i) => [k, i]))
+  const alpha = (a: SatkerGroup<T>, b: SatkerGroup<T>) => a.label.localeCompare(b.label, 'id', { sensitivity: 'base' })
+  return groups.sort((a, b) => {
+    if (a.key === '' || b.key === '') return a.key === '' ? 1 : -1 // "tanpa satuan kerja" selalu terakhir
+    const ia = idx.get(a.key), ib = idx.get(b.key)
+    if (ia != null && ib != null) return ia - ib // urutan buatan pengguna
+    if (ia != null || ib != null) return ia != null ? -1 : 1 // yang belum diurutkan (satker baru) menyusul
+    return alpha(a, b)
+  })
+}
+
+/** Urutkan orang: yang sudah diberi urutan lebih dulu (kecil ke besar), sisanya menurut abjad. Tidak mengubah array asli. */
+export function sortPeople<T extends { sort_order: number | null; name: string }>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) =>
+    (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) || a.name.localeCompare(b.name, 'id', { sensitivity: 'base' }))
+}
+
+/** Pindahkan item pada indeks `from` ke indeks `to` (hasil array baru). */
+export function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return [...arr]
+  const next = [...arr]
+  const [x] = next.splice(from, 1)
+  next.splice(to, 0, x)
+  return next
 }
 
 /** Hitungan per peran, tanpa peran yang kosong: "3 peserta · 1 narasumber". */
