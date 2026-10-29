@@ -30,8 +30,11 @@ create table if not exists public.activities (
   weight_attendance  int  not null default 30 check (weight_attendance between 0 and 100),
   -- tampilkan papan peringkat kepada peserta di halaman mereka
   show_leaderboard   boolean not null default true,
+  -- urutan tampil satuan kerja (daftar kunci satker huruf kecil); null = abjad
+  satker_order       jsonb,
   created_at         timestamptz not null default now()
 );
+alter table public.activities add column if not exists satker_order jsonb;
 create index if not exists activities_owner_idx on public.activities (owner_id, created_at desc);
 
 create table if not exists public.participants (
@@ -46,6 +49,8 @@ create table if not exists public.participants (
   phone        text,                -- nomor WhatsApp
   -- peran: peserta mengerjakan kuis & masuk peringkat; narasumber dan panitia hanya absen
   role         text not null default 'peserta' check (role in ('peserta', 'narasumber', 'panitia')),
+  -- urutan tampil di dalam satuan kerja (kecil = lebih atas); null = setelah yang berurutan, lalu abjad
+  sort_order   int,
   -- token rahasia untuk link unik peserta (122 bit acak)
   token        text not null unique default replace(gen_random_uuid()::text, '-', ''),
   created_at   timestamptz not null default now(),
@@ -57,6 +62,7 @@ create index if not exists participants_activity_idx on public.participants (act
 alter table public.participants add column if not exists grade     text;
 alter table public.participants add column if not exists job_title text;
 alter table public.participants add column if not exists role text not null default 'peserta';
+alter table public.participants add column if not exists sort_order int;
 -- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
 alter table public.participants drop constraint if exists participants_role_check;
 alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'panitia'));
@@ -759,6 +765,28 @@ language sql stable security definer set search_path = public as $$
   select * from public._ranking(p_activity) where public.is_activity_owner(p_activity);
 $$;
 
+-- Simpan urutan satuan kerja dan urutan orang dalam satu panggilan.
+--   p_satker_order : array kunci satker (huruf kecil) sesuai urutan tampil, atau null untuk kembali ke abjad
+--   p_participants : id orang sesuai urutan tampil (posisi menjadi sort_order)
+create or replace function public.save_activity_order(p_activity uuid, p_satker_order jsonb, p_participants uuid[])
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_activity_owner(p_activity) then
+    raise exception 'Anda tidak berhak mengubah kegiatan ini.' using errcode = '42501';
+  end if;
+  if p_satker_order is not null and jsonb_typeof(p_satker_order) <> 'array' then
+    raise exception 'Urutan satuan kerja harus berupa daftar.' using errcode = '22023';
+  end if;
+
+  update public.activities set satker_order = p_satker_order where id = p_activity;
+
+  update public.participants p
+     set sort_order = o.ord::int
+    from unnest(p_participants) with ordinality as o(id, ord)
+   where p.id = o.id and p.activity_id = p_activity;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- HAK AKSES FUNGSI
 -- (Supabase memberi EXECUTE ke anon/authenticated secara default; cabut dulu)
@@ -794,6 +822,9 @@ grant execute on function
   public.portal_get_result(text, uuid),
   public.portal_leaderboard(text)
 to anon, authenticated;
+
+revoke all on function public.save_activity_order(uuid, jsonb, uuid[]) from public, anon;
+grant execute on function public.save_activity_order(uuid, jsonb, uuid[]) to authenticated;
 
 grant execute on function public.activity_ranking(uuid), public.is_activity_owner(uuid) to authenticated;
 revoke execute on function public.activity_ranking(uuid), public.is_activity_owner(uuid) from anon;

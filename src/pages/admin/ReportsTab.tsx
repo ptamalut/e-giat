@@ -5,7 +5,7 @@ import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, us
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
-import { groupBySatker, matchesUnit, roleSummary } from '../../lib/satker'
+import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
 import { ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
@@ -58,7 +58,7 @@ export default function ReportsTab() {
       supabase.rpc('activity_ranking', { p_activity: activity.id }),
     ])
     if (rank.error) throw new Error(errMsg(rank.error))
-    return { participants, sessions, attendances, quizzes, questions, attempts, ranking: (rank.data ?? []) as RankingRow[] }
+    return { participants: sortPeople(participants), sessions, attendances, quizzes, questions, attempts, ranking: (rank.data ?? []) as RankingRow[] }
   }, [activity.id])
 
   // narasumber & panitia tidak mengerjakan kuis, jadi laporan kuis hanya memuat peserta
@@ -92,7 +92,7 @@ export default function ReportsTab() {
         ? <div className="card"><Empty icon={<BarChart3 size={26} />} title="Belum ada data">Tambahkan peserta terlebih dahulu.</Empty></div>
         : section === 'peringkat' ? <RankingSection data={data} name={activity.name} weight={activity.weight_attendance} />
         : section === 'satker' ? <SatkerSection data={data} name={activity.name} />
-        : section === 'kehadiran' ? <AttendanceSection data={data} name={activity.name} />
+        : section === 'kehadiran' ? <AttendanceSection data={data} name={activity.name} satkerOrder={activity.satker_order} />
         : section === 'kuis' ? <QuizSection data={pesertaData} name={activity.name} onChanged={() => void reload(true)} />
         : section === 'prepost' ? <PrePostSection data={pesertaData} name={activity.name} />
         : <ItemSection data={pesertaData} name={activity.name} />}
@@ -150,17 +150,17 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
 }
 
 /* ---------- Kehadiran ---------- */
-function AttendanceSection({ data, name }: { data: Data; name: string }) {
+function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: string; satkerOrder: string[] | null }) {
   const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
   const [grouped, setGrouped] = useState(true)
   const [unit, setUnit] = useState('')
   const { collapsed, toggle, setAll } = useCollapsed()
   const byRole = useMemo(() => data.participants.filter((p) => roleFilter === 'semua' || p.role === roleFilter), [data.participants, roleFilter])
-  const unitGroups = useMemo(() => groupBySatker(byRole, (p) => p.institution), [byRole])
+  const unitGroups = useMemo(() => groupBySatker(byRole, (p) => p.institution, satkerOrder), [byRole, satkerOrder])
   // diurutkan per satuan kerja sehingga tabel dan CSV selalu berkelompok
   const people = useMemo(() => unitGroups.flatMap((g) => g.items).filter((p) => matchesUnit(unit, p.institution)), [unitGroups, unit])
   const rows = useMemo(() => attendanceMatrix(people, data.sessions, data.attendances), [people, data.sessions, data.attendances])
-  const rowGroups = useMemo(() => groupBySatker(rows, (r) => r.participant.institution), [rows])
+  const rowGroups = useMemo(() => groupBySatker(rows, (r) => r.participant.institution, satkerOrder), [rows, satkerOrder])
   const roleCount = (r: 'semua' | PersonRole) => data.participants.filter((p) => r === 'semua' || p.role === r).length
   if (data.sessions.length === 0) return <div className="card"><Empty icon={<CalendarCheck size={26} />} title="Belum ada sesi absensi" /></div>
   const avg = rows.length ? rows.reduce((s, r) => s + (r.pct ?? 0), 0) / rows.length : 0

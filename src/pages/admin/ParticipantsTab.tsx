@@ -1,4 +1,4 @@
-import { Building2, ClipboardPaste, Download, ExternalLink, Link2, MessageCircle, Pencil, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
+import { ArrowUpDown, Building2, ClipboardPaste, Download, FileDown, ExternalLink, Link2, MessageCircle, Pencil, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
 import QRCode from 'qrcode'
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
@@ -7,11 +7,13 @@ import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { GRADE_SUGGESTIONS, isStaff, ROLE_HINT, ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
 import { participantLink } from '../../lib/format'
-import { groupBySatker, matchesUnit, normSatker, roleSummary } from '../../lib/satker'
+import { groupBySatker, matchesUnit, normSatker, roleSummary, sortPeople } from '../../lib/satker'
 import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
+import ExportModal from './ExportModal'
+import OrderModal from './OrderModal'
 
 const EMPTY = { name: '', identifier: '', grade: '', job_title: '', institution: '', phone: '', role: 'peserta' as PersonRole }
 
@@ -24,7 +26,7 @@ async function copy(text: string): Promise<boolean> {
 }
 
 export default function ParticipantsTab() {
-  const { activity } = useActivity()
+  const { activity, reload: reloadActivity } = useActivity()
   const toast = useToast()
   const confirm = useConfirm()
   const [q, setQ] = useState('')
@@ -35,11 +37,13 @@ export default function ParticipantsTab() {
   const [grouped, setGrouped] = useState(true)
   const [unit, setUnit] = useState('')
   const { collapsed, toggle, setAll } = useCollapsed()
+  const [ordering, setOrdering] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [renaming, setRenaming] = useState<{ label: string; ids: string[]; none: boolean } | null>(null)
   const [cards, setCards] = useState<{ p: Participant; img: string }[] | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    return fetchAll<Participant>((a, b) => supabase.from('participants').select('*').eq('activity_id', activity.id).order('name').order('id').range(a, b))
+    return sortPeople(await fetchAll<Participant>((a, b) => supabase.from('participants').select('*').eq('activity_id', activity.id).order('name').order('id').range(a, b)))
   }, [activity.id])
 
   const counts = useMemo(() => {
@@ -47,15 +51,15 @@ export default function ParticipantsTab() {
     return Object.fromEntries([['semua', all.length], ...ROLES.map((r) => [r, all.filter((p) => p.role === r).length])]) as Record<'semua' | PersonRole, number>
   }, [data])
 
+  // semua kelompok (tanpa filter) berurutan sesuai pengaturan; dipakai untuk pilihan satker, ubah nama, ekspor, dan cetak
+  const allGroups = useMemo(() => groupBySatker(data ?? [], (p) => p.institution, activity.satker_order), [data, activity.satker_order])
+  const ordered = useMemo(() => allGroups.flatMap((g) => g.items), [allGroups])
+
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (data ?? []).filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
-  }, [data, q, roleFilter, unit])
-
-  // semua kelompok (tanpa filter) untuk pilihan satker & ubah nama; kelompok terfilter untuk tampilan
-  const allGroups = useMemo(() => groupBySatker(data ?? [], (p) => p.institution), [data])
-  const groups = useMemo(() => groupBySatker(list, (p) => p.institution), [list])
-  const ordered = useMemo(() => allGroups.flatMap((g) => g.items), [allGroups]) // urut per satker untuk ekspor & cetak
+    return ordered.filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
+  }, [ordered, q, roleFilter, unit])
+  const groups = useMemo(() => groupBySatker(list, (p) => p.institution, activity.satker_order), [list, activity.satker_order])
 
   const waText = (p: Participant) =>
     isStaff(p.role)
@@ -152,6 +156,8 @@ export default function ParticipantsTab() {
             )}
           </div>
           <div className="row tight">
+            <button className="btn sm" onClick={() => setOrdering(true)} disabled={!data?.length}><ArrowUpDown size={15} /> Atur urutan</button>
+            <button className="btn sm" onClick={() => setExporting(true)} disabled={!data?.length}><FileDown size={15} /> Ekspor Word / PDF</button>
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
             <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
             <button className="btn sm" onClick={() => setBulk(true)}><ClipboardPaste size={15} /> Impor banyak</button>
@@ -195,6 +201,10 @@ export default function ParticipantsTab() {
       </div>
 
       {editing && <ParticipantForm institutions={[...new Set((data ?? []).map((p) => p.institution).filter((v): v is string => !!v))]} value={editing} activityId={activity.id} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(true) }} />}
+      {ordering && data && <OrderModal activity={activity} people={data} onClose={() => setOrdering(false)}
+        onSaved={() => { setOrdering(false); void reloadActivity(); void reload(true) }} />}
+      {exporting && data && <ExportModal activity={activity} people={ordered} onClose={() => setExporting(false)}
+        onOrder={() => { setExporting(false); setOrdering(true) }} />}
       {renaming && <RenameSatker target={renaming} others={allGroups.map((g) => g.label).filter((l) => l !== renaming.label)}
         onClose={() => setRenaming(null)} onSaved={() => { setRenaming(null); void reload(true) }} />}
       {bulk && <BulkImport activityId={activity.id} existing={data ?? []} onClose={() => setBulk(false)} onSaved={() => { setBulk(false); void reload(true) }} />}

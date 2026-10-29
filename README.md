@@ -30,6 +30,12 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
   dan tampilan "Daftar" bila ingin tanpa kelompok. Penulisan nama satker yang berbeda huruf besar/kecil atau spasi
   otomatis digabung; tombol "Ubah nama" memperbaiki/menggabungkan satker sekaligus untuk semua anggotanya. Kartu QR dan
   ekspor CSV diurutkan per satker.
+- **Atur urutan**: urutan satuan kerja dan urutan orang di dalam tiap satker bisa diatur (seret ikon ⋮⋮ atau tombol
+  panah) dan tersimpan di database. Urutan dipakai di tab Peserta, Absensi, rekap kehadiran, kartu QR, CSV, dan ekspor.
+  Satker baru dan orang baru otomatis menyusul di akhir; "Kembali ke abjad" menghapus urutan khusus.
+- **Ekspor Word (.docx) dan PDF**: daftar peserta/narasumber/panitia per satker atau satu tabel, dengan pilihan peran,
+  kolom (NIP, Pangkat/Gol., Jabatan, WhatsApp, Peran, kolom tanda tangan untuk daftar hadir), judul, dan orientasi A4.
+  Dokumen dibuat langsung di browser (tanpa server) dengan nomor halaman dan tanggal cetak.
 - Impor banyak peserta dengan menempel dari Excel: kolom dibaca dari baris judul (urutan bebas) atau urutan bawaan,
   nama bergelar yang memuat koma aman (pemisah Tab/titik koma/kutip), spasi pada NIP dihapus, NIP yang rusak menjadi
   angka ilmiah (1.98E+17) ditolak, ada pratinjau kolom, deteksi duplikat (NIP/nama), dan templat CSV.
@@ -75,7 +81,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, lalu `003_panitia.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, lalu `004_urutan.sql`).
 > Skrip bersifat idempotent dan otomatis menambah kolom baru (mis. `grade` dan `job_title` untuk Pangkat/Gol. dan Jabatan)
 > tanpa menghapus data. Lakukan ini **sebelum** versi aplikasi baru dipakai.
 
