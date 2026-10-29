@@ -1,4 +1,4 @@
-import { Calendar, CalendarCheck, CheckCheck, ClipboardList, LinkIcon, MapPin, Play, RotateCcw, Trophy, UserCheck } from 'lucide-react'
+import { Award, Calendar, CalendarCheck, CheckCheck, ClipboardList, Download, ExternalLink, Hourglass, LinkIcon, Lock, MapPin, Play, RotateCcw, Trophy, UserCheck } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ThemeToggle } from '../../components/theme'
@@ -6,6 +6,8 @@ import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
 import { RoleBadge } from '../../components/RoleBadge'
 import { isStaff, nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
+import { certPublicUrl } from '../../lib/certificateApi'
+import { certDownloadName } from '../../lib/certificates'
 import { rpc } from '../../lib/supabase'
 import type { Leaderboard, PortalData, PortalQuiz, PortalSession } from '../../lib/types'
 
@@ -147,6 +149,8 @@ export default function Portal() {
           {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
         </section>}
 
+        {data.certificate && <CertificateCard token={token} personName={p.name} cert={data.certificate} />}
+
         {a.show_leaderboard && !staff && (
           <section className="card">
             <div className="card-head">
@@ -171,6 +175,54 @@ export default function Portal() {
         <p className="center muted small">Link ini bersifat pribadi — jangan dibagikan ke orang lain.</p>
       </div>
     </>
+  )
+}
+
+function CertificateCard({ token, personName, cert }: { token: string; personName: string; cert: NonNullable<PortalData['certificate']> }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState<'unduh' | 'lihat' | null>(null)
+
+  async function go(mode: 'unduh' | 'lihat') {
+    setBusy(mode)
+    try {
+      // alamat berkas baru diberikan server setelah token pribadi divalidasi
+      const r = await rpc<{ path: string; file_name: string; mime_type: string | null }>('portal_certificate', { p_token: token })
+      const url = certPublicUrl(r.path, mode === 'unduh' ? certDownloadName(personName, r.mime_type, r.file_name) : undefined)
+      const a = document.createElement('a')
+      a.href = url
+      if (mode === 'lihat') { a.target = '_blank'; a.rel = 'noopener' }
+      document.body.appendChild(a); a.click(); a.remove()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal mengunduh sertifikat.', 'error')
+    } finally { setBusy(null) }
+  }
+
+  return (
+    <section className="card">
+      <div className="card-head"><CardTitle icon={<Award size={18} />} tone="warn">Sertifikat</CardTitle></div>
+      {cert.open && cert.available ? (
+        <div className="item">
+          <div className="grow">
+            <div className="title">Sertifikat Anda sudah tersedia</div>
+            <div className="muted small" style={{ overflowWrap: 'anywhere' }}>{cert.file_name}</div>
+          </div>
+          <div className="row tight">
+            <button className="btn primary lg" disabled={busy !== null} onClick={() => void go('unduh')}><Download size={18} /> {busy === 'unduh' ? 'Menyiapkan…' : 'Unduh'}</button>
+            <button className="btn" disabled={busy !== null} onClick={() => void go('lihat')}><ExternalLink size={16} /> Lihat</button>
+          </div>
+        </div>
+      ) : cert.available ? (
+        <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+          <span className="icon-chip info"><Lock size={18} /></span>
+          <div><div className="title">Sertifikat Anda sudah disiapkan</div><div className="muted small">Unduhan akan dibuka oleh panitia. Silakan cek kembali nanti.</div></div>
+        </div>
+      ) : (
+        <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+          <span className="icon-chip warn"><Hourglass size={18} /></span>
+          <div><div className="title">Sertifikat Anda belum tersedia</div><div className="muted small">Hubungi panitia bila Anda merasa seharusnya sudah menerimanya.</div></div>
+        </div>
+      )}
+    </section>
   )
 }
 

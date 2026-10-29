@@ -466,3 +466,8 @@ table.table { width: 100%; border-collapse: collapse; font-size: .89rem; }
 .grip:active { cursor: grabbing; }
 .sort-num { width: 24px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .85rem; flex: none; }
 .sort-sub { margin: 6px 0 10px 34px; padding-left: 12px; border-left: 2px solid var(--border); }
+
+/* ---------- area unggah berkas ---------- */
+.dropzone { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 28px 18px; border: 2px dashed var(--border-strong); border-radius: 14px; background: var(--surface-2); color: var(--text-2); cursor: pointer; transition: border-color .12s, background .12s; }
+.dropzone:hover, .dropzone.over { border-color: var(--primary); background: var(--primary-50); }
+.dropzone svg { color: var(--primary); }

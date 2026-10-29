@@ -16,6 +16,7 @@ const ParticipantsTab = lazy(() => import('./pages/admin/ParticipantsTab'))
 const AttendanceTab = lazy(() => import('./pages/admin/AttendanceTab'))
 const QuizzesTab = lazy(() => import('./pages/admin/QuizzesTab'))
 const QuizEditor = lazy(() => import('./pages/admin/QuizEditor'))
+const CertificatesTab = lazy(() => import('./pages/admin/CertificatesTab'))
 const ReportsTab = lazy(() => import('./pages/admin/ReportsTab'))
 const Portal = lazy(() => import('./pages/portal/Portal'))
 const QuizRun = lazy(() => import('./pages/portal/QuizRun'))
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="absensi" element={<AttendanceTab />} />
               <Route path="kuis" element={<QuizzesTab />} />
               <Route path="kuis/:quizId" element={<QuizEditor />} />
+              <Route path="sertifikat" element={<CertificatesTab />} />
               <Route path="laporan" element={<ReportsTab />} />
             </Route>
           </Route>
