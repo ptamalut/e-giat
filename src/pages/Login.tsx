@@ -46,7 +46,10 @@ export default function Login() {
     <div className="auth-split">
       <div className="corner-theme"><ThemeToggle /></div>
       <aside className="auth-aside">
-        <div className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>e-Giat</div>
+        <div>
+          <div className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>LAKSANA</div>
+          <div className="brand-sub">Pelaksanaan Kegiatan PTA Malut</div>
+        </div>
         <div>
           <h2>Kelola absensi dan kuis kegiatan dengan rapi.</h2>
           <p>Satu tempat untuk peserta, kehadiran, pre/post test, dan laporan hasil kegiatan Anda.</p>
@@ -59,12 +62,12 @@ export default function Login() {
             ))}
           </ul>
         </div>
-        <small style={{ opacity: .6 }}>© {new Date().getFullYear()} e-Giat</small>
+        <small style={{ opacity: .6 }}>© {new Date().getFullYear()} LAKSANA - Pelaksanaan Kegiatan PTA Malut</small>
       </aside>
 
       <div className="auth-main">
         <div className="auth-card">
-          <div className="brand only-mobile" style={{ marginBottom: 28 }}><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>e-Giat</div>
+          <div className="only-mobile" style={{ marginBottom: 28 }}><div className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>LAKSANA</div><div className="brand-sub">Pelaksanaan Kegiatan PTA Malut</div></div>
           <h1 style={{ marginBottom: 6 }}>{mode === 'in' ? 'Selamat datang kembali' : 'Buat akun panitia'}</h1>
           <p className="muted" style={{ marginBottom: 24 }}>{mode === 'in' ? 'Masuk untuk mengelola kegiatan Anda.' : 'Daftar untuk mulai membuat kegiatan.'}</p>
           {error && <div className="alert error">{error}</div>}

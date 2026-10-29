@@ -1,4 +1,6 @@
-# e-Giat — Absensi & Kuis Kegiatan
+# LAKSANA — Pelaksanaan Kegiatan PTA Malut
+
+LAKSANA adalah aplikasi absensi, kuis, laporan, dan sertifikat untuk pelaksanaan kegiatan PTA Malut.
 
 Aplikasi web (React + Vite + TypeScript) dengan database **Supabase** untuk mengelola kegiatan: daftar peserta,
 absensi lewat link/QR pribadi, kuis pre test / post test berwaktu, dan laporan lengkap.
