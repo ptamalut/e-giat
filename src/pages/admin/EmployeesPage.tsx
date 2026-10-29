@@ -1,8 +1,9 @@
-import { Building2, ClipboardPaste, Contact, Download, Pencil, Plus, Search, Trash2 } from 'lucide-react'
-import { Fragment, useMemo, useState, type FormEvent } from 'react'
+import { Building2, ClipboardPaste, Contact, Download, FileSpreadsheet, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Fragment, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { downloadCsv } from '../../lib/csv'
+import { readEmployeeFile, type EmployeeFile } from '../../lib/employeeFile'
 import { EMPLOYEE_FORMAT_HELP, normalizeNip, parseEmployees } from '../../lib/parsers'
 import { GRADE_SUGGESTIONS } from '../../lib/people'
 import { groupBySatker, matchesUnit, normSatker } from '../../lib/satker'
@@ -214,18 +215,36 @@ function EmployeeForm({ value, institutions, onClose, onSaved }: {
 
 function BulkImport({ existing, onClose, onSaved }: { existing: Employee[]; onClose: () => void; onSaved: () => void }) {
   const toast = useToast()
+  const fileInput = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
+  const [file, setFile] = useState<EmployeeFile | null>(null)
+  const [defaultSatker, setDefaultSatker] = useState('')
+  const [reading, setReading] = useState(false)
+  const [fileError, setFileError] = useState('')
   const [busy, setBusy] = useState(false)
-  const parsed = useMemo(() => parseEmployees(text), [text])
+  const parsed = useMemo(() => (file ? { items: file.items, errors: file.errors } : parseEmployees(text)), [file, text])
+  // satuan kerja bawaan hanya mengisi baris yang satkernya kosong
+  const items = useMemo(() => parsed.items.map((i) => ({ ...i, institution: normSatker(i.institution) || normSatker(defaultSatker) || null })), [parsed, defaultSatker])
   // NIP yang sama (atau nama yang sama bila tanpa NIP) dianggap sudah ada
   const known = new Set(existing.map((p) => (p.identifier || p.name).toLowerCase()))
-  const fresh = parsed.items.filter((i) => !known.has((i.identifier || i.name).toLowerCase()))
-  const skipped = parsed.items.length - fresh.length
-  const unitCount = new Set(fresh.map((i) => (i.institution ?? '').trim().replace(/\s+/g, ' ').toLowerCase())).size
+  const fresh = items.filter((i) => !known.has((i.identifier || i.name).toLowerCase()))
+  const skipped = items.length - fresh.length
+  const unitCount = new Set(fresh.map((i) => (i.institution ?? '').toLowerCase())).size
+  const empty = { nip: fresh.filter((i) => !i.identifier).length, unit: fresh.filter((i) => !i.institution).length, phone: fresh.filter((i) => !i.phone).length }
+
+  async function pick(f: File | undefined) {
+    if (!f) return
+    setReading(true); setFileError('')
+    try {
+      const r = await readEmployeeFile(f)
+      setFile(r); setText('')
+      setDefaultSatker(r.satker ?? '')
+    } catch (e) { setFileError(e instanceof Error ? e.message : String(e)) } finally { setReading(false) }
+  }
 
   async function save() {
     setBusy(true)
-    const { error } = await supabase.from('employees').insert(fresh.map((i) => ({ ...i, institution: normSatker(i.institution) || null })))
+    const { error } = await supabase.from('employees').insert(fresh)
     setBusy(false)
     if (error) return toast(saveError(error), 'error')
     toast(`${fresh.length} pegawai ditambahkan.`, 'success')
@@ -241,22 +260,53 @@ function BulkImport({ existing, onClose, onSaved }: { existing: Employee[]; onCl
     ])
   }
 
+  const hasInput = !!file || !!text.trim()
   return (
     <Modal wide title="Impor banyak pegawai" onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button>
         <button className="btn primary" disabled={busy || fresh.length === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${fresh.length} pegawai`}</button></>}>
-      <p className="muted small" style={{ whiteSpace: 'pre-line' }}>{EMPLOYEE_FORMAT_HELP}</p>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <span className="spacer" />
-        <button className="btn sm" onClick={downloadTemplate}><Download size={14} /> Unduh templat (CSV)</button>
+      <div className="dropbox" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void pick(e.dataTransfer.files[0]) }}>
+        <FileSpreadsheet size={26} />
+        <div style={{ flex: 1 }}>
+          {file
+            ? <><b>{file.fileName}</b><div className="muted small">
+                {file.format === 'rekap' ? 'Format rekap pegawai terdeteksi (satu pegawai di beberapa baris)' : 'Tabel dengan judul kolom terdeteksi'}
+                {file.sheets > 1 ? ` · ${file.sheets} lembar` : ''} · {file.items.length} pegawai terbaca</div></>
+            : <><b>Impor dari berkas Excel</b><div className="muted small">Pilih atau seret berkas .xlsx (atau .csv). Kolom yang tidak ada dikosongkan; Anda bisa memeriksanya dulu di bawah.</div></>}
+        </div>
+        <input ref={fileInput} type="file" hidden accept=".xlsx,.csv,.txt,.tsv" aria-label="Pilih berkas Excel pegawai" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pick(f) }} />
+        {file && <button className="icon-btn" aria-label="Hapus berkas" onClick={() => { setFile(null); setDefaultSatker('') }}><X size={16} /></button>}
+        <button className="btn sm" disabled={reading} onClick={() => fileInput.current?.click()}>{reading ? 'Membaca…' : file ? 'Ganti berkas' : 'Pilih berkas'}</button>
       </div>
-      <textarea className="input mono" style={{ minHeight: 160, whiteSpace: 'pre' }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Tempel data dari Excel di sini…" autoFocus />
-      {text.trim() && (
+      {fileError && <div className="alert error" style={{ marginTop: 10 }}><span>{fileError}</span></div>}
+
+      {file && (
+        <Field label="Satuan kerja untuk pegawai tanpa satuan kerja" hint={file.satker
+          ? `Diambil dari judul berkas: "${file.satker}". Ubah atau kosongkan bila perlu.`
+          : 'Berkas ini tidak memuat satuan kerja. Isi bila semua pegawai berasal dari satu satuan kerja; kosongkan bila belum diketahui.'}>
+          <input className="input" value={defaultSatker} onChange={(e) => setDefaultSatker(e.target.value)} placeholder="mis. Pengadilan Tinggi Agama Maluku Utara" aria-label="Satuan kerja bawaan" />
+        </Field>
+      )}
+
+      {!file && (
+        <>
+          <details style={{ margin: '14px 0 8px' }}><summary className="muted small" style={{ cursor: 'pointer' }}>Atau tempel data dari Excel</summary>
+            <p className="muted small" style={{ whiteSpace: 'pre-line' }}>{EMPLOYEE_FORMAT_HELP}</p>
+            <div className="row" style={{ marginBottom: 8 }}><span className="spacer" /><button className="btn sm" onClick={downloadTemplate}><Download size={14} /> Unduh templat (CSV)</button></div>
+          </details>
+          <textarea className="input mono" style={{ minHeight: 120, whiteSpace: 'pre' }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Tempel data dari Excel di sini…" aria-label="Tempel data pegawai" />
+        </>
+      )}
+
+      {hasInput && (
         <div style={{ marginTop: 14 }}>
           <div className="row tight">
-            <span className="badge success">{fresh.length} siap diimpor{unitCount ? ` di ${unitCount} satuan kerja` : ''}</span>
+            <span className="badge success">{fresh.length} siap diimpor{unitCount && fresh.length ? ` di ${unitCount} satuan kerja` : ''}</span>
             {skipped > 0 && <span className="badge warn">{skipped} sudah ada, dilewati</span>}
             {parsed.errors.length > 0 && <span className="badge danger">{parsed.errors.length} baris bermasalah</span>}
+            {fresh.length > 0 && empty.unit > 0 && <span className="badge">{empty.unit} tanpa satuan kerja</span>}
+            {fresh.length > 0 && empty.nip > 0 && <span className="badge">{empty.nip} tanpa NIP</span>}
+            {fresh.length > 0 && empty.phone > 0 && <span className="badge">{empty.phone} tanpa WhatsApp</span>}
           </div>
           {parsed.errors.length > 0 && <ul className="small" style={{ color: 'var(--danger)', paddingLeft: 18 }}>{parsed.errors.slice(0, 8).map((e) => <li key={e}>{e}</li>)}</ul>}
           {fresh.length > 0 && (
@@ -264,7 +314,7 @@ function BulkImport({ existing, onClose, onSaved }: { existing: Employee[]; onCl
               <table className="table">
                 <thead><tr><th>Nama</th><th>NIP</th><th>Pangkat/Gol.</th><th>Jabatan</th><th>Satuan kerja</th><th>WhatsApp</th></tr></thead>
                 <tbody>{fresh.slice(0, 5).map((i, n) => (
-                  <tr key={n}><td>{i.name}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
+                  <tr key={n}><td style={{ minWidth: 200 }}>{i.name}</td><td className="mono nowrap">{i.identifier ?? '—'}</td><td style={{ minWidth: 150 }}>{i.grade ?? '—'}</td><td style={{ minWidth: 150 }}>{i.job_title ?? '—'}</td><td style={{ minWidth: 150 }}>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
                 ))}</tbody>
               </table>
               {fresh.length > 5 && <div className="muted small" style={{ padding: '8px 16px' }}>…dan {fresh.length - 5} lainnya. Pastikan kolom di atas sudah benar sebelum menambahkan.</div>}

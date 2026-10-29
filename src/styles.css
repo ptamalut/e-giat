@@ -573,3 +573,7 @@ button.thumb-btn { padding: 0; border: 0; background: none; cursor: zoom-in; bor
   .landing-hero-body { padding-top: 44px; }
   .landing-hero { padding-bottom: 80px; }
 }
+
+/* kotak pilih berkas impor */
+.dropbox { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1.5px dashed var(--border-strong, var(--border)); border-radius: var(--radius); background: var(--surface-2); }
+.dropbox > svg { color: var(--primary); flex: none; }
