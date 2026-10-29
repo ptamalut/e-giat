@@ -1,12 +1,13 @@
-import { ArrowLeft, Calendar, MapPin } from 'lucide-react'
-import { Link, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom'
-import { ErrorBox, Loading, PageHeader, useAsync } from '../../components/ui'
+import { ArrowLeft, Calendar, MapPin, PowerOff } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
+import { Empty, ErrorBox, Loading, PageHeader, useAsync } from '../../components/ui'
+import { enabledMenus, menuOfPath, menuOn } from '../../lib/menus'
 import { fmtDateRange } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity } from '../../lib/types'
 import { useSidebarActivity } from './AdminShell'
 import { STATUS_LABEL, STATUS_TONE } from './Dashboard'
-import { ACTIVITY_NAV } from './nav'
+import { activityNav } from './nav'
 
 export interface ActivityCtx { activity: Activity; reload: () => Promise<void> }
 export const useActivity = () => useOutletContext<ActivityCtx>()
@@ -20,10 +21,14 @@ export default function ActivityLayout() {
     return data as Activity
   }, [id])
 
-  useSidebarActivity(data ? { id: data.id, name: data.name, statusLabel: STATUS_LABEL[data.status] } : null)
+  const { pathname } = useLocation()
+  const menus = data ? enabledMenus(data) : []
+  useSidebarActivity(data ? { id: data.id, name: data.name, statusLabel: STATUS_LABEL[data.status], menus } : null)
 
   if (loading && !data) return <Loading />
   if (error || !data) return <ErrorBox error={error ?? 'Kegiatan tidak ditemukan.'} onRetry={() => void reload()} />
+  // alamat menu yang dinonaktifkan (mis. dari bookmark) tidak dirender
+  const blocked = (() => { const m = menuOfPath(pathname.split(`/kegiatan/${data.id}/`)[1] ?? ''); return m && !menuOn(data, m.key) ? m : null })()
 
   return (
     <>
@@ -40,11 +45,15 @@ export default function ActivityLayout() {
       />
       {/* di desktop menu ada di sidebar; di layar kecil tampil sebagai tab */}
       <nav className="tabs only-mobile" aria-label="Menu kegiatan">
-        {ACTIVITY_NAV.map(({ to, label, icon: Icon, end }) => (
+        {activityNav(menus).map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}><Icon size={16} />{label}</NavLink>
         ))}
       </nav>
-      <Outlet context={{ activity: data, reload: () => reload(true) } satisfies ActivityCtx} />
+      {blocked
+        ? <div className="card"><Empty icon={<PowerOff size={26} />} title={`Menu ${blocked.label} dinonaktifkan`}>
+            Menu ini tidak aktif untuk kegiatan ini. Aktifkan di <Link to=".">Ringkasan → Menu kegiatan</Link> bila diperlukan.
+          </Empty></div>
+        : <Outlet context={{ activity: data, reload: () => reload(true) } satisfies ActivityCtx} />}
     </>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseParticipants, parseQuestions, parseRole, waNumber, QUESTION_FORMAT_HELP } from './parsers'
+import { parseEmployees, parseParticipants, parseQuestions, parseRole, waNumber, QUESTION_FORMAT_HELP } from './parsers'
 
 describe('parseQuestions', () => {
   it('membaca kunci dengan tanda * dan baris Kunci:, serta pembahasan', () => {
@@ -98,5 +98,19 @@ describe('waNumber', () => {
     expect(waNumber('812345678')).toBe('62812345678')
     expect(waNumber('12')).toBeNull()
     expect(waNumber(null)).toBeNull()
+  })
+})
+
+describe('templat unduhan', () => {
+  it('baris judul persis seperti templat ("Nama Lengkap & Gelar") dibaca sebagai judul, bukan data', () => {
+    const r = parseParticipants('Nama Lengkap & Gelar\tNIP\tPangkat/Gol. Ruang\tJabatan\tSatuan Kerja\tNo. WhatsApp\nBudi\t198001\t\tStaf\tDinas A\t0812', 'peserta')
+    expect(r.errors).toEqual([])
+    expect(r.items).toHaveLength(1)
+    expect(r.items[0]).toMatchObject({ name: 'Budi', identifier: '198001', institution: 'Dinas A' })
+  })
+  it('parseEmployees mengabaikan peran', () => {
+    const r = parseEmployees('Nama\tNIP\tPeran\nBudi\t198001\tPanitia')
+    expect(r.items[0]).not.toHaveProperty('role')
+    expect(r.items[0].name).toBe('Budi')
   })
 })

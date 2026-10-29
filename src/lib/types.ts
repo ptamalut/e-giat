@@ -19,7 +19,62 @@ export interface Activity {
   satker_order: string[] | null
   /** peserta/narasumber/panitia bisa mengunduh sertifikat bila true */
   certificates_open: boolean
+  /** menu yang diaktifkan untuk kegiatan ini (nonaktif = tidak tampil dan ditolak di server) */
+  enable_attendance: boolean
+  enable_notes: boolean
+  enable_quiz: boolean
+  enable_certificate: boolean
+  enable_documentation: boolean
   created_at: string
+}
+
+/** Data pegawai: induk data orang; peserta kegiatan dipilih dari sini. */
+export interface Employee {
+  id: string
+  owner_id: string
+  name: string
+  identifier: string | null
+  grade: string | null
+  job_title: string | null
+  institution: string | null
+  phone: string | null
+  created_at: string
+}
+
+export interface MeetingNote {
+  id: string
+  activity_id: string
+  title: string
+  held_at: string | null
+  location: string | null
+  leader: string | null
+  notetaker: string | null
+  attendees: string | null
+  agenda: string | null
+  discussion: string | null
+  decisions: string | null
+  follow_ups: FollowUp[]
+  status: 'draft' | 'final'
+  created_at: string
+  updated_at: string
+}
+
+export interface FollowUp { id: string; task: string; pic: string; due: string; done: boolean }
+
+export interface DocItem {
+  id: string
+  activity_id: string
+  kind: 'foto' | 'tautan'
+  storage_path: string | null
+  file_name: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  url: string | null
+  title: string | null
+  caption: string | null
+  album: string | null
+  taken_on: string | null
+  uploaded_at: string
 }
 
 export interface Certificate {
@@ -44,6 +99,12 @@ export interface Participant {
   email: string | null
   phone: string | null
   role: PersonRole
+  /** pegawai asal data ini (null bila pegawainya sudah dihapus) */
+  employee_id: string | null
+  /** hak akses menu per orang (berlaku bila menunya aktif di kegiatan) */
+  access_attendance: boolean
+  access_quiz: boolean
+  access_certificate: boolean
   /** urutan di dalam satuan kerja; null = setelah yang berurutan */
   sort_order: number | null
   token: string
@@ -206,6 +267,8 @@ export interface PortalData {
     status: ActivityStatus
     show_leaderboard: boolean
   }
+  /** menu yang boleh dipakai orang ini = menu aktif di kegiatan dan hak akses orang ini */
+  features: { attendance: boolean; quiz: boolean; certificate: boolean }
   /** null bila unduhan ditutup dan orang ini belum punya sertifikat */
   certificate: { open: boolean; available: boolean; file_name: string | null; mime_type: string | null } | null
   sessions: PortalSession[]

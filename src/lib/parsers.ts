@@ -108,7 +108,7 @@ Nama bergelar sering memuat koma (mis. "Budi, S.Pd., M.Si."), jadi gunakan Tab, 
 sebagai pemisah, atau apit nama dengan tanda kutip.`
 
 const HEADER_ALIASES: Record<Field, string[]> = {
-  name: ['nama', 'namalengkap', 'namalengkapbesertagelar', 'namalengkapdangelar', 'namapeserta', 'name'],
+  name: ['nama', 'namalengkap', 'namalengkapbesertagelar', 'namalengkapdangelar', 'namalengkapgelar', 'namabesertagelar', 'namadangelar', 'namapeserta', 'name'],
   identifier: ['nip', 'nipnik', 'nik', 'nomorindukpegawai', 'nomorpeserta', 'id'],
   grade: ['pangkatgolruang', 'pangkatgolonganruang', 'pangkatgol', 'pangkat', 'golongan', 'golruang', 'golonganruang'],
   job_title: ['jabatan'],
@@ -203,4 +203,20 @@ export function waNumber(phone: string | null | undefined): string | null {
   else if (d.startsWith('0')) d = '62' + d.slice(1)
   else if (d.startsWith('8')) d = '62' + d
   return d.length >= 9 ? d : null
+}
+
+/* ---------- Impor data pegawai (tanpa peran) ---------- */
+
+export type ParsedEmployee = Omit<ParsedParticipant, 'role'>
+
+export const EMPLOYEE_FORMAT_HELP = `Satu pegawai per baris. Cara termudah: salin kolom dari Excel lalu tempel di sini (pemisah Tab).
+Urutan kolom: Nama Lengkap & Gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp
+Baris judul (header) boleh disertakan; urutan kolom akan dibaca dari judulnya.
+
+Nama bergelar sering memuat koma (mis. "Budi, S.Pd., M.Si."), jadi gunakan Tab, titik koma (;), atau garis tegak (|)
+sebagai pemisah, atau apit nama dengan tanda kutip. Satuan kerja yang sama (beda huruf besar/kecil atau spasi) otomatis dikelompokkan.`
+
+export function parseEmployees(input: string): ParseResult<ParsedEmployee> {
+  const r = parseParticipants(input, 'peserta')
+  return { items: r.items.map(({ role: _role, ...rest }) => rest), errors: r.errors }
 }

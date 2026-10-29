@@ -1,17 +1,18 @@
-import { CheckCheck, LayoutGrid, LogOut } from 'lucide-react'
+import { CheckCheck, Contact, LayoutGrid, LogOut } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { ThemeToggle } from '../../components/theme'
-import { ACTIVITY_NAV } from './nav'
+import type { MenuKey } from '../../lib/menus'
+import { activityNav } from './nav'
 
-interface SideActivity { id: string; name: string; statusLabel: string }
+interface SideActivity { id: string; name: string; statusLabel: string; menus: MenuKey[] }
 const SideCtx = createContext<(a: SideActivity | null) => void>(() => {})
 
 /** Dipakai halaman kegiatan agar sidebar menampilkan menu kegiatan yang sedang dibuka. */
 export function useSidebarActivity(a: SideActivity | null) {
   const set = useContext(SideCtx)
-  const key = a ? `${a.id}|${a.name}|${a.statusLabel}` : ''
+  const key = a ? `${a.id}|${a.name}|${a.statusLabel}|${a.menus.join(',')}` : ''
   useEffect(() => {
     set(a)
     return () => set(null)
@@ -37,11 +38,14 @@ export default function AdminShell() {
             <NavLink to="/admin" end className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
               <LayoutGrid size={18} /> Semua kegiatan
             </NavLink>
+            <NavLink to="/admin/pegawai" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
+              <Contact size={18} /> Data pegawai
+            </NavLink>
             {act && (
               <>
                 <div className="side-label">Kegiatan dibuka</div>
                 <div className="side-activity"><b>{act.name}</b><span>{act.statusLabel}</span></div>
-                {ACTIVITY_NAV.map(({ to, label, icon: Icon, end }) => (
+                {activityNav(act.menus).map(({ to, label, icon: Icon, end }) => (
                   <NavLink key={to} to={`/admin/kegiatan/${act.id}${to ? '/' + to : ''}`} end={end}
                     className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
                     <Icon size={18} /> {label}

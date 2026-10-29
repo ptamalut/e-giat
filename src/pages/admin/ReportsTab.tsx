@@ -45,7 +45,10 @@ const scoreTone = (s: number | null, pass: number | null): 'good' | 'mid' | 'bad
 export default function ReportsTab() {
   const { activity } = useActivity()
   const [sp, setSp] = useSearchParams()
-  const section = (SECTIONS.find((s) => s.id === sp.get('bagian'))?.id ?? 'peringkat') as Section
+  // bagian laporan mengikuti menu yang aktif pada kegiatan
+  const quizSections: Section[] = ['kuis', 'prepost', 'soal']
+  const sections = SECTIONS.filter((s) => (s.id === 'kehadiran' ? activity.enable_attendance : quizSections.includes(s.id) ? activity.enable_quiz : true))
+  const section = (sections.find((s) => s.id === sp.get('bagian'))?.id ?? 'peringkat') as Section
 
   const { data, error, loading, reload } = useAsync<Data>(async () => {
     const [participants, sessions, attendances, quizzes, questions, attempts, rank] = await Promise.all([
@@ -61,9 +64,11 @@ export default function ReportsTab() {
     return { participants: sortPeople(participants), sessions, attendances, quizzes, questions, attempts, ranking: (rank.data ?? []) as RankingRow[] }
   }, [activity.id])
 
-  // narasumber & panitia tidak mengerjakan kuis, jadi laporan kuis hanya memuat peserta
+  // laporan kuis hanya memuat orang yang punya hak akses kuis; laporan kehadiran hanya yang punya hak akses absensi
   const pesertaData = useMemo(
-    () => (data ? { ...data, participants: data.participants.filter((p) => p.role === 'peserta') } : null), [data])
+    () => (data ? { ...data, participants: data.participants.filter((p) => p.access_quiz) } : null), [data])
+  const hadirData = useMemo(
+    () => (data ? { ...data, participants: data.participants.filter((p) => p.access_attendance) } : null), [data])
 
   if (loading && !data) return <Loading />
   if (error || !data || !pesertaData) return <ErrorBox error={error ?? ''} onRetry={() => void reload()} />
@@ -72,7 +77,7 @@ export default function ReportsTab() {
     <div className="stack">
       <div className="row between no-print">
         <div className="pills">
-          {SECTIONS.map(({ id, label, icon: Icon }) => (
+          {sections.map(({ id, label, icon: Icon }) => (
             <button key={id} className={`pill ${section === id ? 'active' : ''}`}
               onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.set('bagian', id); return n }, { replace: true })}><Icon size={15} />{label}</button>
           ))}
@@ -92,7 +97,7 @@ export default function ReportsTab() {
         ? <div className="card"><Empty icon={<BarChart3 size={26} />} title="Belum ada data">Tambahkan peserta terlebih dahulu.</Empty></div>
         : section === 'peringkat' ? <RankingSection data={data} name={activity.name} weight={activity.weight_attendance} />
         : section === 'satker' ? <SatkerSection data={data} name={activity.name} />
-        : section === 'kehadiran' ? <AttendanceSection data={data} name={activity.name} satkerOrder={activity.satker_order} />
+        : section === 'kehadiran' ? <AttendanceSection data={hadirData ?? data} name={activity.name} satkerOrder={activity.satker_order} />
         : section === 'kuis' ? <QuizSection data={pesertaData} name={activity.name} onChanged={() => void reload(true)} />
         : section === 'prepost' ? <PrePostSection data={pesertaData} name={activity.name} />
         : <ItemSection data={pesertaData} name={activity.name} />}

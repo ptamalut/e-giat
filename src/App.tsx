@@ -18,6 +18,9 @@ const QuizzesTab = lazy(() => import('./pages/admin/QuizzesTab'))
 const QuizEditor = lazy(() => import('./pages/admin/QuizEditor'))
 const CertificatesTab = lazy(() => import('./pages/admin/CertificatesTab'))
 const ReportsTab = lazy(() => import('./pages/admin/ReportsTab'))
+const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'))
+const NotesTab = lazy(() => import('./pages/admin/NotesTab'))
+const DocsTab = lazy(() => import('./pages/admin/DocsTab'))
 const Portal = lazy(() => import('./pages/portal/Portal'))
 const QuizRun = lazy(() => import('./pages/portal/QuizRun'))
 const QuizResult = lazy(() => import('./pages/portal/QuizResult'))
@@ -55,10 +58,13 @@ export default function App() {
         <Route element={<RequireAuth />}>
           <Route path="/admin" element={<AdminShell />}>
             <Route index element={<Dashboard />} />
+            <Route path="pegawai" element={<EmployeesPage />} />
             <Route path="kegiatan/:id" element={<ActivityLayout />}>
               <Route index element={<Overview />} />
               <Route path="peserta" element={<ParticipantsTab />} />
               <Route path="absensi" element={<AttendanceTab />} />
+              <Route path="notula" element={<NotesTab />} />
+              <Route path="dokumentasi" element={<DocsTab />} />
               <Route path="kuis" element={<QuizzesTab />} />
               <Route path="kuis/:quizId" element={<QuizEditor />} />
               <Route path="sertifikat" element={<CertificatesTab />} />

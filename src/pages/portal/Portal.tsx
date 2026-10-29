@@ -5,7 +5,7 @@ import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
 import { RoleBadge } from '../../components/RoleBadge'
-import { isStaff, nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
+import { nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
 import CheckInDialog, { type CheckInResult } from './CheckInDialog'
 import { certPublicUrl } from '../../lib/certificateApi'
 import { certDownloadName } from '../../lib/certificates'
@@ -93,7 +93,8 @@ export default function Portal() {
   if (!data) return <Loading />
   const { activity: a, participant: p } = data
   const closed = a.status === 'draft'
-  const staff = isStaff(p.role)
+  const f = data.features
+  const none = !f.attendance && !f.quiz && !f.certificate
 
   return (
     <>
@@ -119,10 +120,11 @@ export default function Portal() {
       <div className="container narrow portal-body stack" style={{ paddingBottom: 48 }}>
         {error && <div className="alert warn">Koneksi bermasalah, data mungkin tidak terbaru. {error}</div>}
         {closed && <div className="alert warn">Kegiatan ini belum dibuka oleh panitia. Absensi dan kuis belum tersedia.</div>}
-        {staff && <div className="alert info"><span>Anda terdaftar sebagai <b>{ROLE_LABEL[p.role].toLowerCase()}</b>. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.</span></div>}
+        {p.role !== 'peserta' && <div className="alert info"><span>Anda terdaftar sebagai <b>{ROLE_LABEL[p.role].toLowerCase()}</b>{f.attendance && !f.quiz ? '. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.' : '.'}</span></div>}
+        {none && <div className="alert info"><span>Belum ada menu yang tersedia untuk Anda pada kegiatan ini. Hubungi panitia bila ini tidak sesuai.</span></div>}
         {a.description && <div className="card"><p style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-2)' }}>{a.description}</p></div>}
 
-        <section className="card">
+        {f.attendance && <section className="card">
           <div className="card-head"><CardTitle icon={<CalendarCheck size={18} />} tone="success">Absensi</CardTitle></div>
           {data.sessions.length === 0 && <Empty icon={<CalendarCheck size={26} />} title="Belum ada sesi absensi" />}
           {data.sessions.map((s) => {
@@ -151,17 +153,17 @@ export default function Portal() {
               </div>
             )
           })}
-        </section>
-
-        {!staff && <section className="card">
-          <div className="card-head"><CardTitle icon={<ClipboardList size={18} />}>Kuis</CardTitle></div>
-          {data.quizzes.length === 0 && <Empty icon={<ClipboardList size={26} />} title="Belum ada kuis tersedia" />}
-          {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
         </section>}
 
-        {data.certificate && <CertificateCard token={token} personName={p.name} cert={data.certificate} />}
+        {f.quiz && <section className="card">
+          <div className="card-head"><CardTitle icon={<ClipboardList size={18} />}>Kuis</CardTitle></div>
+          {data.quizzes.length === 0 && <Empty icon={<ClipboardList size={26} />} title="Belum ada kuis tersedia" />}
+          {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={!f.attendance || data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
+        </section>}
 
-        {a.show_leaderboard && !staff && (
+        {f.certificate && data.certificate && <CertificateCard token={token} personName={p.name} cert={data.certificate} />}
+
+        {a.show_leaderboard && (f.quiz || f.attendance) && p.role === 'peserta' && (
           <section className="card">
             <div className="card-head">
               <CardTitle icon={<Trophy size={18} />} tone="warn">Peringkat</CardTitle><span className="spacer" />

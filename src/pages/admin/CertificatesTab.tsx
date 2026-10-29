@@ -46,7 +46,7 @@ export default function CertificatesTab() {
       fetchAll<Participant>((a, b) => supabase.from('participants').select('*').eq('activity_id', activity.id).order('name').order('id').range(a, b)),
       fetchAll<Certificate>((a, b) => supabase.from('certificates').select('*').eq('activity_id', activity.id).order('id').range(a, b)),
     ])
-    return { people: sortPeople(people), certs }
+    return { people: sortPeople(people.filter((p) => p.access_certificate)), certs } // hanya yang punya hak akses sertifikat
   }, [activity.id])
 
   // urutan mengikuti pengaturan satker & orang (tab Peserta -> Atur urutan)

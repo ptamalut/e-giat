@@ -4,7 +4,7 @@ import { satkerSummary } from './reports'
 import type { Attendance, AttendanceSession, Participant, RankingRow } from './types'
 
 const P = (id: string, institution: string | null, role: Participant['role'] = 'peserta'): Participant => ({
-  id, activity_id: 'a', name: id, identifier: null, grade: null, job_title: null, institution, email: null, phone: null, role, sort_order: null, token: id, created_at: '',
+  id, activity_id: 'a', name: id, identifier: null, grade: null, job_title: null, institution, email: null, phone: null, role, employee_id: null, access_attendance: true, access_quiz: role === 'peserta', access_certificate: true, sort_order: null, token: id, created_at: '',
 })
 
 describe('groupBySatker', () => {
