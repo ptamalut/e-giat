@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { attendanceMatrix, bestAttempt, gainTable, itemAnalysis, quizResults, sessionCounts } from './reports'
 import type { Attendance, AttendanceSession, Participant, Question, Quiz, QuizAttempt } from './types'
 
-const P = (id: string): Participant => ({ id, activity_id: 'a', name: id, identifier: null, institution: null, email: null, phone: null, token: id, created_at: '' })
+const P = (id: string): Participant => ({ id, activity_id: 'a', name: id, identifier: null, grade: null, job_title: null, institution: null, email: null, phone: null, token: id, created_at: '' })
 const quiz = (id: string, passing: number | null = 70): Quiz => ({ id, activity_id: 'a', title: id, type: 'pre', description: null, duration_minutes: null, open_at: null, close_at: null, passing_score: passing, max_attempts: 3, shuffle_questions: false, shuffle_options: false, show_result: true, show_answers: false, require_checkin: false, counts_toward_final: true, is_published: true, created_at: '' })
 let n = 0
 const T = (quiz_id: string, participant_id: string, score: number, secs: number, answers: Record<string, number> = {}): QuizAttempt => ({

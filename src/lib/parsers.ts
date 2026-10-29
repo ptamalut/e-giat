@@ -85,44 +85,97 @@ export function parseQuestions(input: string): ParseResult<ParsedQuestion> {
 export interface ParsedParticipant {
   name: string
   identifier: string | null
+  grade: string | null
+  job_title: string | null
   institution: string | null
-  email: string | null
   phone: string | null
 }
 
-export const PARTICIPANT_FORMAT_HELP = `Satu peserta per baris. Kolom dipisah Tab (tempel dari Excel), koma, titik koma, atau |
-Urutan kolom: Nama, NIP/ID, Instansi/Unit, Email, No. HP
+type Field = keyof ParsedParticipant
+/** Urutan kolom bawaan bila tidak ada baris judul. */
+export const PARTICIPANT_COLUMNS: Field[] = ['name', 'identifier', 'grade', 'job_title', 'institution', 'phone']
 
-Budi Santoso, 198001012005011001, Dinas Pendidikan, budi@contoh.id, 08123456789
-Siti Aminah, 198503152010012002, Dinas Kesehatan`
+export const PARTICIPANT_FORMAT_HELP = `Satu peserta per baris. Cara termudah: salin kolom dari Excel lalu tempel di sini (pemisah Tab).
+Urutan kolom: Nama Lengkap & Gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp
+Baris judul (header) boleh disertakan; urutan kolom akan dibaca dari judulnya.
+
+Nama bergelar sering memuat koma (mis. "Budi, S.Pd., M.Si."), jadi gunakan Tab, titik koma (;), atau garis tegak (|)
+sebagai pemisah, atau apit nama dengan tanda kutip.`
+
+const HEADER_ALIASES: Record<Field, string[]> = {
+  name: ['nama', 'namalengkap', 'namalengkapbesertagelar', 'namalengkapdangelar', 'namapeserta', 'name'],
+  identifier: ['nip', 'nipnik', 'nik', 'nomorindukpegawai', 'nomorpeserta', 'id'],
+  grade: ['pangkatgolruang', 'pangkatgolonganruang', 'pangkatgol', 'pangkat', 'golongan', 'golruang', 'golonganruang'],
+  job_title: ['jabatan'],
+  institution: ['satuankerja', 'unitkerja', 'instansi', 'unit', 'skpd', 'opd'],
+  phone: ['nowhatsapp', 'nomorwhatsapp', 'whatsapp', 'nowa', 'nohp', 'nomorhp', 'hp', 'telepon', 'notelepon'],
+}
+const normHeader = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/** Memecah satu baris berdasarkan pemisah, dengan dukungan nilai berkutip ("a, b"). */
+function splitLine(line: string, delim: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let quoted = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') {
+      if (quoted && line[i + 1] === '"') { cur += '"'; i++ } else quoted = !quoted
+    } else if (ch === delim && !quoted) { out.push(cur.trim()); cur = '' } else cur += ch
+  }
+  out.push(cur.trim())
+  return out
+}
+
+/** NIP sering ditulis "19800101 200501 1 001"; simpan sebagai angka tanpa spasi. */
+export function normalizeNip(v: string): string {
+  const t = v.trim()
+  return /^[\d\s]+$/.test(t) ? t.replace(/\s+/g, '') : t
+}
 
 export function parseParticipants(input: string): ParseResult<ParsedParticipant> {
   const items: ParsedParticipant[] = []
   const errors: string[] = []
-  const lines = input.replace(/\r/g, '').split('\n').map((l) => l.trim()).filter(Boolean)
+  // hanya buang spasi di ujung kanan: tab di depan menandakan kolom pertama (nama) kosong
+  const lines = input.replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+$/, '')).filter((l) => l.trim())
   if (lines.length === 0) return { items, errors }
 
   const delim = lines.some((l) => l.includes('\t')) ? '\t' : lines.some((l) => l.includes('|')) ? '|' : lines.some((l) => l.includes(';')) ? ';' : ','
-  const split = (l: string) => l.split(delim).map((c) => c.trim().replace(/^"|"$/g, ''))
 
-  const first = split(lines[0]).map((c) => c.toLowerCase())
-  const hasHeader = first[0] === 'nama' || first[0] === 'name' || first[0] === 'nama peserta'
+  // baris judul: petakan kolom berdasarkan namanya
+  let order = PARTICIPANT_COLUMNS as (Field | null)[]
+  let hasHeader = false
+  const first = splitLine(lines[0], delim).map(normHeader)
+  const mapped = first.map((h) => (Object.keys(HEADER_ALIASES) as Field[]).find((f) => HEADER_ALIASES[f].includes(h)) ?? null)
+  if (mapped.includes('name') && mapped.filter(Boolean).length >= 2) { order = mapped; hasHeader = true }
+  else if (first[0] && HEADER_ALIASES.name.includes(first[0])) hasHeader = true // hanya kolom nama berjudul
+
   const seen = new Set<string>()
-
   const body = lines.slice(hasHeader ? 1 : 0)
   for (let i = 0; i < body.length; i++) {
-    const c = split(body[i])
-    const name = c[0]
     const row = i + 1 + (hasHeader ? 1 : 0)
-    const email = c[3] || null
-    const key = (c[1] || name).toLowerCase()
-    if (!name) errors.push(`Baris ${row}: nama kosong.`)
-    else if (email && !/^\S+@\S+\.\S+$/.test(email)) errors.push(`Baris ${row} (${name}): format email tidak valid.`)
-    else if (seen.has(key)) errors.push(`Baris ${row} (${name}): duplikat dalam daftar yang ditempel.`)
-    else {
-      seen.add(key)
-      items.push({ name, identifier: c[1] || null, institution: c[2] || null, email, phone: c[4] || null })
+    const cells = splitLine(body[i], delim)
+    const rec: Partial<Record<Field, string>> = {}
+    cells.forEach((c, ci) => { const f = order[ci]; if (f && c) rec[f] = c })
+
+    const name = rec.name?.replace(/\s+/g, ' ').trim()
+    const nip = rec.identifier ? normalizeNip(rec.identifier) : null
+    if (!hasHeader && cells.length > PARTICIPANT_COLUMNS.length) {
+      errors.push(`Baris ${row} (${cells[0]}): kolom lebih dari ${PARTICIPANT_COLUMNS.length}. Jika nama bergelar memuat koma, gunakan Tab/titik koma atau apit nama dengan tanda kutip.`)
+      continue
     }
+    if (!name) { errors.push(`Baris ${row}: nama kosong.`); continue }
+    if (nip && /^\d(?:[.,]\d+)?e\+?\d+$/i.test(nip)) {
+      errors.push(`Baris ${row} (${name}): NIP "${nip}" terbaca sebagai angka ilmiah. Ubah kolom NIP di Excel menjadi format Teks lalu salin ulang.`)
+      continue
+    }
+    const key = (nip || name).toLowerCase()
+    if (seen.has(key)) { errors.push(`Baris ${row} (${name}): duplikat dalam daftar yang ditempel.`); continue }
+    seen.add(key)
+    items.push({
+      name, identifier: nip, grade: rec.grade ?? null, job_title: rec.job_title ?? null,
+      institution: rec.institution ?? null, phone: rec.phone ?? null,
+    })
   }
   return { items, errors }
 }

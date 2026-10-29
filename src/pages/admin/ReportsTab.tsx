@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
+import { roleLine } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
   attendanceMatrix, gainTable, itemAnalysis, nGainCategory, quizResults,
@@ -93,6 +94,7 @@ export default function ReportsTab() {
 /* ---------- Peringkat keseluruhan ---------- */
 function RankingSection({ data, name, weight }: { data: Data; name: string; weight: number }) {
   const r = data.ranking
+  const byId = useMemo(() => new Map(data.participants.map((p) => [p.id, p])), [data.participants])
   const active = r.filter((x) => x.final_score > 0)
   const avg = r.length ? r.reduce((s, x) => s + Number(x.final_score), 0) / r.length : null
   const countedQuizzes = data.quizzes.filter((q) => q.is_published && q.counts_toward_final)
@@ -116,17 +118,17 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
         <div className="card-head">
           <h2>Peringkat keseluruhan</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`peringkat-${safeName(name)}`, [
-            ['Peringkat', 'Nama', 'Instansi', 'Hadir', 'Total sesi', 'Kehadiran %', 'Rata-rata kuis', 'Nilai akhir'],
-            ...r.map((x) => [x.rank, x.name, x.institution, x.sessions_attended, x.sessions_total, x.attendance_pct, x.quiz_avg, x.final_score]),
+            ['Peringkat', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Hadir', 'Total sesi', 'Kehadiran %', 'Rata-rata kuis', 'Nilai akhir'],
+            ...r.map((x) => { const p = byId.get(x.participant_id); return [x.rank, x.name, p?.identifier, p?.grade, p?.job_title, x.institution, x.sessions_attended, x.sessions_total, x.attendance_pct, x.quiz_avg, x.final_score] }),
           ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>#</th><th>Nama</th><th>Instansi</th><th className="num">Kehadiran</th><th className="num">Rata-rata kuis</th><th style={{ minWidth: 160 }}>Nilai akhir</th></tr></thead>
+          <thead><tr><th>#</th><th>Nama</th><th>Jabatan / satuan kerja</th><th className="num">Kehadiran</th><th className="num">Rata-rata kuis</th><th style={{ minWidth: 160 }}>Nilai akhir</th></tr></thead>
           <tbody>{r.map((x) => (
             <tr key={x.participant_id}>
               <td><RankMedal rank={x.rank} /></td>
               <td><b>{x.name}</b></td>
-              <td>{x.institution ?? '—'}</td>
+              <td>{roleLine({ job_title: byId.get(x.participant_id)?.job_title, institution: x.institution }) || '—'}</td>
               <td className="num">{x.attendance_pct == null ? '—' : `${x.sessions_attended}/${x.sessions_total} (${fmtPct(x.attendance_pct)})`}</td>
               <td className="num">{fmtScore(x.quiz_avg)}</td>
               <td><HBar value={Number(x.final_score)} tone={scoreTone(Number(x.final_score), null)} label={fmtScore(x.final_score)} /></td>
@@ -164,8 +166,8 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
         <div className="card-head">
           <h2>Rekap kehadiran</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`kehadiran-${safeName(name)}`, [
-            ['Nama', 'ID', 'Instansi', ...data.sessions.map((s) => s.title), 'Hadir', 'Persen'],
-            ...rows.map((r) => [r.participant.name, r.participant.identifier, r.participant.institution,
+            ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', ...data.sessions.map((s) => s.title), 'Hadir', 'Persen'],
+            ...rows.map((r) => [r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution,
               ...data.sessions.map((s) => { const a = r.cells[s.id]; return a ? ATT_LABEL[a.status] : 'Belum absen' }),
               r.attended, r.pct == null ? '' : Math.round(r.pct)]),
           ])}><Download size={14} /> CSV</button>
@@ -174,7 +176,7 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
           <thead><tr><th>Nama</th>{data.sessions.map((s) => <th key={s.id} title={fmtDateTime(s.start_at)}>{short(s)}</th>)}<th className="num">Hadir</th><th className="num">%</th></tr></thead>
           <tbody>{rows.map((r) => (
             <tr key={r.participant.id}>
-              <td><b>{r.participant.name}</b><div className="muted small">{r.participant.institution}</div></td>
+              <td><b>{r.participant.name}</b><div className="muted small">{roleLine(r.participant)}</div></td>
               {data.sessions.map((s) => {
                 const a = r.cells[s.id]
                 return <td key={s.id}>{a ? <span className={`badge ${ATT_TONE[a.status]}`}>{ATT_LABEL[a.status]}</span> : <span className="muted">—</span>}</td>
@@ -240,8 +242,8 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
         <div className="card-head">
           <h2>{quiz.title} <span className={`badge ${TYPE_TONE[quiz.type]}`}>{TYPE_LABEL[quiz.type]}</span></h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`hasil-${safeName(quiz.title)}-${safeName(name)}`, [
-            ['Peringkat', 'Nama', 'ID', 'Instansi', 'Percobaan', 'Skor terbaik', 'Benar', 'Durasi', 'Status'],
-            ...order.map((r) => [r.rank, r.participant.name, r.participant.identifier, r.participant.institution, r.attempts, r.score,
+            ['Peringkat', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Percobaan', 'Skor terbaik', 'Benar', 'Durasi', 'Status'],
+            ...order.map((r) => [r.rank, r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution, r.attempts, r.score,
               r.best ? `${r.best.correct_count}/${r.best.total_questions}` : '', r.duration != null ? fmtDuration(r.duration) : '',
               r.passed == null ? (r.score == null ? 'Belum mengerjakan' : '') : r.passed ? 'Lulus' : 'Tidak lulus']),
           ])}><Download size={14} /> CSV</button>
@@ -251,7 +253,7 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
           <tbody>{order.map((r) => (
             <tr key={r.participant.id}>
               <td><RankMedal rank={r.rank} /></td>
-              <td><b>{r.participant.name}</b><div className="muted small">{r.participant.institution}</div></td>
+              <td><b>{r.participant.name}</b><div className="muted small">{roleLine(r.participant)}</div></td>
               <td className="num">{r.attempts}{inProgress(r.participant.id) && <span className="badge warn" style={{ marginLeft: 6 }}>berjalan</span>}</td>
               <td>{r.score == null ? <span className="muted">Belum mengerjakan</span> : <HBar value={r.score} tone={scoreTone(r.score, quiz.passing_score)} label={fmtScore(r.score)} />}</td>
               <td className="num">{r.best ? `${r.best.correct_count}/${r.best.total_questions}` : '—'}</td>
@@ -305,8 +307,8 @@ function PrePostSection({ data, name }: { data: Data; name: string }) {
         <div className="card-head">
           <h2>Peningkatan per peserta</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`pre-vs-post-${safeName(name)}`, [
-            ['Nama', 'Instansi', 'Pre Test', 'Post Test', 'Selisih', 'N-Gain', 'Kategori'],
-            ...rows.map((r) => [r.participant.name, r.participant.institution, r.pre, r.post, r.gain, r.nGain == null ? '' : Number(r.nGain.toFixed(2)), nGainCategory(r.nGain)]),
+            ['Nama Lengkap & Gelar', 'NIP', 'Jabatan', 'Satuan Kerja', 'Pre Test', 'Post Test', 'Selisih', 'N-Gain', 'Kategori'],
+            ...rows.map((r) => [r.participant.name, r.participant.identifier, r.participant.job_title, r.participant.institution, r.pre, r.post, r.gain, r.nGain == null ? '' : Number(r.nGain.toFixed(2)), nGainCategory(r.nGain)]),
           ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">

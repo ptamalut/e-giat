@@ -48,7 +48,7 @@ export default function AttendanceTab() {
     return m
   }, [data, current?.id])
   const counts = current ? sessionCounts(data!.participants, data!.attendances, current.id) : null
-  const rows = (data?.participants ?? []).filter((p) => !q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase()) || p.institution?.toLowerCase().includes(q.trim().toLowerCase()))
+  const rows = (data?.participants ?? []).filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))
 
   async function setStatus(p: Participant, status: AttendanceStatus | '') {
     if (!current) return
@@ -92,10 +92,10 @@ export default function AttendanceTab() {
   function exportCsv() {
     if (!current || !data) return
     downloadCsv(`absensi-${safeName(current.title)}`, [
-      ['Nama', 'ID', 'Instansi', 'Status', 'Waktu absen', 'Manual'],
+      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Status', 'Waktu absen', 'Manual'],
       ...data.participants.map((p) => {
         const a = attByP.get(p.id)
-        return [p.name, p.identifier, p.institution, a ? ATT_LABEL[a.status] : 'Belum absen', a ? fmtDateTime(a.checked_in_at) : '', a ? (a.manual ? 'ya' : 'tidak') : '']
+        return [p.name, p.identifier, p.grade, p.job_title, p.institution, a ? ATT_LABEL[a.status] : 'Belum absen', a ? fmtDateTime(a.checked_in_at) : '', a ? (a.manual ? 'ya' : 'tidak') : '']
       }),
     ])
   }
@@ -157,13 +157,14 @@ export default function AttendanceTab() {
             {data.participants.length === 0
               ? <Empty icon={<Users size={26} />} title="Belum ada peserta">Tambahkan peserta di tab Peserta.</Empty>
               : <div className="table-wrap"><table className="table">
-                  <thead><tr><th>Nama</th><th>Instansi</th><th>Waktu absen</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Nama</th><th>Jabatan</th><th>Satuan kerja</th><th>Waktu absen</th><th>Status</th></tr></thead>
                   <tbody>{rows.map((p) => {
                     const a = attByP.get(p.id)
                     return (
                       <tr key={p.id}>
-                        <td><b>{p.name}</b></td>
-                        <td>{p.institution ?? '—'}</td>
+                        <td><b>{p.name}</b>{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
+                        <td>{p.job_title ?? <span className="muted">—</span>}</td>
+                        <td>{p.institution ?? <span className="muted">—</span>}</td>
                         <td>{a ? <>{fmtTime(a.checked_in_at)} {a.manual && <span className="badge">manual</span>}</> : <span className="muted">—</span>}</td>
                         <td>
                           <select className="input" style={{ width: 150, minHeight: 32, padding: '4px 8px' }} value={a?.status ?? ''} onChange={(e) => void setStatus(p, e.target.value as AttendanceStatus | '')} aria-label={`Status ${p.name}`}>

@@ -37,17 +37,23 @@ create index if not exists activities_owner_idx on public.activities (owner_id, 
 create table if not exists public.participants (
   id           uuid primary key default gen_random_uuid(),
   activity_id  uuid not null references public.activities (id) on delete cascade,
-  name         text not null check (length(trim(name)) > 0),
-  identifier   text,                -- NIP / NIK / NIM / nomor peserta
-  institution  text,                -- instansi / unit / kelas
-  email        text,
-  phone        text,
+  name         text not null check (length(trim(name)) > 0),   -- nama lengkap beserta gelar
+  identifier   text,                -- NIP (atau NIK / NIM / nomor peserta)
+  grade        text,                -- pangkat / golongan ruang, mis. "Penata Muda (III/a)"
+  job_title    text,                -- jabatan
+  institution  text,                -- satuan kerja
+  email        text,                -- tidak lagi diisi dari aplikasi (dipertahankan untuk data lama)
+  phone        text,                -- nomor WhatsApp
   -- token rahasia untuk link unik peserta (122 bit acak)
   token        text not null unique default replace(gen_random_uuid()::text, '-', ''),
   created_at   timestamptz not null default now(),
   unique (id, activity_id)
 );
 create index if not exists participants_activity_idx on public.participants (activity_id, name);
+
+-- Migrasi untuk database yang sudah dibuat sebelum kolom ini ada (aman dijalankan ulang)
+alter table public.participants add column if not exists grade     text;
+alter table public.participants add column if not exists job_title text;
 
 -- Sesi absensi (mis. Hari 1, Hari 2, Sesi Pagi, ...)
 create table if not exists public.attendance_sessions (
@@ -442,7 +448,9 @@ begin
 
   return jsonb_build_object(
     'now', v_now,
-    'participant', jsonb_build_object('id', p.id, 'name', p.name, 'institution', p.institution, 'identifier', p.identifier),
+    'participant', jsonb_build_object(
+      'id', p.id, 'name', p.name, 'identifier', p.identifier, 'grade', p.grade,
+      'job_title', p.job_title, 'institution', p.institution),
     'activity', jsonb_build_object(
       'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
       'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,

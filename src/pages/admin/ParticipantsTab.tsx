@@ -3,13 +3,14 @@ import QRCode from 'qrcode'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
+import { GRADE_SUGGESTIONS, roleLine } from '../../lib/people'
 import { participantLink } from '../../lib/format'
-import { PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
+import { normalizeNip, PARTICIPANT_FORMAT_HELP, parseParticipants, waNumber } from '../../lib/parsers'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Participant } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 
-const EMPTY = { name: '', identifier: '', institution: '', email: '', phone: '' }
+const EMPTY = { name: '', identifier: '', grade: '', job_title: '', institution: '', phone: '' }
 
 async function copy(text: string): Promise<boolean> {
   try { await navigator.clipboard.writeText(text); return true } catch {
@@ -35,11 +36,11 @@ export default function ParticipantsTab() {
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (data ?? []).filter((p) => !s || [p.name, p.identifier, p.institution].some((v) => v?.toLowerCase().includes(s)))
+    return (data ?? []).filter((p) => !s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s)))
   }, [data, q])
 
   const waText = (p: Participant) =>
-    `Halo ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+    `Yth. ${p.name}, berikut link pribadi Anda untuk absensi & kuis kegiatan "${activity.name}":\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
 
   async function remove(p: Participant) {
     const ok = await confirm({ title: `Hapus ${p.name}?`, danger: true, confirmText: 'Hapus',
@@ -77,8 +78,8 @@ export default function ParticipantsTab() {
 
   function exportLinks() {
     downloadCsv(`link-peserta-${safeName(activity.name)}`, [
-      ['Nama', 'ID', 'Instansi', 'Email', 'No. HP', 'Link'],
-      ...(data ?? []).map((p) => [p.name, p.identifier, p.institution, p.email, p.phone, participantLink(p.token)]),
+      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Link'],
+      ...(data ?? []).map((p) => [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
     ])
   }
 
@@ -87,7 +88,7 @@ export default function ParticipantsTab() {
       <div className="card flush no-print">
         <div className="toolbar">
           <div className="row">
-            <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, ID, atau instansi" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
+            <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, jabatan, atau satuan kerja" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
             <span className="muted small">{data?.length ?? 0} peserta</span>
           </div>
           <div className="row tight">
@@ -106,26 +107,27 @@ export default function ParticipantsTab() {
         {!!data?.length && (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>#</th><th>Nama</th><th>ID</th><th>Instansi</th><th className="actions">Link pribadi</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>Nama &amp; NIP</th><th>Pangkat/Gol. &amp; jabatan</th><th>Satuan kerja</th><th>WhatsApp</th><th className="actions">Link pribadi &amp; aksi</th></tr></thead>
               <tbody>
                 {list.map((p, i) => (
                   <tr key={p.id}>
                     <td className="muted">{i + 1}</td>
-                    <td><b>{p.name}</b>{p.email && <div className="muted small">{p.email}</div>}</td>
-                    <td className="mono">{p.identifier ?? '—'}</td>
-                    <td>{p.institution ?? '—'}</td>
-                    <td className="actions">
-                      <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                        <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')}><Link2 size={14} /> Salin</button>
-                        <button className="btn sm" onClick={() => setQr(p)}><QrCode size={14} /> QR</button>
-                        <a className="btn sm" target="_blank" rel="noreferrer"
-                          href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
-                          title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'Nomor HP kosong, pilih kontak sendiri'}><MessageCircle size={14} /> WhatsApp</a>
-                        <a className="icon-btn" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={16} /></a>
-                      </div>
+                    <td style={{ minWidth: 220 }}><b>{p.name}</b><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div></td>
+                    <td style={{ minWidth: 170 }}>
+                      {p.job_title ? <div>{p.job_title}</div> : <div className="muted">—</div>}
+                      {p.grade && <div className="muted small">{p.grade}</div>}
                     </td>
+                    <td style={{ minWidth: 140 }}>{p.institution ?? <span className="muted">—</span>}</td>
+                    <td className="nowrap mono">{p.phone ?? <span className="muted">—</span>}</td>
                     <td className="actions">
                       <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                        <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')} aria-label="Salin link" title="Salin link"><Link2 size={15} /></button>
+                        <button className="btn sm" onClick={() => setQr(p)} aria-label="Tampilkan QR" title="Tampilkan QR"><QrCode size={15} /></button>
+                        <a className="btn sm" target="_blank" rel="noreferrer" aria-label="Kirim lewat WhatsApp"
+                          href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
+                          title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'No. WhatsApp kosong, pilih kontak sendiri'}><MessageCircle size={15} /></a>
+                        <a className="btn sm" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={15} /></a>
+                        <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} aria-hidden />
                         <button className="icon-btn" onClick={() => setEditing(p)} aria-label="Ubah" title="Ubah"><Pencil size={16} /></button>
                         <button className="icon-btn" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link"><RefreshCcw size={16} /></button>
                         <button className="icon-btn danger" onClick={() => void remove(p)} aria-label="Hapus" title="Hapus"><Trash2 size={16} /></button>
@@ -140,7 +142,7 @@ export default function ParticipantsTab() {
         )}
       </div>
 
-      {editing && <ParticipantForm value={editing} activityId={activity.id} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(true) }} />}
+      {editing && <ParticipantForm institutions={[...new Set((data ?? []).map((p) => p.institution).filter((v): v is string => !!v))]} value={editing} activityId={activity.id} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(true) }} />}
       {bulk && <BulkImport activityId={activity.id} existing={data ?? []} onClose={() => setBulk(false)} onSaved={() => { setBulk(false); void reload(true) }} />}
       {qr && <QrModal p={qr} activityName={activity.name} onClose={() => setQr(null)} />}
 
@@ -152,7 +154,8 @@ export default function ParticipantsTab() {
                 <div style={{ fontWeight: 700 }}>{activity.name}</div>
                 <img src={img} alt={`QR ${p.name}`} />
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.name}</div>
-                <div>{[p.identifier, p.institution].filter(Boolean).join(' · ')}</div>
+                <div>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</div>
+                <div>{roleLine(p)}</div>
                 <div style={{ fontSize: 10, marginTop: 4 }}>Scan untuk absen &amp; mengerjakan kuis</div>
               </div>
             ))}
@@ -163,13 +166,13 @@ export default function ParticipantsTab() {
   )
 }
 
-function ParticipantForm({ value, activityId, onClose, onSaved }: {
-  value: Partial<Participant>; activityId: string; onClose: () => void; onSaved: () => void
+function ParticipantForm({ value, activityId, institutions, onClose, onSaved }: {
+  value: Partial<Participant>; activityId: string; institutions: string[]; onClose: () => void; onSaved: () => void
 }) {
   const toast = useToast()
   const [f, setF] = useState({
-    name: value.name ?? '', identifier: value.identifier ?? '', institution: value.institution ?? '',
-    email: value.email ?? '', phone: value.phone ?? '',
+    name: value.name ?? '', identifier: value.identifier ?? '', grade: value.grade ?? '',
+    job_title: value.job_title ?? '', institution: value.institution ?? '', phone: value.phone ?? '',
   })
   const [busy, setBusy] = useState(false)
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -178,29 +181,44 @@ function ParticipantForm({ value, activityId, onClose, onSaved }: {
     e.preventDefault()
     setBusy(true)
     const payload = {
-      name: f.name.trim(), identifier: f.identifier.trim() || null, institution: f.institution.trim() || null,
-      email: f.email.trim() || null, phone: f.phone.trim() || null,
+      name: f.name.trim().replace(/\s+/g, ' '),
+      identifier: normalizeNip(f.identifier) || null,
+      grade: f.grade.trim() || null,
+      job_title: f.job_title.trim() || null,
+      institution: f.institution.trim() || null,
+      phone: f.phone.trim() || null,
     }
     const { error } = value.id
       ? await supabase.from('participants').update(payload).eq('id', value.id)
       : await supabase.from('participants').insert({ ...payload, activity_id: activityId })
     setBusy(false)
     if (error) return toast(errMsg(error), 'error')
-    toast(value.id ? 'Peserta diperbarui.' : 'Peserta ditambahkan.', 'success')
+    toast(value.id ? 'Data peserta diperbarui.' : 'Peserta ditambahkan.', 'success')
     onSaved()
   }
 
   return (
-    <Modal title={value.id ? 'Ubah peserta' : 'Tambah peserta'} onClose={onClose}
+    <Modal wide title={value.id ? 'Ubah data peserta' : 'Tambah peserta'} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="pform" disabled={busy}>Simpan</button></>}>
       <form id="pform" onSubmit={submit}>
-        <Field label="Nama lengkap *"><input className="input" required autoFocus value={f.name} onChange={set('name')} /></Field>
+        <Field label="Nama lengkap beserta gelar *" hint="Tulis lengkap dengan gelar, mis. Dr. Budi Santoso, S.Pd., M.Si.">
+          <input className="input" required autoFocus value={f.name} onChange={set('name')} />
+        </Field>
         <div className="form-grid">
-          <Field label="NIP / NIK / NIM / No. peserta"><input className="input" value={f.identifier} onChange={set('identifier')} /></Field>
-          <Field label="Instansi / unit / kelas"><input className="input" value={f.institution} onChange={set('institution')} /></Field>
-          <Field label="Email"><input className="input" type="email" value={f.email} onChange={set('email')} /></Field>
-          <Field label="No. HP / WhatsApp" hint="Dipakai untuk tombol kirim WhatsApp"><input className="input" inputMode="tel" value={f.phone} onChange={set('phone')} /></Field>
+          <Field label="NIP" hint="Spasi otomatis dihapus. Kosongkan jika tidak ada.">
+            <input className="input mono" inputMode="numeric" value={f.identifier} onChange={set('identifier')} placeholder="18 digit" />
+          </Field>
+          <Field label="Pangkat / Gol. Ruang" hint="Pilih dari saran atau ketik sendiri (mis. golongan PPPK)">
+            <input className="input" list="grade-list" value={f.grade} onChange={set('grade')} placeholder="mis. Penata Muda (III/a)" />
+          </Field>
+          <Field label="Jabatan"><input className="input" value={f.job_title} onChange={set('job_title')} placeholder="mis. Kepala Seksi Perencanaan" /></Field>
+          <Field label="Satuan kerja"><input className="input" list="unit-list" value={f.institution} onChange={set('institution')} placeholder="mis. Dinas Pendidikan" /></Field>
+          <Field label="No. WhatsApp" hint="Dipakai untuk tombol kirim link lewat WhatsApp">
+            <input className="input" type="tel" inputMode="tel" value={f.phone} onChange={set('phone')} placeholder="08xxxxxxxxxx" />
+          </Field>
         </div>
+        <datalist id="grade-list">{GRADE_SUGGESTIONS.map((g) => <option key={g} value={g} />)}</datalist>
+        <datalist id="unit-list">{institutions.map((g) => <option key={g} value={g} />)}</datalist>
       </form>
     </Modal>
   )
@@ -226,18 +244,39 @@ function BulkImport({ activityId, existing, onClose, onSaved }: {
     onSaved()
   }
 
+  function downloadTemplate() {
+    downloadCsv('templat-peserta', [
+      ['Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp'],
+      ['Dr. Budi Santoso, M.Si.', '198001012005011001', 'Pembina (IV/a)', 'Kepala Bidang', 'Dinas Pendidikan', '081234567890'],
+    ])
+  }
+
   return (
     <Modal wide title="Impor banyak peserta" onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button>
         <button className="btn primary" disabled={busy || fresh.length === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${fresh.length} peserta`}</button></>}>
       <p className="muted small" style={{ whiteSpace: 'pre-line' }}>{PARTICIPANT_FORMAT_HELP}</p>
-      <textarea className="input" style={{ minHeight: 180 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Tempel di sini…" autoFocus />
+      <button className="btn sm" style={{ marginBottom: 12 }} onClick={downloadTemplate}><Download size={14} /> Unduh templat (CSV)</button>
+      <textarea className="input mono" style={{ minHeight: 160, whiteSpace: 'pre' }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Tempel data dari Excel di sini…" autoFocus />
       {text.trim() && (
-        <div style={{ marginTop: 12 }}>
-          <span className="badge success">{fresh.length} siap diimpor</span>{' '}
-          {skipped > 0 && <span className="badge warn">{skipped} sudah ada — dilewati</span>}{' '}
-          {parsed.errors.length > 0 && <span className="badge danger">{parsed.errors.length} baris bermasalah</span>}
-          {parsed.errors.length > 0 && <ul className="small" style={{ color: 'var(--danger)' }}>{parsed.errors.slice(0, 8).map((e) => <li key={e}>{e}</li>)}</ul>}
+        <div style={{ marginTop: 14 }}>
+          <div className="row tight">
+            <span className="badge success">{fresh.length} siap diimpor</span>
+            {skipped > 0 && <span className="badge warn">{skipped} sudah ada, dilewati</span>}
+            {parsed.errors.length > 0 && <span className="badge danger">{parsed.errors.length} baris bermasalah</span>}
+          </div>
+          {parsed.errors.length > 0 && <ul className="small" style={{ color: 'var(--danger)', paddingLeft: 18 }}>{parsed.errors.slice(0, 8).map((e) => <li key={e}>{e}</li>)}</ul>}
+          {fresh.length > 0 && (
+            <div className="table-wrap" style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 10 }}>
+              <table className="table">
+                <thead><tr><th>Nama</th><th>NIP</th><th>Pangkat/Gol.</th><th>Jabatan</th><th>Satuan kerja</th><th>WhatsApp</th></tr></thead>
+                <tbody>{fresh.slice(0, 5).map((i, n) => (
+                  <tr key={n}><td>{i.name}</td><td className="mono">{i.identifier ?? '—'}</td><td>{i.grade ?? '—'}</td><td>{i.job_title ?? '—'}</td><td>{i.institution ?? '—'}</td><td className="mono">{i.phone ?? '—'}</td></tr>
+                ))}</tbody>
+              </table>
+              {fresh.length > 5 && <div className="muted small" style={{ padding: '8px 16px' }}>…dan {fresh.length - 5} lainnya. Pastikan kolom di atas sudah benar sebelum menambahkan.</div>}
+            </div>
+          )}
         </div>
       )}
     </Modal>

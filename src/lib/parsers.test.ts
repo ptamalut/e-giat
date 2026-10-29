@@ -27,16 +27,45 @@ describe('parseQuestions', () => {
 })
 
 describe('parseParticipants', () => {
-  it('mendeteksi pemisah, header, dan duplikat', () => {
-    const r = parseParticipants('Nama\tNIP\tInstansi\nBudi\t1\tDinas A\nSiti\t2\tDinas B\nBudi Lain\t1\tX')
-    expect(r.items.map((i) => i.name)).toEqual(['Budi', 'Siti'])
-    expect(r.errors).toHaveLength(1)
-    expect(r.errors[0]).toMatch(/duplikat/)
+  it('urutan bawaan: nama, NIP, pangkat/gol, jabatan, satuan kerja, WhatsApp (Tab dari Excel)', () => {
+    const r = parseParticipants('Dr. Budi Santoso, M.Si.\t19800101 200501 1 001\tPembina (IV/a)\tKepala Bidang\tDinas Pendidikan\t081234567890')
+    expect(r.errors).toEqual([])
+    expect(r.items[0]).toEqual({
+      name: 'Dr. Budi Santoso, M.Si.', identifier: '198001012005011001', grade: 'Pembina (IV/a)',
+      job_title: 'Kepala Bidang', institution: 'Dinas Pendidikan', phone: '081234567890',
+    })
   })
-  it('menolak email tidak valid, menerima baris minimal hanya nama', () => {
-    const r = parseParticipants('Andi\nBudi, 1, X, bukan-email')
-    expect(r.items).toEqual([{ name: 'Andi', identifier: null, institution: null, email: null, phone: null }])
-    expect(r.errors[0]).toMatch(/email/)
+
+  it('membaca baris judul dan memetakan kolom sesuai namanya (urutan bebas, kolom asing diabaikan)', () => {
+    const r = parseParticipants('No\tNo. WhatsApp\tNama Lengkap beserta Gelar\tNIP\tSatuan Kerja\tJabatan\tPangkat/Gol. Ruang\n1\t0812\tSiti, S.Pd.\t1985\tDinas B\tStaf\tPenata (III/c)')
+    expect(r.errors).toEqual([])
+    expect(r.items[0]).toMatchObject({ name: 'Siti, S.Pd.', identifier: '1985', phone: '0812', institution: 'Dinas B', job_title: 'Staf', grade: 'Penata (III/c)' })
+  })
+
+  it('titik koma dan tanda kutip menjaga koma pada gelar', () => {
+    expect(parseParticipants('Andi, S.T., M.T.;1;III/a;Staf;Dinas;08').items[0].name).toBe('Andi, S.T., M.T.')
+    const q = parseParticipants('"Rina, S.E., M.M.",2,III/b,Analis,Dinas C,08')
+    expect(q.errors).toEqual([])
+    expect(q.items[0]).toMatchObject({ name: 'Rina, S.E., M.M.', identifier: '2', grade: 'III/b' })
+  })
+
+  it('koma tanpa kutip yang membuat kolom berlebih dilaporkan, bukan diterima diam-diam', () => {
+    const r = parseParticipants('Budi, S.Pd., M.Si., 1980, III/a, Staf, Dinas, 08')
+    expect(r.items).toHaveLength(0)
+    expect(r.errors[0]).toMatch(/kolom lebih dari 6/)
+  })
+
+  it('mendeteksi duplikat (NIP sama setelah spasi dibuang), NIP ilmiah, dan nama kosong', () => {
+    const r = parseParticipants('A\t1980 01\nB\t198001\nC\t1.98E+17\n\t123')
+    expect(r.items.map((i) => i.name)).toEqual(['A'])
+    expect(r.errors).toHaveLength(3)
+    expect(r.errors.join('|')).toMatch(/duplikat/)
+    expect(r.errors.join('|')).toMatch(/angka ilmiah/)
+    expect(r.errors.join('|')).toMatch(/nama kosong/)
+  })
+
+  it('baris minimal hanya nama diterima', () => {
+    expect(parseParticipants('Andi').items).toEqual([{ name: 'Andi', identifier: null, grade: null, job_title: null, institution: null, phone: null }])
   })
 })
 
