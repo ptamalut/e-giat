@@ -81,7 +81,7 @@ export async function exportDocx(model: ExportModel, printedAt = new Date()): Pr
   })
 
   const doc = new Document({
-    creator: 'e-Giat',
+    creator: 'LAKSANA',
     title: model.title,
     styles: { default: { document: { run: { font: FONT, size: 19 } } } },
     sections: [{

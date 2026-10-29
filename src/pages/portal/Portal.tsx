@@ -99,7 +99,7 @@ export default function Portal() {
     <>
       <div className="portal-hero">
         <div className="container narrow">
-          <div className="top"><span className="brand-mark"><CheckCheck size={16} strokeWidth={2.6} /></span>e-Giat<span className="spacer" /><ThemeToggle onDark /></div>
+          <div className="top"><span className="brand-mark"><CheckCheck size={16} strokeWidth={2.6} /></span>LAKSANA<span className="spacer" /><ThemeToggle onDark /></div>
           <h1>{a.name}</h1>
           <div className="meta">
             <span><Calendar size={15} /> {fmtDateRange(a.start_date, a.end_date)}</span>

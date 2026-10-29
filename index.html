@@ -9,13 +9,14 @@
       // pasang tema sebelum render agar tidak berkedip
       (function () {
         try {
-          var m = localStorage.getItem('egiat-theme');
+          var m = localStorage.getItem('laksana-theme');
           var dark = m === 'dark' || (m !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
         } catch (e) {}
       })();
     </script>
-    <title>e-Giat — Absensi &amp; Kuis Kegiatan</title>
+    <title>LAKSANA - Pelaksanaan Kegiatan PTA Malut</title>
+    <meta name="description" content="LAKSANA - Pelaksanaan Kegiatan PTA Malut: absensi, kuis, laporan, dan sertifikat kegiatan." />
   </head>
   <body>
     <div id="root"></div>

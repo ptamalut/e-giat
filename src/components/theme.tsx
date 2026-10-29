@@ -2,7 +2,7 @@ import { Monitor, Moon, Sun } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
-const KEY = 'egiat-theme'
+const KEY = 'laksana-theme'
 
 function readMode(): ThemeMode {
   try {

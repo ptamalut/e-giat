@@ -1,5 +1,5 @@
 -- =============================================================================
--- e-Giat : skema database Supabase (PostgreSQL)
+-- LAKSANA : skema database Supabase (PostgreSQL)
 --
 -- Cara pakai: buka Supabase Dashboard -> SQL Editor -> New query -> tempel seluruh
 -- isi file ini -> Run. Aman dijalankan ulang (idempotent) untuk pembaruan fungsi.

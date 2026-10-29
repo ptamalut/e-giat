@@ -1,5 +1,5 @@
 /* =============================================================================
-   e-Giat — sistem desain
+   LAKSANA — sistem desain
    ============================================================================= */
 :root {
   --bg: #f5f6fa;
@@ -131,6 +131,7 @@ svg.ic { flex: none; vertical-align: -0.17em; }
 .main { min-width: 0; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 1.12rem; color: var(--text); letter-spacing: -0.02em; }
 .brand:hover { text-decoration: none; }
+.brand-sub { font-size: .76rem; font-weight: 500; opacity: .72; margin: -2px 0 0 42px; letter-spacing: 0; }
 .brand-mark {
   width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: #fff; flex: none;
   background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 4px 12px -2px rgb(99 102 241 / 55%);

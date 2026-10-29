@@ -20,7 +20,7 @@ export function useSidebarActivity(a: SideActivity | null) {
 }
 
 export function Brand({ to = '/admin' }: { to?: string }) {
-  return <Link to={to} className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>e-Giat</Link>
+  return <Link to={to} className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>LAKSANA</Link>
 }
 
 export default function AdminShell() {
