@@ -1,11 +1,13 @@
 import { CalendarCheck, CalendarX, CheckCircle2, Clock, Copy, Download, HeartPulse, Pencil, Plus, RefreshCw, Search, Trash2, UserX, Users } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { fmtDateTime, fmtTime, fromLocalInput, timeState, toLocalInput } from '../../lib/format'
 import { sessionCounts } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import { RoleBadge } from '../../components/RoleBadge'
+import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
+import { groupBySatker, matchesUnit, roleSummary } from '../../lib/satker'
 import { ROLE_LABEL, ROLES } from '../../lib/people'
 import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -27,6 +29,9 @@ export default function AttendanceTab() {
   const [editing, setEditing] = useState<Partial<AttendanceSession> | null>(null)
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
+  const [grouped, setGrouped] = useState(true)
+  const [unit, setUnit] = useState('')
+  const { collapsed, toggle, setAll } = useCollapsed()
 
   const { data, error, loading, reload } = useAsync(async () => {
     const [sessions, participants, attendances] = await Promise.all([
@@ -51,9 +56,15 @@ export default function AttendanceTab() {
     return m
   }, [data, current?.id])
   const roleCount = (r: 'semua' | PersonRole) => (data?.participants ?? []).filter((p) => r === 'semua' || p.role === r).length
-  const group = (data?.participants ?? []).filter((p) => roleFilter === 'semua' || p.role === roleFilter)
+  const group = (data?.participants ?? []).filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution))
   const counts = current ? sessionCounts(group, data!.attendances, current.id) : null
   const rows = group.filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))
+  // pilihan satker dihitung dari peran terpilih, tanpa filter satker itu sendiri
+  const unitGroups = useMemo(
+    () => groupBySatker((data?.participants ?? []).filter((p) => roleFilter === 'semua' || p.role === roleFilter), (p) => p.institution),
+    [data, roleFilter])
+  const rowGroups = useMemo(() => groupBySatker(rows, (p) => p.institution), [rows])
+  const attendedOf = (items: Participant[]) => items.filter((p) => { const st = attByP.get(p.id)?.status; return st === 'hadir' || st === 'terlambat' }).length
 
   async function setStatus(p: Participant, status: AttendanceStatus | '') {
     if (!current) return
@@ -98,7 +109,7 @@ export default function AttendanceTab() {
     if (!current || !data) return
     downloadCsv(`absensi-${safeName(current.title)}`, [
       ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Status', 'Waktu absen', 'Manual'],
-      ...group.map((p) => {
+      ...groupBySatker(group, (p) => p.institution).flatMap((g) => g.items).map((p) => {
         const a = attByP.get(p.id)
         return [ROLE_LABEL[p.role], p.name, p.identifier, p.grade, p.job_title, p.institution, a ? ATT_LABEL[a.status] : 'Belum absen', a ? fmtDateTime(a.checked_in_at) : '', a ? (a.manual ? 'ya' : 'tidak') : '']
       }),
@@ -160,6 +171,10 @@ export default function AttendanceTab() {
                   </button>
                 ))}
               </div>
+              <SatkerControls groups={unitGroups} total={unitGroups.reduce((n, g) => n + g.items.length, 0)} unit={unit} setUnit={setUnit} grouped={grouped} setGrouped={setGrouped} />
+              {grouped && rowGroups.length > 1 && (
+                <button className="btn ghost sm" onClick={() => setAll(collapsed.size ? null : rowGroups.map((g) => g.key))}>{collapsed.size ? 'Buka semua' : 'Lipat semua'}</button>
+              )}
               </div>
               <div className="row tight">
                 <span className="muted small hide-sm">Diperbarui otomatis tiap 15 detik</span>
@@ -171,24 +186,38 @@ export default function AttendanceTab() {
             {group.length === 0
               ? <Empty icon={<Users size={26} />} title="Tidak ada data">Tambahkan peserta, narasumber, atau panitia di tab Peserta.</Empty>
               : <div className="table-wrap"><table className="table">
-                  <thead><tr><th>Nama</th><th>Jabatan</th><th>Satuan kerja</th><th>Waktu absen</th><th>Status</th></tr></thead>
-                  <tbody>{rows.map((p) => {
-                    const a = attByP.get(p.id)
-                    return (
-                      <tr key={p.id}>
-                        <td><b>{p.name}</b><RoleBadge role={p.role} />{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
-                        <td>{p.job_title ?? <span className="muted">—</span>}</td>
-                        <td>{p.institution ?? <span className="muted">—</span>}</td>
-                        <td>{a ? <>{fmtTime(a.checked_in_at)} {a.manual && <span className="badge">manual</span>}</> : <span className="muted">—</span>}</td>
-                        <td>
-                          <select className="input" style={{ width: 150, minHeight: 32, padding: '4px 8px' }} value={a?.status ?? ''} onChange={(e) => void setStatus(p, e.target.value as AttendanceStatus | '')} aria-label={`Status ${p.name}`}>
-                            <option value="">Belum absen</option>
-                            {(Object.keys(ATT_LABEL) as AttendanceStatus[]).map((s) => <option key={s} value={s}>{ATT_LABEL[s]}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                    )
-                  })}</tbody>
+                  <thead><tr><th>Nama</th><th>Jabatan</th>{!grouped && <th>Satuan kerja</th>}<th>Waktu absen</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {(grouped ? rowGroups : [{ key: '__all', label: '', items: rows }]).map((g) => {
+                      const isCollapsed = grouped && collapsed.has(g.key)
+                      return (
+                        <Fragment key={g.key || '__none__'}>
+                          {grouped && (
+                            <SatkerGroupRow label={g.label} colSpan={4} collapsed={isCollapsed} onToggle={() => toggle(g.key)}
+                              meta={`${attendedOf(g.items)}/${g.items.length} hadir · ${roleSummary(g.items)}`} />
+                          )}
+                          {!isCollapsed && g.items.map((p) => {
+                            const a = attByP.get(p.id)
+                            return (
+                              <tr key={p.id}>
+                                <td><b>{p.name}</b><RoleBadge role={p.role} />{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
+                                <td>{p.job_title ?? <span className="muted">—</span>}</td>
+                                {!grouped && <td>{p.institution ?? <span className="muted">—</span>}</td>}
+                                <td>{a ? <>{fmtTime(a.checked_in_at)} {a.manual && <span className="badge">manual</span>}</> : <span className="muted">—</span>}</td>
+                                <td>
+                                  <select className="input" style={{ width: 150, minHeight: 32, padding: '4px 8px' }} value={a?.status ?? ''} onChange={(e) => void setStatus(p, e.target.value as AttendanceStatus | '')} aria-label={`Status ${p.name}`}>
+                                    <option value="">Belum absen</option>
+                                    {(Object.keys(ATT_LABEL) as AttendanceStatus[]).map((s) => <option key={s} value={s}>{ATT_LABEL[s]}</option>)}
+                                  </select>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </Fragment>
+                      )
+                    })}
+                    {rows.length === 0 && <tr><td colSpan={grouped ? 4 : 5} className="center muted">Tidak ada hasil.</td></tr>}
+                  </tbody>
                 </table></div>}
           </div>
         </>

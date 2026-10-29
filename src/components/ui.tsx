@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 /* ---------- Toast ---------- */
 type ToastKind = 'info' | 'success' | 'error'
@@ -102,10 +102,16 @@ export function Empty({ icon, title, children }: { icon?: ReactNode; title: stri
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+  const id = useId()
+  // hubungkan label dengan kontrolnya (input/select/textarea tunggal) agar bisa diklik dan terbaca pembaca layar
+  const control = isValidElement<{ id?: string }>(children) && typeof children.type === 'string' && ['input', 'select', 'textarea'].includes(children.type)
+    ? cloneElement(children, { id: children.props.id ?? id })
+    : children
+  const target = isValidElement<{ id?: string }>(control) && typeof control.type === 'string' ? control.props.id : undefined
   return (
     <div className="field">
-      <label>{label}</label>
-      {children}
+      <label htmlFor={target}>{label}</label>
+      {control}
       {hint && <span className="hint">{hint}</span>}
     </div>
   )

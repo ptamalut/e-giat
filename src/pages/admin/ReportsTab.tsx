@@ -1,13 +1,15 @@
-import { Award, BarChart3, CalendarCheck, CheckCircle2, ClipboardList, Download, FileSearch, Percent, Printer, RefreshCw, RotateCcw, TrendingUp, Trophy, Users, type LucideIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Award, BarChart3, Building2, CalendarCheck, CheckCircle2, ClipboardList, Download, FileSearch, Percent, Printer, RefreshCw, RotateCcw, TrendingUp, Trophy, Users, type LucideIcon } from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadge } from '../../components/RoleBadge'
+import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
+import { groupBySatker, matchesUnit, roleSummary } from '../../lib/satker'
 import { ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
-  attendanceMatrix, gainTable, itemAnalysis, nGainCategory, quizResults,
+  attendanceMatrix, gainTable, itemAnalysis, nGainCategory, quizResults, satkerSummary,
 } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type {
@@ -17,9 +19,10 @@ import { useActivity } from './ActivityLayout'
 import { ATT_LABEL, ATT_TONE } from './AttendanceTab'
 import { TYPE_LABEL, TYPE_TONE } from './QuizzesTab'
 
-type Section = 'peringkat' | 'kehadiran' | 'kuis' | 'prepost' | 'soal'
+type Section = 'peringkat' | 'satker' | 'kehadiran' | 'kuis' | 'prepost' | 'soal'
 const SECTIONS: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'peringkat', label: 'Peringkat', icon: Trophy },
+  { id: 'satker', label: 'Per satker', icon: Building2 },
   { id: 'kehadiran', label: 'Kehadiran', icon: CalendarCheck },
   { id: 'kuis', label: 'Hasil kuis', icon: ClipboardList },
   { id: 'prepost', label: 'Pre vs Post', icon: TrendingUp },
@@ -88,6 +91,7 @@ export default function ReportsTab() {
       {data.participants.length === 0
         ? <div className="card"><Empty icon={<BarChart3 size={26} />} title="Belum ada data">Tambahkan peserta terlebih dahulu.</Empty></div>
         : section === 'peringkat' ? <RankingSection data={data} name={activity.name} weight={activity.weight_attendance} />
+        : section === 'satker' ? <SatkerSection data={data} name={activity.name} />
         : section === 'kehadiran' ? <AttendanceSection data={data} name={activity.name} />
         : section === 'kuis' ? <QuizSection data={pesertaData} name={activity.name} onChanged={() => void reload(true)} />
         : section === 'prepost' ? <PrePostSection data={pesertaData} name={activity.name} />
@@ -148,8 +152,15 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
 /* ---------- Kehadiran ---------- */
 function AttendanceSection({ data, name }: { data: Data; name: string }) {
   const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
-  const people = useMemo(() => data.participants.filter((p) => roleFilter === 'semua' || p.role === roleFilter), [data.participants, roleFilter])
+  const [grouped, setGrouped] = useState(true)
+  const [unit, setUnit] = useState('')
+  const { collapsed, toggle, setAll } = useCollapsed()
+  const byRole = useMemo(() => data.participants.filter((p) => roleFilter === 'semua' || p.role === roleFilter), [data.participants, roleFilter])
+  const unitGroups = useMemo(() => groupBySatker(byRole, (p) => p.institution), [byRole])
+  // diurutkan per satuan kerja sehingga tabel dan CSV selalu berkelompok
+  const people = useMemo(() => unitGroups.flatMap((g) => g.items).filter((p) => matchesUnit(unit, p.institution)), [unitGroups, unit])
   const rows = useMemo(() => attendanceMatrix(people, data.sessions, data.attendances), [people, data.sessions, data.attendances])
+  const rowGroups = useMemo(() => groupBySatker(rows, (r) => r.participant.institution), [rows])
   const roleCount = (r: 'semua' | PersonRole) => data.participants.filter((p) => r === 'semua' || p.role === r).length
   if (data.sessions.length === 0) return <div className="card"><Empty icon={<CalendarCheck size={26} />} title="Belum ada sesi absensi" /></div>
   const avg = rows.length ? rows.reduce((s, r) => s + (r.pct ?? 0), 0) / rows.length : 0
@@ -160,15 +171,21 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
 
   return (
     <>
-      {data.participants.some((p) => p.role !== 'peserta') && (
-        <div className="pills no-print" role="group" aria-label="Filter peran">
-          {(['semua', ...ROLES] as const).map((r) => (
-            <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
-              {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="row no-print">
+        {data.participants.some((p) => p.role !== 'peserta') && (
+          <div className="pills" role="group" aria-label="Filter peran">
+            {(['semua', ...ROLES] as const).map((r) => (
+              <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
+                {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <SatkerControls groups={unitGroups} total={byRole.length} unit={unit} setUnit={setUnit} grouped={grouped} setGrouped={setGrouped} />
+        {grouped && rowGroups.length > 1 && (
+          <button className="btn ghost sm" onClick={() => setAll(collapsed.size ? null : rowGroups.map((g) => g.key))}>{collapsed.size ? 'Buka semua' : 'Lipat semua'}</button>
+        )}
+      </div>
       <div className="grid cols-4">
         <Stat icon={<Percent size={20} />} value={fmtPct(avg)} label="Rata-rata kehadiran" />
         <Stat icon={<CheckCircle2 size={20} />} tone="success" value={rows.filter((r) => r.pct === 100).length} label="Hadir di semua sesi" />
@@ -191,7 +208,14 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
         </div>
         <div className="table-wrap"><table className="table">
           <thead><tr><th>Nama</th>{data.sessions.map((s) => <th key={s.id} title={fmtDateTime(s.start_at)}>{short(s)}</th>)}<th className="num">Hadir</th><th className="num">%</th></tr></thead>
-          <tbody>{rows.map((r) => (
+          <tbody>{(grouped ? rowGroups : [{ key: '__all', label: '', items: rows }]).map((g) => {
+            const isCollapsed = grouped && collapsed.has(g.key)
+            const pct = g.items.length ? g.items.reduce((n, r) => n + (r.pct ?? 0), 0) / g.items.length : null
+            return (
+            <Fragment key={g.key || '__none__'}>
+              {grouped && <SatkerGroupRow label={g.label} colSpan={data.sessions.length + 3} collapsed={isCollapsed} onToggle={() => toggle(g.key)}
+                meta={`rata-rata hadir ${fmtPct(pct)} · ${g.items.length} orang (${roleSummary(g.items.map((r) => r.participant))})`} />}
+              {!isCollapsed && g.items.map((r) => (
             <tr key={r.participant.id}>
               <td><b>{r.participant.name}</b><RoleBadge role={r.participant.role} /><div className="muted small">{roleLine(r.participant)}</div></td>
               {data.sessions.map((s) => {
@@ -201,9 +225,56 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
               <td className="num">{r.attended}/{data.sessions.length}</td>
               <td className="num"><b>{fmtPct(r.pct)}</b></td>
             </tr>
+              ))}
+            </Fragment>
+            )
+          })}</tbody>
+        </table></div>
+      </div>
+    </>
+  )
+}
+
+/* ---------- Rekap per satuan kerja ---------- */
+function SatkerSection({ data, name }: { data: Data; name: string }) {
+  const rows = useMemo(() => satkerSummary(data.participants, data.sessions, data.attendances, data.ranking), [data])
+  const top = rows.filter((r) => r.rank === 1)
+  const bestAtt = [...rows].filter((r) => r.attendancePct != null).sort((a, b) => b.attendancePct! - a.attendancePct!)[0]
+  const order = [...rows].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || a.label.localeCompare(b.label, 'id'))
+
+  return (
+    <>
+      <div className="grid cols-4">
+        <Stat icon={<Building2 size={20} />} value={rows.length} label="Satuan kerja" />
+        <Stat icon={<Users size={20} />} tone="info" value={data.participants.length} label="Total orang" sub={`${rows.reduce((n, r) => n + r.peserta, 0)} peserta`} />
+        <Stat icon={<Trophy size={20} />} tone="warn" value={top[0] ? fmtScore(top[0].avgFinal) : '—'} label="Rata-rata nilai tertinggi" sub={top.map((r) => r.label).join(', ') || undefined} />
+        <Stat icon={<Percent size={20} />} tone="success" value={bestAtt ? fmtPct(bestAtt.attendancePct) : '—'} label="Kehadiran tertinggi" sub={bestAtt?.label} />
+      </div>
+      <div className="card flush">
+        <div className="card-head">
+          <h2>Rekap per satuan kerja</h2><span className="spacer" />
+          <button className="btn sm no-print" onClick={() => downloadCsv(`per-satker-${safeName(name)}`, [
+            ['Peringkat', 'Satuan Kerja', 'Peserta', 'Narasumber', 'Panitia', 'Kehadiran %', 'Rata-rata kuis', 'Rata-rata nilai akhir'],
+            ...order.map((r) => [r.rank, r.label, r.peserta, r.narasumber, r.panitia, r.attendancePct == null ? '' : Math.round(r.attendancePct), r.avgQuiz == null ? '' : Number(r.avgQuiz.toFixed(1)), r.avgFinal == null ? '' : Number(r.avgFinal.toFixed(1))]),
+          ])}><Download size={14} /> CSV</button>
+        </div>
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>#</th><th>Satuan kerja</th><th className="num">Peserta</th><th className="num">Narasumber</th><th className="num">Panitia</th><th style={{ minWidth: 150 }}>Kehadiran</th><th className="num">Rata-rata kuis</th><th style={{ minWidth: 160 }}>Rata-rata nilai akhir</th></tr></thead>
+          <tbody>{order.map((r) => (
+            <tr key={r.key || '__none__'}>
+              <td><RankMedal rank={r.rank} /></td>
+              <td><b>{r.label}</b></td>
+              <td className="num">{r.peserta}</td>
+              <td className="num">{r.narasumber || <span className="muted">—</span>}</td>
+              <td className="num">{r.panitia || <span className="muted">—</span>}</td>
+              <td>{r.attendancePct == null ? <span className="muted">—</span> : <HBar value={r.attendancePct} tone={r.attendancePct >= 75 ? 'good' : r.attendancePct >= 50 ? 'mid' : 'bad'} label={fmtPct(r.attendancePct)} />}</td>
+              <td className="num">{fmtScore(r.avgQuiz)}</td>
+              <td>{r.avgFinal == null ? <span className="muted">Belum ada peserta bernilai</span> : <HBar value={r.avgFinal} tone={scoreTone(r.avgFinal, null)} label={fmtScore(r.avgFinal)} />}</td>
+            </tr>
           ))}</tbody>
         </table></div>
       </div>
+      <p className="muted small">Kehadiran dihitung dari seluruh orang di satker (semua peran). Rata-rata kuis dan nilai akhir hanya dari peserta; peringkat satker menurut rata-rata nilai akhir.</p>
     </>
   )
 }

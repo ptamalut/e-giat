@@ -449,3 +449,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: .89rem; }
   .search .input { width: 100%; }
   .search { width: 100%; }
 }
+
+/* ---------- kelompok satuan kerja ---------- */
+.table tbody tr.group-row, .table tbody tr.group-row:hover { background: var(--surface-2); }
+.table .group-row td { padding: 0; border-top: 1px solid var(--border-strong); }
+.group-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-wrap: wrap; }
+.group-head b { font-weight: 650; }

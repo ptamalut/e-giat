@@ -25,6 +25,11 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
   dan melakukan absensi, tetapi tidak melihat atau mengerjakan kuis (ditegakkan di server) dan tidak masuk
   peringkat/laporan kuis. Peran dipilih di formulir, lewat filter, saat impor ("Impor sebagai"), atau lewat kolom
   opsional "Peran" di data Excel.
+- **Pengelompokan per satuan kerja (satker)**: tab Peserta, Absensi, dan rekap kehadiran dikelompokkan per satker
+  (peserta, narasumber, dan panitia dalam satu kelompok) dengan jumlah per peran, lipat/buka kelompok, filter satker,
+  dan tampilan "Daftar" bila ingin tanpa kelompok. Penulisan nama satker yang berbeda huruf besar/kecil atau spasi
+  otomatis digabung; tombol "Ubah nama" memperbaiki/menggabungkan satker sekaligus untuk semua anggotanya. Kartu QR dan
+  ekspor CSV diurutkan per satker.
 - Impor banyak peserta dengan menempel dari Excel: kolom dibaca dari baris judul (urutan bebas) atau urutan bawaan,
   nama bergelar yang memuat koma aman (pemisah Tab/titik koma/kutip), spasi pada NIP dihapus, NIP yang rusak menjadi
   angka ilmiah (1.98E+17) ditolak, ada pratinjau kolom, deteksi duplikat (NIP/nama), dan templat CSV.
@@ -47,6 +52,7 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
 
 **Laporan** (semua bisa diekspor CSV dan dicetak / disimpan PDF)
 - 🏆 Peringkat keseluruhan = bobot kehadiran + rata-rata skor kuis (bobot bisa diatur per kegiatan).
+- 🏢 Per satker: jumlah per peran, rata-rata kehadiran, rata-rata kuis dan nilai akhir, serta peringkat satker.
 - 🗓️ Rekap kehadiran peserta × sesi.
 - 📝 Hasil per kuis: statistik, sebaran nilai, peringkat (skor lalu waktu tercepat), status lulus, reset percobaan peserta.
 - 📈 Pre vs Post: peningkatan per peserta dan **N-Gain** (Hake).
