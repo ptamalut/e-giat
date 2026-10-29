@@ -26,7 +26,7 @@ export default function Overview() {
       supabase.from('quizzes').select('id, is_published, questions(count)').eq('activity_id', a.id),
       supabase.from('quiz_attempts').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).not('submitted_at', 'is', null),
       supabase.rpc('activity_ranking', { p_activity: a.id }),
-      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).eq('role', 'narasumber'),
+      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).neq('role', 'peserta'),
     ])
     for (const r of [p, s, q, att, rank, spk]) if (r.error) throw new Error(errMsg(r.error))
     const quizzes = (q.data ?? []) as { id: string; is_published: boolean; questions: { count: number }[] }[]
@@ -79,9 +79,9 @@ export default function Overview() {
   const avgAtt = data.ranking.length && data.sessions
     ? data.ranking.reduce((s, r) => s + Number(r.attendance_pct ?? 0), 0) / data.ranking.length : null
   const steps = [
-    { done: data.participants + data.speakers > 0, text: 'Tambahkan peserta (dan narasumber) kegiatan', to: 'peserta', cta: 'Tambah peserta' },
+    { done: data.participants + data.speakers > 0, text: 'Tambahkan peserta (serta narasumber/panitia) kegiatan', to: 'peserta', cta: 'Tambah peserta' },
     { done: data.sessions > 0, text: 'Buat sesi absensi (hari/sesi + jam buka & tutup)', to: 'absensi', cta: 'Buat sesi' },
-    { done: data.participants + data.speakers > 0 && data.sessions > 0, text: 'Bagikan link / QR unik ke setiap peserta dan narasumber', to: 'peserta', cta: 'Lihat link' },
+    { done: data.participants + data.speakers > 0 && data.sessions > 0, text: 'Bagikan link / QR unik ke setiap orang', to: 'peserta', cta: 'Lihat link' },
     { done: data.readyQuizzes > 0, text: 'Buat kuis pre test / post test lalu terbitkan', to: 'kuis', cta: 'Buat kuis' },
     { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
   ]
@@ -89,7 +89,7 @@ export default function Overview() {
   return (
     <div className="stack">
       <div className="grid cols-4">
-        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} narasumber` : undefined} />
+        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} narasumber/panitia` : undefined} />
         <Stat icon={<CalendarCheck size={20} />} tone="success" value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />
         <Stat icon={<ClipboardList size={20} />} tone="warn" value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />
         <Stat icon={<CheckCheck size={20} />} tone="info" value={data.attempts} label="Kuis terkumpul" />

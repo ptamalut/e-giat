@@ -5,7 +5,8 @@ import { downloadCsv, safeName } from '../../lib/csv'
 import { fmtDateTime, fmtTime, fromLocalInput, timeState, toLocalInput } from '../../lib/format'
 import { sessionCounts } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
-import { ROLE_LABEL } from '../../lib/people'
+import { RoleBadge } from '../../components/RoleBadge'
+import { ROLE_LABEL, ROLES } from '../../lib/people'
 import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 
@@ -153,7 +154,7 @@ export default function AttendanceTab() {
               <div className="row">
               <label className="search"><Search size={16} /><input className="input" placeholder="Cari peserta" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
               <div className="pills" role="group" aria-label="Filter peran">
-                {(['semua', 'peserta', 'narasumber'] as const).map((r) => (
+                {(['semua', ...ROLES] as const).map((r) => (
                   <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                     {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
                   </button>
@@ -168,14 +169,14 @@ export default function AttendanceTab() {
               </div>
             </div>
             {group.length === 0
-              ? <Empty icon={<Users size={26} />} title="Tidak ada data">Tambahkan peserta atau narasumber di tab Peserta.</Empty>
+              ? <Empty icon={<Users size={26} />} title="Tidak ada data">Tambahkan peserta, narasumber, atau panitia di tab Peserta.</Empty>
               : <div className="table-wrap"><table className="table">
                   <thead><tr><th>Nama</th><th>Jabatan</th><th>Satuan kerja</th><th>Waktu absen</th><th>Status</th></tr></thead>
                   <tbody>{rows.map((p) => {
                     const a = attByP.get(p.id)
                     return (
                       <tr key={p.id}>
-                        <td><b>{p.name}</b>{p.role === 'narasumber' && <span className="badge info" style={{ marginLeft: 8 }}>Narasumber</span>}{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
+                        <td><b>{p.name}</b><RoleBadge role={p.role} />{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
                         <td>{p.job_title ?? <span className="muted">—</span>}</td>
                         <td>{p.institution ?? <span className="muted">—</span>}</td>
                         <td>{a ? <>{fmtTime(a.checked_in_at)} {a.manual && <span className="badge">manual</span>}</> : <span className="muted">—</span>}</td>

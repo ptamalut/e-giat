@@ -1,6 +1,15 @@
 import type { PersonRole } from './types'
 
-export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber' }
+export const ROLES: PersonRole[] = ['peserta', 'narasumber', 'panitia']
+export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber', panitia: 'Panitia' }
+export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 'info', panitia: 'warn' }
+export const ROLE_HINT: Record<PersonRole, string> = {
+  peserta: 'Peserta melakukan absensi, mengerjakan kuis, dan masuk peringkat.',
+  narasumber: 'Narasumber hanya melakukan absensi: tidak melihat atau mengerjakan kuis dan tidak masuk peringkat.',
+  panitia: 'Panitia hanya melakukan absensi: tidak melihat atau mengerjakan kuis dan tidak masuk peringkat.',
+}
+/** Peran yang hanya absen (tanpa kuis). */
+export const isStaff = (r: PersonRole) => r !== 'peserta'
 
 /** Pangkat/golongan ruang PNS, dipakai sebagai saran isian (boleh mengetik bebas, mis. golongan PPPK). */
 export const GRADE_SUGGESTIONS = [

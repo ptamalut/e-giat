@@ -83,6 +83,12 @@ describe('peran narasumber saat impor', () => {
     expect(parseRole('Widyaiswara', 'peserta')).toBe('narasumber')
     expect(parseRole('lainnya', 'peserta')).toBe('peserta')
   })
+  it('mengenali peran panitia', () => {
+    expect(parseRole('Panitia', 'peserta')).toBe('panitia')
+    expect(parseRole('Sekretariat', 'peserta')).toBe('panitia')
+    const r = parseParticipants('Nama\tPeran\nRina\tPanitia\nAhmad\tNarasumber\nBudi\tPeserta')
+    expect(r.items.map((i) => i.role)).toEqual(['panitia', 'narasumber', 'peserta'])
+  })
 })
 
 describe('waNumber', () => {

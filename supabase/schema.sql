@@ -44,8 +44,8 @@ create table if not exists public.participants (
   institution  text,                -- satuan kerja
   email        text,                -- tidak lagi diisi dari aplikasi (dipertahankan untuk data lama)
   phone        text,                -- nomor WhatsApp
-  -- peran: peserta mengerjakan kuis & masuk peringkat; narasumber hanya absen
-  role         text not null default 'peserta' check (role in ('peserta', 'narasumber')),
+  -- peran: peserta mengerjakan kuis & masuk peringkat; narasumber dan panitia hanya absen
+  role         text not null default 'peserta' check (role in ('peserta', 'narasumber', 'panitia')),
   -- token rahasia untuk link unik peserta (122 bit acak)
   token        text not null unique default replace(gen_random_uuid()::text, '-', ''),
   created_at   timestamptz not null default now(),
@@ -57,11 +57,9 @@ create index if not exists participants_activity_idx on public.participants (act
 alter table public.participants add column if not exists grade     text;
 alter table public.participants add column if not exists job_title text;
 alter table public.participants add column if not exists role text not null default 'peserta';
-do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'participants_role_check') then
-    alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber'));
-  end if;
-end $$;
+-- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
+alter table public.participants drop constraint if exists participants_role_check;
+alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'panitia'));
 
 -- Sesi absensi (mis. Hari 1, Hari 2, Sesi Pagi, ...)
 create table if not exists public.attendance_sessions (
@@ -452,7 +450,7 @@ begin
          ) order by q.created_at), '[]'::jsonb)
     into v_quiz
     from public.quizzes q
-   where q.activity_id = a.id and q.is_published and p.role = 'peserta';  -- narasumber tidak melihat kuis
+   where q.activity_id = a.id and q.is_published and p.role = 'peserta';  -- narasumber & panitia tidak melihat kuis
 
   return jsonb_build_object(
     'now', v_now,
@@ -527,7 +525,7 @@ declare
 begin
   p := public._participant_by_token(p_token);
   if p.role <> 'peserta' then
-    raise exception 'Narasumber tidak mengerjakan kuis.' using errcode = 'P0001';
+    raise exception 'Kuis hanya untuk peserta. Narasumber dan panitia cukup melakukan absensi.' using errcode = 'P0001';
   end if;
   perform pg_advisory_xact_lock(hashtextextended(p.id::text || p_quiz::text, 0));
   perform public._close_expired(p.id);

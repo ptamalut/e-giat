@@ -21,9 +21,10 @@ Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
 - Data peserta: **Nama lengkap beserta gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp**
   (saran pangkat/golongan PNS tersedia di formulir; avatar melewati gelar di depan nama seperti Dr., Ir., H.).
-- **Narasumber**: orang dengan peran Narasumber punya link/QR pribadi dan melakukan absensi, tetapi tidak melihat atau
-  mengerjakan kuis (ditegakkan di server) dan tidak masuk peringkat/laporan kuis. Peran dipilih di formulir, lewat filter
-  Peserta/Narasumber, saat impor ("Impor sebagai"), atau lewat kolom opsional "Peran" di data Excel.
+- **Peran**: setiap orang berperan *Peserta*, *Narasumber*, atau *Panitia*. Narasumber dan Panitia punya link/QR pribadi
+  dan melakukan absensi, tetapi tidak melihat atau mengerjakan kuis (ditegakkan di server) dan tidak masuk
+  peringkat/laporan kuis. Peran dipilih di formulir, lewat filter, saat impor ("Impor sebagai"), atau lewat kolom
+  opsional "Peran" di data Excel.
 - Impor banyak peserta dengan menempel dari Excel: kolom dibaca dari baris judul (urutan bebas) atau urutan bawaan,
   nama bergelar yang memuat koma aman (pemisah Tab/titik koma/kutip), spasi pada NIP dihapus, NIP yang rusak menjadi
   angka ilmiah (1.98E+17) ditolak, ada pratinjau kolom, deteksi duplikat (NIP/nama), dan templat CSV.
@@ -67,7 +68,8 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 4. **Project Settings → API**: salin *Project URL* dan *anon public key*.
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
-> jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan (mis. `002_narasumber.sql`).
+> jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
+> (`002_narasumber.sql`, lalu `003_panitia.sql`).
 > Skrip bersifat idempotent dan otomatis menambah kolom baru (mis. `grade` dan `job_title` untuk Pangkat/Gol. dan Jabatan)
 > tanpa menghapus data. Lakukan ini **sebelum** versi aplikasi baru dipakai.
 
