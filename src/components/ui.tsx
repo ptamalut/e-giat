@@ -1,3 +1,4 @@
+import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 
 /* ---------- Toast ---------- */
@@ -29,7 +30,12 @@ export function UIProvider({ children }: { children: ReactNode }) {
       <ConfirmCtx.Provider value={confirm}>
         {children}
         <div className="toasts" role="status" aria-live="polite">
-          {toasts.map((t) => <div key={t.id} className={`toast ${t.kind}`}>{t.text}</div>)}
+          {toasts.map((t) => (
+            <div key={t.id} className={`toast ${t.kind}`}>
+              {t.kind === 'error' ? <AlertCircle size={18} /> : t.kind === 'success' ? <CheckCircle2 size={18} /> : <Info size={18} />}
+              <span>{t.text}</span>
+            </div>
+          ))}
         </div>
         {dlg && (
           <Modal title={dlg.title} onClose={() => close(false)}
@@ -61,7 +67,7 @@ export function Modal({ title, children, footer, onClose, wide }: {
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-head">
           <h3>{title}</h3>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Tutup">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label="Tutup"><X size={18} /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -78,15 +84,17 @@ export function Loading({ text = 'Memuat…' }: { text?: string }) {
 export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
     <div className="alert error">
-      {error} {onRetry && <button className="btn sm" style={{ marginLeft: 8 }} onClick={onRetry}>Coba lagi</button>}
+      <AlertCircle size={18} />
+      <span>{error}</span>
+      {onRetry && <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={onRetry}>Coba lagi</button>}
     </div>
   )
 }
 
-export function Empty({ icon = '📭', title, children }: { icon?: string; title: string; children?: ReactNode }) {
+export function Empty({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
   return (
     <div className="empty">
-      <div className="big">{icon}</div>
+      <div className="big">{icon ?? <Info size={26} />}</div>
       <strong>{title}</strong>
       {children && <div style={{ marginTop: 6 }}>{children}</div>}
     </div>
@@ -112,8 +120,36 @@ export function Check({ label, hint, checked, onChange }: { label: string; hint?
   )
 }
 
-export function Stat({ value, label, sub }: { value: ReactNode; label: string; sub?: ReactNode }) {
-  return <div className="stat"><div className="v">{value}</div><div className="l">{label}</div>{sub && <div className="s">{sub}</div>}</div>
+export function Stat({ value, label, sub, icon, tone }: {
+  value: ReactNode; label: string; sub?: ReactNode; icon?: ReactNode; tone?: 'success' | 'warn' | 'info' | 'danger'
+}) {
+  return (
+    <div className="stat">
+      {icon && <span className={`icon-chip ${tone ?? ''}`} style={{ width: 40, height: 40 }}>{icon}</span>}
+      <div className="body"><div className="v">{value}</div><div className="l">{label}</div>{sub && <div className="s">{sub}</div>}</div>
+    </div>
+  )
+}
+
+/** Judul halaman + aksi di kanan. */
+export function PageHeader({ title, subtitle, actions, back }: {
+  title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: ReactNode
+}) {
+  return (
+    <div className="page-head">
+      <div style={{ minWidth: 0 }}>
+        {back}
+        <h1>{title}</h1>
+        {subtitle && <div className="sub">{subtitle}</div>}
+      </div>
+      {actions && <div className="row no-print">{actions}</div>}
+    </div>
+  )
+}
+
+/** Judul kartu dengan ikon berlatar warna. */
+export function CardTitle({ icon, children, tone }: { icon: ReactNode; children: ReactNode; tone?: 'success' | 'warn' | 'info' | 'danger' }) {
+  return <h2><span className={`icon-chip ${tone ?? ''}`}>{icon}</span>{children}</h2>
 }
 
 /** Grafik batang vertikal sederhana (tanpa dependensi). */

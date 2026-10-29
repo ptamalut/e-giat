@@ -1,3 +1,4 @@
+import { CalendarCheck, CalendarX, CheckCircle2, Clock, Copy, Download, HeartPulse, Pencil, Plus, RefreshCw, Search, Trash2, UserX, Users } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
@@ -11,9 +12,9 @@ export const ATT_LABEL: Record<AttendanceStatus, string> = { hadir: 'Hadir', ter
 export const ATT_TONE: Record<AttendanceStatus, string> = { hadir: 'success', terlambat: 'warn', izin: 'info', sakit: 'info', alpa: 'danger' }
 
 const STATE_BADGE = {
-  upcoming: <span className="badge">Belum dibuka</span>,
-  open: <span className="badge success">● Sedang dibuka</span>,
-  closed: <span className="badge danger">Ditutup</span>,
+  upcoming: <span className="badge dot">Belum dibuka</span>,
+  open: <span className="badge dot success">Sedang dibuka</span>,
+  closed: <span className="badge dot danger">Ditutup</span>,
 }
 
 export default function AttendanceTab() {
@@ -110,10 +111,10 @@ export default function AttendanceTab() {
           <button className="btn primary sm" onClick={() => {
             const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1)
             setEditing({ title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15 })
-          }}>＋ Tambah sesi</button>
+          }}><Plus size={16} /> Tambah sesi</button>
         </div>
         {sessions.length === 0
-          ? <Empty icon="🗓️" title="Belum ada sesi absensi">Buat sesi (mis. Hari 1) lengkap dengan jam buka &amp; tutup. Peserta hanya bisa absen pada rentang waktu itu.</Empty>
+          ? <Empty icon={<CalendarX size={26} />} title="Belum ada sesi absensi">Buat sesi (mis. Hari 1) lengkap dengan jam buka &amp; tutup. Peserta hanya bisa absen pada rentang waktu itu.</Empty>
           : <div className="pills">{sessions.map((s) => (
               <button key={s.id} className={`pill ${s.id === current?.id ? 'active' : ''}`} onClick={() => setSel(s.id)}>{s.title}</button>
             ))}</div>}
@@ -124,37 +125,37 @@ export default function AttendanceTab() {
           <div className="card">
             <div className="row between">
               <div>
-                <h2 style={{ marginBottom: 4 }}>{current.title} {STATE_BADGE[timeState(current.start_at, current.end_at, Date.now())]}</h2>
-                <div className="muted small">{fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)} · terlambat bila absen lewat {current.late_minutes} menit dari jam mulai</div>
+                <h2 style={{ marginBottom: 6, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{current.title} {STATE_BADGE[timeState(current.start_at, current.end_at, Date.now())]}</h2>
+                <div className="meta"><span><Clock size={15} /> {fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)}</span><span>Terlambat bila absen lewat {current.late_minutes} menit dari jam mulai</span></div>
               </div>
-              <div className="row">
-                <button className="btn sm" onClick={() => setEditing(current)}>✏️ Ubah</button>
-                <button className="btn sm" onClick={() => duplicateNextDay(current)}>⧉ Duplikat +1 hari</button>
-                <button className="btn sm danger" onClick={() => void removeSession(current)}>Hapus</button>
+              <div className="row tight">
+                <button className="btn sm" onClick={() => setEditing(current)}><Pencil size={14} /> Ubah</button>
+                <button className="btn sm" onClick={() => duplicateNextDay(current)}><Copy size={14} /> Duplikat +1 hari</button>
+                <button className="btn sm danger" onClick={() => void removeSession(current)}><Trash2 size={14} /> Hapus</button>
               </div>
             </div>
           </div>
 
-          <div className="grid cols-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
-            <Stat value={counts.hadir} label="Hadir" />
-            <Stat value={counts.terlambat} label="Terlambat" />
-            <Stat value={counts.izin + counts.sakit} label="Izin / sakit" />
-            <Stat value={counts.alpa} label="Alpa" />
-            <Stat value={counts.belum} label="Belum absen" />
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+            <Stat icon={<CheckCircle2 size={20} />} tone="success" value={counts.hadir} label="Hadir" />
+            <Stat icon={<Clock size={20} />} tone="warn" value={counts.terlambat} label="Terlambat" />
+            <Stat icon={<HeartPulse size={20} />} tone="info" value={counts.izin + counts.sakit} label="Izin / sakit" />
+            <Stat icon={<UserX size={20} />} tone="danger" value={counts.alpa} label="Alpa" />
+            <Stat icon={<CalendarCheck size={20} />} value={counts.belum} label="Belum absen" />
           </div>
 
           <div className="card flush">
-            <div style={{ padding: 16 }} className="row between">
-              <input className="input" style={{ width: 240 }} placeholder="🔍 Cari peserta" value={q} onChange={(e) => setQ(e.target.value)} />
-              <div className="row">
-                <span className="muted small">Diperbarui otomatis setiap 15 detik</span>
-                <button className="btn sm" onClick={() => void reload(true)}>↻ Segarkan</button>
-                <button className="btn sm" onClick={() => void markAbsentAsAlpa()}>Tandai yang belum absen = Alpa</button>
-                <button className="btn sm" onClick={exportCsv}>⬇ CSV</button>
+            <div className="toolbar">
+              <label className="search"><Search size={16} /><input className="input" placeholder="Cari peserta" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
+              <div className="row tight">
+                <span className="muted small hide-sm">Diperbarui otomatis tiap 15 detik</span>
+                <button className="btn sm" onClick={() => void reload(true)}><RefreshCw size={14} /> Segarkan</button>
+                <button className="btn sm" onClick={() => void markAbsentAsAlpa()}>Belum absen = Alpa</button>
+                <button className="btn sm" onClick={exportCsv}><Download size={14} /> CSV</button>
               </div>
             </div>
             {data.participants.length === 0
-              ? <Empty icon="👥" title="Belum ada peserta">Tambahkan peserta di tab Peserta.</Empty>
+              ? <Empty icon={<Users size={26} />} title="Belum ada peserta">Tambahkan peserta di tab Peserta.</Empty>
               : <div className="table-wrap"><table className="table">
                   <thead><tr><th>Nama</th><th>Instansi</th><th>Waktu absen</th><th>Status</th></tr></thead>
                   <tbody>{rows.map((p) => {

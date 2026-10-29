@@ -1,3 +1,4 @@
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock, Play, Send, Timer } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Loading, Modal } from '../../components/ui'
@@ -47,24 +48,30 @@ export default function QuizRun() {
   return (
     <div className="auth-wrap">
       <div className="card auth-card" style={{ maxWidth: 520 }}>
-        <Link to={`/p/${token}`} className="muted small">← Kembali</Link>
+        <Link to={`/p/${token}`} className="crumb"><ArrowLeft size={15} /> Kembali</Link>
         {q && (
           <>
-            <h2 style={{ marginTop: 8 }}>{q.title}</h2>
+            <h1 style={{ fontSize: '1.4rem', marginBottom: 4 }}>{q.title}</h1>
             <p className="muted">{intro!.portal.activity.name}</p>
             {q.description && <p style={{ whiteSpace: 'pre-wrap' }}>{q.description}</p>}
-            <ul style={{ lineHeight: 1.9, paddingLeft: 20 }}>
-              <li><b>{q.question_count}</b> soal pilihan ganda</li>
-              <li>Waktu: <b>{q.duration_minutes ? `${q.duration_minutes} menit` : 'tidak dibatasi'}</b>{q.duration_minutes ? ' — hitung mundur dimulai saat Anda menekan tombol mulai dan tetap berjalan walau halaman ditutup.' : ''}</li>
-              <li>{running ? 'Anda memiliki pengerjaan yang belum selesai.' : `Kesempatan tersisa: ${left} dari ${q.max_attempts}`}</li>
-              <li>Jawaban tersimpan otomatis. Waktu habis = jawaban otomatis dikumpulkan.</li>
-            </ul>
+            <div className="stack" style={{ margin: '20px 0 24px' }}>
+              {[
+                [<CheckCircle2 size={18} />, <><b>{q.question_count}</b> soal pilihan ganda</>],
+                [<Clock size={18} />, <>Waktu: <b>{q.duration_minutes ? `${q.duration_minutes} menit` : 'tidak dibatasi'}</b>{q.duration_minutes ? '. Hitung mundur dimulai saat Anda menekan tombol mulai dan tetap berjalan walau halaman ditutup.' : ''}</>],
+                [<Timer size={18} />, running ? 'Anda memiliki pengerjaan yang belum selesai.' : <>Kesempatan tersisa: <b>{left}</b> dari {q.max_attempts}</>],
+                [<Send size={18} />, 'Jawaban tersimpan otomatis. Saat waktu habis, jawaban otomatis dikumpulkan.'],
+              ].map(([icon, text], i) => (
+                <div key={i} className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: 12, marginTop: i ? 14 : 0 }}>
+                  <span className="icon-chip" style={{ width: 32, height: 32 }}>{icon}</span><span style={{ paddingTop: 4 }}>{text}</span>
+                </div>
+              ))}
+            </div>
           </>
         )}
-        {error && <div className="alert error">{error}</div>}
+        {error && <div className="alert error"><AlertTriangle size={18} />{error}</div>}
         {q && (running || left > 0) && (
           <button className="btn primary block lg" disabled={starting} onClick={() => void start()}>
-            {starting ? 'Menyiapkan…' : running ? '▶ Lanjutkan mengerjakan' : '▶ Mulai sekarang'}
+            {starting ? 'Menyiapkan…' : <><Play size={19} /> {running ? 'Lanjutkan mengerjakan' : 'Mulai sekarang'}</>}
           </button>
         )}
         {q && !running && left <= 0 && <div className="alert info">Kesempatan mengerjakan sudah habis.</div>}
@@ -164,16 +171,17 @@ function Runner({ token, data, onDone }: { token: string; data: StartAttemptData
         <div className="container narrow">
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quiz.title}</div>
-            <div className="muted small">{answered}/{view.length} terjawab · {saveState === 'saving' ? 'menyimpan…' : saveState === 'saved' ? '✓ tersimpan' : '⚠ belum tersimpan'}</div>
+            <div className="muted small">{answered}/{view.length} terjawab · {saveState === 'saving' ? 'menyimpan…' : saveState === 'saved' ? 'tersimpan' : 'belum tersimpan, mencoba lagi saat menjawab'}</div>
           </div>
-          {remaining != null && <div className={`timer ${crit ? 'crit' : low ? 'low' : ''}`} role="timer" aria-label="Sisa waktu">⏱ {fmtClock(remaining)}</div>}
+          {remaining != null && <div className={`timer ${crit ? 'crit' : low ? 'low' : ''}`} role="timer" aria-label="Sisa waktu"><Timer size={18} />{fmtClock(remaining)}</div>}
         </div>
+        <div className="quiz-progress" aria-hidden><div style={{ width: `${(answered / view.length) * 100}%` }} /></div>
       </div>
 
       <div className="container narrow page stack">
-        {error && <div className="alert error">{error}</div>}
+        {error && <div className="alert error"><AlertTriangle size={18} />{error}</div>}
         <div className="card">
-          <div className="muted small" style={{ marginBottom: 6 }}>Soal {idx + 1} dari {view.length}</div>
+          <div className="muted small" style={{ marginBottom: 8, fontWeight: 600 }}>Soal {idx + 1} dari {view.length}</div>
           <div className="q-text" style={{ marginBottom: 16 }}>{q.text}</div>
           {q.options.map((o, pos) => (
             <button key={o.i} className={`opt ${answers[q.id] === o.i ? 'selected' : ''}`} onClick={() => choose(q.id, o.i)} aria-pressed={answers[q.id] === o.i}>
@@ -181,10 +189,10 @@ function Runner({ token, data, onDone }: { token: string; data: StartAttemptData
             </button>
           ))}
           <div className="row between" style={{ marginTop: 16 }}>
-            <button className="btn" disabled={idx === 0} onClick={() => setIdx(idx - 1)}>← Sebelumnya</button>
+            <button className="btn" disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ArrowLeft size={16} /> Sebelumnya</button>
             {idx < view.length - 1
-              ? <button className="btn primary" onClick={() => setIdx(idx + 1)}>Selanjutnya →</button>
-              : <button className="btn primary" onClick={() => setConfirming(true)}>Selesai &amp; kumpulkan</button>}
+              ? <button className="btn primary" onClick={() => setIdx(idx + 1)}>Selanjutnya <ArrowRight size={16} /></button>
+              : <button className="btn primary" onClick={() => setConfirming(true)}><Send size={16} /> Selesai &amp; kumpulkan</button>}
           </div>
         </div>
 
@@ -202,7 +210,7 @@ function Runner({ token, data, onDone }: { token: string; data: StartAttemptData
         <Modal title="Kumpulkan jawaban?" onClose={() => setConfirming(false)}
           footer={<><button className="btn" onClick={() => setConfirming(false)}>Kembali periksa</button><button className="btn primary" onClick={() => void submit()}>Ya, kumpulkan</button></>}>
           {answered < view.length
-            ? <div className="alert warn"><b>{view.length - answered} soal</b> belum dijawab.</div>
+            ? <div className="alert warn"><AlertTriangle size={18} /><span><b>{view.length - answered} soal</b> belum dijawab.</span></div>
             : <p>Semua soal sudah dijawab.</p>}
           <p className="muted">Setelah dikumpulkan, jawaban tidak bisa diubah{remaining != null ? ` (sisa waktu ${fmtClock(remaining)})` : ''}.</p>
         </Modal>

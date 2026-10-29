@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowLeft, ArrowUp, BarChart3, Check as CheckIcon, ClipboardPaste, Lightbulb, Pencil, Plus, ShieldCheck, Shuffle, Target, Timer, Trash2, X, FileQuestion } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
@@ -57,49 +58,50 @@ export default function QuizEditor() {
   return (
     <div className="stack">
       <div className="row between">
-        <Link to=".." relative="path" className="muted small">← Daftar kuis</Link>
-        <Link className="btn sm" to="../laporan" relative="path">📊 Lihat hasil</Link>
+        <Link to=".." relative="path" className="crumb"><ArrowLeft size={15} /> Daftar kuis</Link>
+        <Link className="btn sm" to="../laporan" relative="path"><BarChart3 size={15} /> Lihat hasil</Link>
       </div>
 
       {attempts > 0 && (
         <div className="alert warn">
-          Sudah ada <b>{attempts}</b> percobaan peserta pada kuis ini. Mengubah kunci jawaban tidak menghitung ulang skor yang sudah tercatat.
+          <span>Sudah ada <b>{attempts}</b> percobaan peserta pada kuis ini. Mengubah kunci jawaban tidak menghitung ulang skor yang sudah tercatat.</span>
         </div>
       )}
 
       <Settings quiz={quiz} questionCount={questions.length} onSaved={() => void reload(true)} />
 
       <div className="card flush">
-        <div style={{ padding: 16 }} className="row between">
+        <div className="toolbar">
           <div>
             <h2 style={{ margin: 0 }}>Soal ({questions.length})</h2>
             <span className="muted small">Total bobot {totalPoints} poin · skor akhir dinormalkan ke 0–100</span>
           </div>
-          <div className="row">
-            <button className="btn sm" onClick={() => setBulk(true)}>📋 Impor dari teks</button>
-            <button className="btn primary sm" onClick={() => setEditQ({ options: ['', ''], correct_index: 0, points: 1 })}>＋ Tambah soal</button>
+          <div className="row tight">
+            <button className="btn sm" onClick={() => setBulk(true)}><ClipboardPaste size={15} /> Impor dari teks</button>
+            <button className="btn primary sm" onClick={() => setEditQ({ options: ['', ''], correct_index: 0, points: 1 })}><Plus size={16} /> Tambah soal</button>
           </div>
         </div>
-        {questions.length === 0 && <Empty icon="❓" title="Belum ada soal">Tambahkan satu per satu atau impor banyak soal sekaligus dari teks.</Empty>}
+        {questions.length === 0 && <Empty icon={<FileQuestion size={26} />} title="Belum ada soal">Tambahkan satu per satu atau impor banyak soal sekaligus dari teks.</Empty>}
         {questions.map((q, i) => (
-          <div key={q.id} style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
-            <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+          <div key={q.id} style={{ padding: '18px 20px', borderTop: '1px solid var(--border)' }}>
+            <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 16 }}>
+              <span className="medal" style={{ marginTop: 1 }}>{i + 1}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, whiteSpace: 'pre-wrap' }}>{i + 1}. {q.text} {Number(q.points) !== 1 && <span className="badge">{q.points} poin</span>}</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 0' }}>
+                <div style={{ fontWeight: 600, whiteSpace: 'pre-wrap' }}>{q.text} {Number(q.points) !== 1 && <span className="badge">{q.points} poin</span>}</div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'grid', gap: 4 }}>
                   {q.options.map((o, oi) => (
-                    <li key={oi} style={{ padding: '2px 0', color: oi === q.correct_index ? 'var(--success)' : undefined, fontWeight: oi === q.correct_index ? 700 : 400 }}>
-                      {LETTERS[oi]}. {o} {oi === q.correct_index && '✓'}
+                    <li key={oi} className="row tight" style={{ flexWrap: 'nowrap', alignItems: 'flex-start', color: oi === q.correct_index ? 'var(--success)' : 'var(--text-2)', fontWeight: oi === q.correct_index ? 650 : 400 }}>
+                      <b style={{ width: 18 }}>{LETTERS[oi]}.</b><span>{o}</span>{oi === q.correct_index && <CheckIcon size={16} />}
                     </li>
                   ))}
                 </ul>
-                {q.explanation && <div className="muted small" style={{ marginTop: 6 }}>💡 {q.explanation}</div>}
+                {q.explanation && <div className="muted small row tight" style={{ marginTop: 10, flexWrap: 'nowrap', alignItems: 'flex-start' }}><Lightbulb size={15} style={{ marginTop: 2 }} /> {q.explanation}</div>}
               </div>
-              <div className="row" style={{ flexWrap: 'nowrap', gap: 2 }}>
-                <button className="btn ghost sm" disabled={i === 0} onClick={() => void move(i, -1)} aria-label="Naikkan">▲</button>
-                <button className="btn ghost sm" disabled={i === questions.length - 1} onClick={() => void move(i, 1)} aria-label="Turunkan">▼</button>
-                <button className="btn ghost sm" onClick={() => setEditQ(q)} aria-label="Ubah">✏️</button>
-                <button className="btn ghost sm" onClick={() => void removeQ(q)} aria-label="Hapus">🗑️</button>
+              <div className="row tight" style={{ flexWrap: 'nowrap' }}>
+                <button className="icon-btn" disabled={i === 0} onClick={() => void move(i, -1)} aria-label="Naikkan"><ArrowUp size={16} /></button>
+                <button className="icon-btn" disabled={i === questions.length - 1} onClick={() => void move(i, 1)} aria-label="Turunkan"><ArrowDown size={16} /></button>
+                <button className="icon-btn" onClick={() => setEditQ(q)} aria-label="Ubah"><Pencil size={16} /></button>
+                <button className="icon-btn danger" onClick={() => void removeQ(q)} aria-label="Hapus"><Trash2 size={16} /></button>
               </div>
             </div>
           </div>
@@ -160,7 +162,7 @@ function Settings({ quiz, questionCount, onSaved }: { quiz: Quiz; questionCount:
     <form className="card" onSubmit={save}>
       <div className="card-head">
         <h2>Pengaturan kuis</h2>
-        <span className={`badge ${f.is_published ? 'success' : 'warn'}`}>{f.is_published ? 'Terbit' : 'Draft'}</span>
+        <span className={`badge dot ${f.is_published ? 'success' : 'warn'}`}>{f.is_published ? 'Terbit' : 'Draft'}</span>
         <span className="spacer" />
         <button className="btn primary" disabled={busy || !dirty}>{busy ? 'Menyimpan…' : dirty ? 'Simpan pengaturan' : 'Tersimpan'}</button>
       </div>
@@ -174,7 +176,7 @@ function Settings({ quiz, questionCount, onSaved }: { quiz: Quiz; questionCount:
       </div>
       <Field label="Petunjuk untuk peserta"><textarea className="input" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="mis. Kerjakan dengan jujur tanpa membuka materi." /></Field>
 
-      <h3 style={{ marginTop: 8 }}>⏱ Waktu</h3>
+      <div className="form-section"><Timer size={17} /> Waktu</div>
       <div className="form-grid">
         <Field label="Durasi pengerjaan (menit)" hint="Kosongkan = tanpa batas waktu. Dihitung server sejak peserta menekan Mulai.">
           <input className="input" type="number" min={1} value={f.duration} onChange={(e) => setF({ ...f, duration: e.target.value })} placeholder="tanpa batas" />
@@ -183,7 +185,7 @@ function Settings({ quiz, questionCount, onSaved }: { quiz: Quiz; questionCount:
         <Field label="Ditutup pada" hint="Pengerjaan yang sedang berjalan dipotong sampai jam ini"><input className="input" type="datetime-local" value={f.close_at} onChange={(e) => setF({ ...f, close_at: e.target.value })} /></Field>
       </div>
 
-      <h3 style={{ marginTop: 8 }}>🎯 Penilaian</h3>
+      <div className="form-section"><Target size={17} /> Penilaian</div>
       <div className="form-grid">
         <Field label="Nilai kelulusan (0–100)" hint="Kosong = tanpa status lulus"><input className="input" type="number" min={0} max={100} value={f.passing} onChange={(e) => setF({ ...f, passing: e.target.value })} /></Field>
         <Field label="Maksimal percobaan" hint="Skor terbaik yang dipakai"><input className="input" type="number" min={1} max={20} value={f.max_attempts} onChange={(e) => setF({ ...f, max_attempts: Number(e.target.value) })} /></Field>
@@ -192,12 +194,12 @@ function Settings({ quiz, questionCount, onSaved }: { quiz: Quiz; questionCount:
       <Check label="Tampilkan skor ke peserta setelah selesai" checked={f.show_result} onChange={(v) => setF({ ...f, show_result: v })} />
       <Check label="Tampilkan pembahasan &amp; kunci jawaban setelah selesai" checked={f.show_answers} onChange={(v) => setF({ ...f, show_answers: v })} />
 
-      <h3 style={{ marginTop: 8 }}>🔀 Aturan</h3>
+      <div className="form-section"><Shuffle size={17} /> Aturan</div>
       <Check label="Acak urutan soal" checked={f.shuffle_questions} onChange={(v) => setF({ ...f, shuffle_questions: v })} />
       <Check label="Acak urutan pilihan jawaban" checked={f.shuffle_options} onChange={(v) => setF({ ...f, shuffle_options: v })} />
       <Check label="Wajib sudah absen sebelum mengerjakan" hint="Peserta harus tercatat hadir/terlambat di minimal satu sesi." checked={f.require_checkin} onChange={(v) => setF({ ...f, require_checkin: v })} />
 
-      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+      <div className="form-section"><ShieldCheck size={17} /> Publikasi</div>
       <Check label="Terbitkan kuis (terlihat oleh peserta)" checked={f.is_published} onChange={(v) => setF({ ...f, is_published: v })} />
     </form>
   )
@@ -248,10 +250,10 @@ function QuestionForm({ value, quizId, activityId, nextPos, onClose, onSaved }: 
             <input type="radio" name="correct" checked={correct === i} onChange={() => setCorrect(i)} aria-label={`Kunci jawaban ${LETTERS[i]}`} style={{ width: 20, height: 20, accentColor: 'var(--success)' }} />
             <b style={{ width: 20 }}>{LETTERS[i]}</b>
             <input className="input" value={o} onChange={(e) => setOptions(options.map((x, xi) => (xi === i ? e.target.value : x)))} placeholder={`Pilihan ${LETTERS[i]}`} />
-            <button type="button" className="btn ghost sm" disabled={options.length <= 2} onClick={() => removeOption(i)} aria-label="Hapus pilihan">✕</button>
+            <button type="button" className="icon-btn" disabled={options.length <= 2} onClick={() => removeOption(i)} aria-label="Hapus pilihan"><X size={16} /></button>
           </div>
         ))}
-        <button type="button" className="btn sm" disabled={options.length >= 6} onClick={() => setOptions([...options, ''])}>＋ Tambah pilihan</button>
+        <button type="button" className="btn sm" disabled={options.length >= 6} onClick={() => setOptions([...options, ''])}><Plus size={15} /> Tambah pilihan</button>
         <div className="form-grid" style={{ marginTop: 16 }}>
           <Field label="Bobot poin"><input className="input" type="number" min={0.5} step={0.5} value={points} onChange={(e) => setPoints(e.target.value)} /></Field>
         </div>

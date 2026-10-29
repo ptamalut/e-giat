@@ -1,6 +1,7 @@
+import { CalendarCheck, CalendarDays, ClipboardList, MapPin, Plus, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
+import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useToast } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity, ActivityStatus } from '../../lib/types'
@@ -44,17 +45,27 @@ export default function Dashboard() {
     nav(`/admin/kegiatan/${data.id}/peserta`)
   }
 
+  const all = data ?? []
+  const totalParticipants = all.reduce((s, a) => s + (a.participants[0]?.count ?? 0), 0)
+
   return (
     <>
-      <div className="row between" style={{ marginBottom: 16 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Kegiatan</h1>
-          <p className="muted" style={{ margin: 0 }}>Kelola semua kegiatan, peserta, absensi, dan kuis Anda.</p>
-        </div>
-        <button className="btn primary" onClick={() => setAdding(true)}>＋ Tambah kegiatan</button>
-      </div>
+      <PageHeader
+        title="Kegiatan"
+        subtitle="Kelola semua kegiatan, peserta, absensi, dan kuis Anda."
+        actions={<button className="btn primary" onClick={() => setAdding(true)}><Plus size={17} /> Tambah kegiatan</button>}
+      />
 
-      <div className="pills" style={{ marginBottom: 16 }}>
+      {!loading && all.length > 0 && (
+        <div className="grid cols-4" style={{ marginBottom: 24 }}>
+          <Stat icon={<CalendarDays size={20} />} value={all.length} label="Total kegiatan" />
+          <Stat icon={<CalendarCheck size={20} />} tone="success" value={all.filter((a) => a.status === 'aktif').length} label="Sedang berjalan" />
+          <Stat icon={<Users size={20} />} tone="info" value={totalParticipants} label="Total peserta" />
+          <Stat icon={<ClipboardList size={20} />} tone="warn" value={all.reduce((s, a) => s + (a.quizzes[0]?.count ?? 0), 0)} label="Total kuis" />
+        </div>
+      )}
+
+      <div className="pills" style={{ marginBottom: 20 }}>
         {(['semua', 'aktif', 'draft', 'selesai'] as const).map((s) => (
           <button key={s} className={`pill ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>
             {s === 'semua' ? 'Semua' : STATUS_LABEL[s]}
@@ -65,24 +76,26 @@ export default function Dashboard() {
       {loading && <Loading />}
       {error && <ErrorBox error={error} onRetry={() => void reload()} />}
       {!loading && !error && list.length === 0 && (
-        <div className="card"><Empty icon="🗓️" title={data?.length ? 'Tidak ada kegiatan dengan status ini' : 'Belum ada kegiatan'}>
-          {!data?.length && <button className="btn primary" onClick={() => setAdding(true)}>Buat kegiatan pertama</button>}
+        <div className="card"><Empty icon={<CalendarDays size={26} />} title={data?.length ? 'Tidak ada kegiatan dengan status ini' : 'Belum ada kegiatan'}>
+          {!data?.length && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={17} /> Buat kegiatan pertama</button>}
         </Empty></div>
       )}
 
       <div className="grid cols-3">
         {list.map((a) => (
           <Link key={a.id} to={`/admin/kegiatan/${a.id}`} className="card link">
-            <div className="row between" style={{ marginBottom: 6 }}>
-              <span className={`badge ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span>
+            <div className="row between" style={{ marginBottom: 12 }}>
+              <span className={`badge dot ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span>
               <span className="muted small">{fmtDateRange(a.start_date, a.end_date)}</span>
             </div>
-            <h3>{a.name}</h3>
-            {a.location && <p className="muted small" style={{ margin: 0 }}>📍 {a.location}</p>}
-            <div className="row" style={{ marginTop: 12, gap: 16 }}>
-              <span title="Peserta">👥 <b>{a.participants[0]?.count ?? 0}</b></span>
-              <span title="Sesi absensi">🗓️ <b>{a.attendance_sessions[0]?.count ?? 0}</b></span>
-              <span title="Kuis">📝 <b>{a.quizzes[0]?.count ?? 0}</b></span>
+            <h3 style={{ fontSize: '1.08rem', marginBottom: 4 }}>{a.name}</h3>
+            <p className="muted small" style={{ margin: 0, minHeight: 20, display: 'flex', gap: 6, alignItems: 'center' }}>
+              {a.location ? <><MapPin size={14} /> {a.location}</> : <span>&nbsp;</span>}
+            </p>
+            <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', gap: 20 }}>
+              <span className="muted small row tight" title="Peserta"><Users size={15} /> <b style={{ color: 'var(--text)' }}>{a.participants[0]?.count ?? 0}</b> peserta</span>
+              <span className="muted small row tight" title="Sesi absensi"><CalendarCheck size={15} /> <b style={{ color: 'var(--text)' }}>{a.attendance_sessions[0]?.count ?? 0}</b></span>
+              <span className="muted small row tight" title="Kuis"><ClipboardList size={15} /> <b style={{ color: 'var(--text)' }}>{a.quizzes[0]?.count ?? 0}</b></span>
             </div>
           </Link>
         ))}
