@@ -25,6 +25,8 @@ export interface Activity {
   enable_quiz: boolean
   enable_certificate: boolean
   enable_documentation: boolean
+  /** tampil di halaman depan (kegiatan berjalan) dan peserta bisa masuk dengan NIP */
+  public_access: boolean
   created_at: string
 }
 
@@ -368,4 +370,14 @@ export interface PortalDoc {
   caption: string | null
   album: string | null
   taken_on: string | null
+}
+
+/** Kegiatan berjalan yang ditampilkan di halaman depan. */
+export interface PublicActivity {
+  id: string
+  name: string
+  description: string | null
+  location: string | null
+  start_date: string | null
+  end_date: string | null
 }

@@ -4,7 +4,9 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import { Loading } from './components/ui'
 import { isConfigured } from './lib/supabase'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
+import PublicActivityPage from './pages/PublicActivity'
 import SetupNeeded from './pages/SetupNeeded'
 
 // Bagian peserta & panitia dipisah agar halaman peserta (HP) tetap ringan.
@@ -48,7 +50,8 @@ export default function App() {
   return (
     <Suspense fallback={<Loading />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/k/:id" element={<PublicActivityPage />} />
         <Route path="/login" element={<Login />} />
 
         <Route path="/p/:token" element={<Portal />} />

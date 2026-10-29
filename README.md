@@ -17,9 +17,22 @@ peserta, absensi lewat link/QR pribadi, notula, kuis pre test / post test berwak
 | 5 | Catat **notula**, unggah **sertifikat** dan **dokumentasi** | Kegiatan → Notula / Sertifikat / Dokumentasi |
 | 6 | Lihat **laporan**: kehadiran, hasil kuis, peringkat, pre vs post, analisis soal | Kegiatan → Laporan |
 
-Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p/<token>` (atau scan QR) di HP.
+Peserta **tidak perlu login**: cukup membuka link pribadi `https://domain-anda/p/<token>` (atau scan QR) di HP, atau memasukkan **NIP**
+di halaman depan (lihat di bawah).
 
 ## Fitur
+
+**Halaman depan (landing) dan masuk dengan NIP**
+- Alamat utama aplikasi (`/`) adalah halaman depan publik: profil LAKSANA, daftar **kegiatan berjalan**, cara masuk, dan ringkasan fitur.
+  Kegiatan berstatus *Berjalan* tampil sebagai kartu; mengkliknya membuka `/k/<id kegiatan>` (alamat ini juga bisa dibagikan langsung).
+- Peserta memasukkan **NIP**; bila cocok dengan data peserta/narasumber/panitia kegiatan itu, mereka langsung dibuka ke halaman pribadinya
+  (`/p/<token>`). Panitia masuk lewat tombol *Masuk panitia*.
+- Di *Ringkasan → Pengaturan kegiatan* ada opsi **Tampilkan di halaman depan (masuk dengan NIP)** per kegiatan (bawaan aktif). Matikan bila peserta
+  hanya boleh masuk lewat link/QR.
+- **Perhatikan:** NIP bukan rahasia seperti token. Siapa pun yang mengetahui NIP seseorang dapat membuka halamannya (termasuk mengerjakan kuis
+  atas namanya). Untuk membatasi penebakan, server menolak pencarian setelah **5 kegagalan** untuk NIP yang sama atau **40 kegagalan** pada satu kegiatan
+  dalam 10 menit, dan hanya kegiatan berjalan yang dibuka untuk umum. Untuk kegiatan yang menuntut keamanan lebih tinggi (mis. kuis yang menentukan nilai),
+  matikan opsi ini dan bagikan link/QR pribadi saja.
 
 **Menu per kegiatan, data pegawai, dan hak akses**
 - **Menu kegiatan**: di *Ringkasan → Menu kegiatan* panitia mengaktifkan/menonaktifkan *Absensi, Notula, Kuis, Sertifikat,
@@ -113,7 +126,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, lalu `008_akses_notula_dokumentasi.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, lalu `009_halaman_depan.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
