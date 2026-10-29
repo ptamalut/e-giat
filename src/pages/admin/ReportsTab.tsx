@@ -1,3 +1,4 @@
+import { Award, BarChart3, CalendarCheck, CheckCircle2, ClipboardList, Download, FileSearch, Percent, Printer, RefreshCw, RotateCcw, TrendingUp, Trophy, Users, type LucideIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
@@ -15,12 +16,12 @@ import { ATT_LABEL, ATT_TONE } from './AttendanceTab'
 import { TYPE_LABEL, TYPE_TONE } from './QuizzesTab'
 
 type Section = 'peringkat' | 'kehadiran' | 'kuis' | 'prepost' | 'soal'
-const SECTIONS: { id: Section; label: string }[] = [
-  { id: 'peringkat', label: '🏆 Peringkat' },
-  { id: 'kehadiran', label: '🗓️ Kehadiran' },
-  { id: 'kuis', label: '📝 Hasil kuis' },
-  { id: 'prepost', label: '📈 Pre vs Post' },
-  { id: 'soal', label: '🔍 Analisis soal' },
+const SECTIONS: { id: Section; label: string; icon: LucideIcon }[] = [
+  { id: 'peringkat', label: 'Peringkat', icon: Trophy },
+  { id: 'kehadiran', label: 'Kehadiran', icon: CalendarCheck },
+  { id: 'kuis', label: 'Hasil kuis', icon: ClipboardList },
+  { id: 'prepost', label: 'Pre vs Post', icon: TrendingUp },
+  { id: 'soal', label: 'Analisis soal', icon: FileSearch },
 ]
 
 interface Data {
@@ -62,14 +63,14 @@ export default function ReportsTab() {
     <div className="stack">
       <div className="row between no-print">
         <div className="pills">
-          {SECTIONS.map((s) => (
-            <button key={s.id} className={`pill ${section === s.id ? 'active' : ''}`}
-              onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.set('bagian', s.id); return n }, { replace: true })}>{s.label}</button>
+          {SECTIONS.map(({ id, label, icon: Icon }) => (
+            <button key={id} className={`pill ${section === id ? 'active' : ''}`}
+              onClick={() => setSp((p) => { const n = new URLSearchParams(p); n.set('bagian', id); return n }, { replace: true })}><Icon size={15} />{label}</button>
           ))}
         </div>
-        <div className="row">
-          <button className="btn sm" onClick={() => void reload(true)}>↻ Segarkan</button>
-          <button className="btn sm" onClick={() => window.print()}>🖨 Cetak / PDF</button>
+        <div className="row tight">
+          <button className="btn sm" onClick={() => void reload(true)}><RefreshCw size={14} /> Segarkan</button>
+          <button className="btn sm" onClick={() => window.print()}><Printer size={14} /> Cetak / PDF</button>
         </div>
       </div>
 
@@ -79,7 +80,7 @@ export default function ReportsTab() {
       </div>
 
       {data.participants.length === 0
-        ? <div className="card"><Empty icon="📊" title="Belum ada data">Tambahkan peserta terlebih dahulu.</Empty></div>
+        ? <div className="card"><Empty icon={<BarChart3 size={26} />} title="Belum ada data">Tambahkan peserta terlebih dahulu.</Empty></div>
         : section === 'peringkat' ? <RankingSection data={data} name={activity.name} weight={activity.weight_attendance} />
         : section === 'kehadiran' ? <AttendanceSection data={data} name={activity.name} />
         : section === 'kuis' ? <QuizSection data={data} name={activity.name} onChanged={() => void reload(true)} />
@@ -99,23 +100,25 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
   return (
     <>
       <div className="grid cols-4">
-        <Stat value={r.length} label="Peserta" />
-        <Stat value={fmtScore(avg)} label="Rata-rata nilai akhir" />
-        <Stat value={fmtScore(r[0]?.final_score ?? null)} label="Nilai tertinggi" sub={r[0]?.name} />
-        <Stat value={active.length} label="Sudah punya nilai" />
+        <Stat icon={<Users size={20} />} value={r.length} label="Peserta" />
+        <Stat icon={<Percent size={20} />} tone="info" value={fmtScore(avg)} label="Rata-rata nilai akhir" />
+        <Stat icon={<Award size={20} />} tone="warn" value={fmtScore(r[0]?.final_score ?? null)} label="Nilai tertinggi" sub={r[0]?.name} />
+        <Stat icon={<CheckCircle2 size={20} />} tone="success" value={active.length} label="Sudah punya nilai" />
       </div>
-      <div className="alert info" style={{ margin: 0 }}>
-        Nilai akhir = <b>{weight}%</b> kehadiran + <b>{100 - weight}%</b> rata-rata skor terbaik kuis
-        {countedQuizzes.length ? <> ({countedQuizzes.map((q) => q.title).join(', ')})</> : ' (belum ada kuis terbit yang dihitung)'}.
-        Hadir &amp; terlambat dihitung hadir.
+      <div className="alert info">
+        <span>
+          Nilai akhir = <b>{weight}%</b> kehadiran + <b>{100 - weight}%</b> rata-rata skor terbaik kuis
+          {countedQuizzes.length ? <> ({countedQuizzes.map((q) => q.title).join(', ')})</> : ' (belum ada kuis terbit yang dihitung)'}.
+          Hadir &amp; terlambat dihitung hadir.
+        </span>
       </div>
       <div className="card flush">
-        <div className="card-head" style={{ padding: '16px 16px 0' }}>
+        <div className="card-head">
           <h2>Peringkat keseluruhan</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`peringkat-${safeName(name)}`, [
             ['Peringkat', 'Nama', 'Instansi', 'Hadir', 'Total sesi', 'Kehadiran %', 'Rata-rata kuis', 'Nilai akhir'],
             ...r.map((x) => [x.rank, x.name, x.institution, x.sessions_attended, x.sessions_total, x.attendance_pct, x.quiz_avg, x.final_score]),
-          ])}>⬇ CSV</button>
+          ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
           <thead><tr><th>#</th><th>Nama</th><th>Instansi</th><th className="num">Kehadiran</th><th className="num">Rata-rata kuis</th><th style={{ minWidth: 160 }}>Nilai akhir</th></tr></thead>
@@ -138,7 +141,7 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
 /* ---------- Kehadiran ---------- */
 function AttendanceSection({ data, name }: { data: Data; name: string }) {
   const rows = useMemo(() => attendanceMatrix(data.participants, data.sessions, data.attendances), [data])
-  if (data.sessions.length === 0) return <div className="card"><Empty icon="🗓️" title="Belum ada sesi absensi" /></div>
+  if (data.sessions.length === 0) return <div className="card"><Empty icon={<CalendarCheck size={26} />} title="Belum ada sesi absensi" /></div>
   const avg = rows.reduce((s, r) => s + (r.pct ?? 0), 0) / rows.length
   const perSession = data.sessions.map((s) => ({
     s, n: rows.filter((r) => ['hadir', 'terlambat'].includes(r.cells[s.id]?.status ?? '')).length,
@@ -148,24 +151,24 @@ function AttendanceSection({ data, name }: { data: Data; name: string }) {
   return (
     <>
       <div className="grid cols-4">
-        <Stat value={fmtPct(avg)} label="Rata-rata kehadiran" />
-        <Stat value={rows.filter((r) => r.pct === 100).length} label="Hadir di semua sesi" />
-        <Stat value={rows.filter((r) => (r.pct ?? 0) < 75).length} label="Kehadiran < 75%" />
-        <Stat value={data.sessions.length} label="Sesi" />
+        <Stat icon={<Percent size={20} />} value={fmtPct(avg)} label="Rata-rata kehadiran" />
+        <Stat icon={<CheckCircle2 size={20} />} tone="success" value={rows.filter((r) => r.pct === 100).length} label="Hadir di semua sesi" />
+        <Stat icon={<Users size={20} />} tone="danger" value={rows.filter((r) => (r.pct ?? 0) < 75).length} label="Kehadiran < 75%" />
+        <Stat icon={<CalendarCheck size={20} />} tone="info" value={data.sessions.length} label="Sesi" />
       </div>
       <div className="card">
         <h3>Kehadiran per sesi</h3>
         <BarChart data={perSession.map(({ s, n }) => ({ label: short(s), value: n }))} max={Math.max(data.participants.length, 1)} />
       </div>
       <div className="card flush">
-        <div className="card-head" style={{ padding: '16px 16px 0' }}>
+        <div className="card-head">
           <h2>Rekap kehadiran</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`kehadiran-${safeName(name)}`, [
             ['Nama', 'ID', 'Instansi', ...data.sessions.map((s) => s.title), 'Hadir', 'Persen'],
             ...rows.map((r) => [r.participant.name, r.participant.identifier, r.participant.institution,
               ...data.sessions.map((s) => { const a = r.cells[s.id]; return a ? ATT_LABEL[a.status] : 'Belum absen' }),
               r.attended, r.pct == null ? '' : Math.round(r.pct)]),
-          ])}>⬇ CSV</button>
+          ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
           <thead><tr><th>Nama</th>{data.sessions.map((s) => <th key={s.id} title={fmtDateTime(s.start_at)}>{short(s)}</th>)}<th className="num">Hadir</th><th className="num">%</th></tr></thead>
@@ -206,7 +209,7 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
   const [selId, setSelId] = useState('')
   const quiz = data.quizzes.find((q) => q.id === selId) ?? data.quizzes[0]
   const res = useMemo(() => (quiz ? quizResults(quiz, data.participants, data.attempts) : null), [quiz, data])
-  if (!quiz || !res) return <div className="card"><Empty icon="📝" title="Belum ada kuis" /></div>
+  if (!quiz || !res) return <div className="card"><Empty icon={<ClipboardList size={26} />} title="Belum ada kuis" /></div>
   const inProgress = (pid: string) => data.attempts.some((t) => t.quiz_id === quiz.id && t.participant_id === pid && !t.submitted_at)
   const order = [...res.rows].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || a.participant.name.localeCompare(b.participant.name))
 
@@ -224,24 +227,24 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
     <>
       <QuizPicker quizzes={data.quizzes} value={quiz.id} onChange={setSelId} />
       <div className="grid cols-4">
-        <Stat value={`${stats.taken}/${stats.total}`} label="Sudah mengerjakan" />
-        <Stat value={fmtScore(stats.avg)} label="Rata-rata" sub={stats.min != null ? `terendah ${fmtScore(stats.min)} · tertinggi ${fmtScore(stats.max)}` : undefined} />
-        <Stat value={stats.passRate == null ? '—' : fmtPct(stats.passRate)} label="Tingkat kelulusan" sub={quiz.passing_score != null ? `nilai lulus ${quiz.passing_score}` : 'tanpa nilai lulus'} />
-        <Stat value={res.ranked[0] ? fmtScore(res.ranked[0].score) : '—'} label="Skor tertinggi" sub={res.ranked[0]?.participant.name} />
+        <Stat icon={<Users size={20} />} value={`${stats.taken}/${stats.total}`} label="Sudah mengerjakan" />
+        <Stat icon={<Percent size={20} />} tone="info" value={fmtScore(stats.avg)} label="Rata-rata" sub={stats.min != null ? `terendah ${fmtScore(stats.min)} · tertinggi ${fmtScore(stats.max)}` : undefined} />
+        <Stat icon={<CheckCircle2 size={20} />} tone="success" value={stats.passRate == null ? '—' : fmtPct(stats.passRate)} label="Tingkat kelulusan" sub={quiz.passing_score != null ? `nilai lulus ${quiz.passing_score}` : 'tanpa nilai lulus'} />
+        <Stat icon={<Award size={20} />} tone="warn" value={res.ranked[0] ? fmtScore(res.ranked[0].score) : '—'} label="Skor tertinggi" sub={res.ranked[0]?.participant.name} />
       </div>
       <div className="card">
         <h3>Sebaran nilai</h3>
         <BarChart data={stats.distribution.map((v, i) => ({ label: i === 9 ? '90–100' : `${i * 10}–${i * 10 + 9}`, value: v }))} />
       </div>
       <div className="card flush">
-        <div className="card-head" style={{ padding: '16px 16px 0' }}>
+        <div className="card-head">
           <h2>{quiz.title} <span className={`badge ${TYPE_TONE[quiz.type]}`}>{TYPE_LABEL[quiz.type]}</span></h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`hasil-${safeName(quiz.title)}-${safeName(name)}`, [
             ['Peringkat', 'Nama', 'ID', 'Instansi', 'Percobaan', 'Skor terbaik', 'Benar', 'Durasi', 'Status'],
             ...order.map((r) => [r.rank, r.participant.name, r.participant.identifier, r.participant.institution, r.attempts, r.score,
               r.best ? `${r.best.correct_count}/${r.best.total_questions}` : '', r.duration != null ? fmtDuration(r.duration) : '',
               r.passed == null ? (r.score == null ? 'Belum mengerjakan' : '') : r.passed ? 'Lulus' : 'Tidak lulus']),
-          ])}>⬇ CSV</button>
+          ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
           <thead><tr><th>#</th><th>Nama</th><th className="num">Percobaan</th><th style={{ minWidth: 150 }}>Skor terbaik</th><th className="num">Benar</th><th className="num">Durasi</th><th>Status</th><th className="no-print"></th></tr></thead>
@@ -249,12 +252,12 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
             <tr key={r.participant.id}>
               <td><RankMedal rank={r.rank} /></td>
               <td><b>{r.participant.name}</b><div className="muted small">{r.participant.institution}</div></td>
-              <td className="num">{r.attempts}{inProgress(r.participant.id) && <span className="badge warn" style={{ marginLeft: 4 }}>berjalan</span>}</td>
+              <td className="num">{r.attempts}{inProgress(r.participant.id) && <span className="badge warn" style={{ marginLeft: 6 }}>berjalan</span>}</td>
               <td>{r.score == null ? <span className="muted">Belum mengerjakan</span> : <HBar value={r.score} tone={scoreTone(r.score, quiz.passing_score)} label={fmtScore(r.score)} />}</td>
               <td className="num">{r.best ? `${r.best.correct_count}/${r.best.total_questions}` : '—'}</td>
               <td className="num">{fmtDuration(r.duration)}</td>
               <td>{r.passed == null ? '' : r.passed ? <span className="badge success">Lulus</span> : <span className="badge danger">Tidak lulus</span>}</td>
-              <td className="no-print actions">{r.attempts > 0 && <button className="btn ghost sm" onClick={() => void reset(r.participant.id, r.participant.name)} title="Reset percobaan">↺ Reset</button>}</td>
+              <td className="no-print actions">{r.attempts > 0 && <button className="btn ghost sm" onClick={() => void reset(r.participant.id, r.participant.name)} title="Reset percobaan"><RotateCcw size={14} /> Reset</button>}</td>
             </tr>
           ))}</tbody>
         </table></div>
@@ -274,7 +277,7 @@ function PrePostSection({ data, name }: { data: Data; name: string }) {
   const g = useMemo(() => (pre && post ? gainTable(pre, post, data.participants, data.attempts) : null), [pre, post, data])
 
   if (!pre || !post || !g) {
-    return <div className="card"><Empty icon="📈" title="Perlu Pre Test dan Post Test">Buat kuis berjenis Pre Test dan Post Test untuk melihat peningkatan pemahaman peserta.</Empty></div>
+    return <div className="card"><Empty icon={<TrendingUp size={26} />} title="Perlu Pre Test dan Post Test">Buat kuis berjenis Pre Test dan Post Test untuk melihat peningkatan pemahaman peserta.</Empty></div>
   }
   const rows = [...g.rows].sort((a, b) => (b.gain ?? -999) - (a.gain ?? -999))
   const sel = (items: Quiz[], v: string, set: (s: string) => void) => (
@@ -287,10 +290,10 @@ function PrePostSection({ data, name }: { data: Data; name: string }) {
         <span>Pre Test:</span>{sel(pres, pre.id, setPreId)}<span>Post Test:</span>{sel(posts, post.id, setPostId)}
       </div>
       <div className="grid cols-4">
-        <Stat value={fmtScore(g.avgPre)} label="Rata-rata Pre Test" sub={`${g.pairs} peserta mengerjakan keduanya`} />
-        <Stat value={fmtScore(g.avgPost)} label="Rata-rata Post Test" />
-        <Stat value={g.avgGain == null ? '—' : `${g.avgGain > 0 ? '+' : ''}${fmtScore(g.avgGain)}`} label="Rata-rata peningkatan" sub={g.pairs ? `${g.improved} dari ${g.pairs} meningkat` : undefined} />
-        <Stat value={g.avgNGain == null ? '—' : fmtScore(g.avgNGain, 2)} label="N-Gain rata-rata" sub={nGainCategory(g.avgNGain)} />
+        <Stat icon={<ClipboardList size={20} />} tone="info" value={fmtScore(g.avgPre)} label="Rata-rata Pre Test" sub={`${g.pairs} peserta mengerjakan keduanya`} />
+        <Stat icon={<ClipboardList size={20} />} value={fmtScore(g.avgPost)} label="Rata-rata Post Test" />
+        <Stat icon={<TrendingUp size={20} />} tone="success" value={g.avgGain == null ? '—' : `${g.avgGain > 0 ? '+' : ''}${fmtScore(g.avgGain)}`} label="Rata-rata peningkatan" sub={g.pairs ? `${g.improved} dari ${g.pairs} meningkat` : undefined} />
+        <Stat icon={<Award size={20} />} tone="warn" value={g.avgNGain == null ? '—' : fmtScore(g.avgNGain, 2)} label="N-Gain rata-rata" sub={nGainCategory(g.avgNGain)} />
       </div>
       {g.pairs > 0 && (
         <div className="card">
@@ -299,12 +302,12 @@ function PrePostSection({ data, name }: { data: Data; name: string }) {
         </div>
       )}
       <div className="card flush">
-        <div className="card-head" style={{ padding: '16px 16px 0' }}>
+        <div className="card-head">
           <h2>Peningkatan per peserta</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`pre-vs-post-${safeName(name)}`, [
             ['Nama', 'Instansi', 'Pre Test', 'Post Test', 'Selisih', 'N-Gain', 'Kategori'],
             ...rows.map((r) => [r.participant.name, r.participant.institution, r.pre, r.post, r.gain, r.nGain == null ? '' : Number(r.nGain.toFixed(2)), nGainCategory(r.nGain)]),
-          ])}>⬇ CSV</button>
+          ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
           <thead><tr><th>Nama</th><th className="num">Pre</th><th className="num">Post</th><th className="num">Selisih</th><th className="num">N-Gain</th><th>Kategori</th></tr></thead>
@@ -335,21 +338,21 @@ function ItemSection({ data, name }: { data: Data; name: string }) {
     if (!quiz) return []
     return itemAnalysis(data.questions.filter((q) => q.quiz_id === quiz.id), data.attempts.filter((t) => t.quiz_id === quiz.id))
   }, [quiz, data])
-  if (!quiz) return <div className="card"><Empty icon="🔍" title="Belum ada kuis" /></div>
+  if (!quiz) return <div className="card"><Empty icon={<FileSearch size={26} />} title="Belum ada kuis" /></div>
   const LV = { mudah: ['success', 'Mudah'], sedang: ['info', 'Sedang'], sulit: ['danger', 'Sulit'] } as const
 
   return (
     <>
       <QuizPicker quizzes={data.quizzes} value={quiz.id} onChange={setSelId} />
       <div className="card flush">
-        <div className="card-head" style={{ padding: '16px 16px 0' }}>
-          <h2>Analisis soal — {quiz.title}</h2><span className="spacer" />
+        <div className="card-head">
+          <h2>Analisis soal: {quiz.title}</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`analisis-soal-${safeName(quiz.title)}`, [
             ['No', 'Soal', 'Dijawab benar (%)', 'Tingkat', 'Kunci', ...['A', 'B', 'C', 'D', 'E', 'F'].map((l) => `Pilih ${l}`)],
             ...items.map((it, i) => [i + 1, it.question.text, it.pctCorrect == null ? '' : Math.round(it.pctCorrect), it.level ?? '', 'ABCDEFGH'[it.question.correct_index], ...it.optionCounts]),
-          ])}>⬇ CSV</button>
+          ])}><Download size={14} /> CSV</button>
         </div>
-        {items.length === 0 ? <Empty icon="❓" title="Kuis ini belum punya soal" /> : (
+        {items.length === 0 ? <Empty icon={<FileSearch size={26} />} title="Kuis ini belum punya soal" /> : (
           <div className="table-wrap"><table className="table">
             <thead><tr><th>#</th><th>Soal</th><th style={{ minWidth: 150 }}>Dijawab benar</th><th>Tingkat</th><th>Sebaran jawaban</th></tr></thead>
             <tbody>{items.map((it, i) => (

@@ -1,8 +1,10 @@
+import { Settings } from 'lucide-react'
+
 export default function SetupNeeded() {
   return (
     <div className="auth-wrap">
       <div className="card" style={{ maxWidth: 560 }}>
-        <h2>⚙️ Supabase belum dikonfigurasi</h2>
+        <h2 style={{ display: 'flex', gap: 10, alignItems: 'center' }}><span className="icon-chip warn"><Settings size={18} /></span>Supabase belum dikonfigurasi</h2>
         <p>Aplikasi membutuhkan dua variabel lingkungan. Langkah singkat:</p>
         <ol>
           <li>Buat project di <a href="https://supabase.com" target="_blank" rel="noreferrer">supabase.com</a>.</li>

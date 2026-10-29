@@ -1,6 +1,7 @@
+import { Award, CalendarCheck, CheckCheck, ClipboardList, Trash2, Trophy, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Check, ErrorBox, Field, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
+import { CardTitle, Check, ErrorBox, Field, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtPct, fmtScore } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { ActivityStatus, RankingRow } from '../../lib/types'
@@ -86,19 +87,19 @@ export default function Overview() {
   return (
     <div className="stack">
       <div className="grid cols-4">
-        <Stat value={data.participants} label="Peserta" />
-        <Stat value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />
-        <Stat value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />
-        <Stat value={data.attempts} label="Kuis terkumpul" />
+        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" />
+        <Stat icon={<CalendarCheck size={20} />} tone="success" value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />
+        <Stat icon={<ClipboardList size={20} />} tone="warn" value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />
+        <Stat icon={<CheckCheck size={20} />} tone="info" value={data.attempts} label="Kuis terkumpul" />
       </div>
 
       <div className="grid cols-2">
         <div className="card">
-          <div className="card-head"><h2>Langkah-langkah</h2></div>
+          <div className="card-head"><CardTitle icon={<Award size={18} />}>Langkah-langkah</CardTitle></div>
           <ul className="checklist">
             {steps.map((s, i) => (
               <li key={i}>
-                <span className={`dot ${s.done ? 'done' : ''}`}>{s.done ? '✓' : i + 1}</span>
+                <span className={`step ${s.done ? 'done' : ''}`}>{s.done ? <CheckCheck size={13} strokeWidth={3} /> : i + 1}</span>
                 <span style={{ flex: 1, textDecoration: s.done ? 'line-through' : 'none' }} className={s.done ? 'muted' : ''}>{s.text}</span>
                 {!s.done && <Link className="btn sm" to={s.to}>{s.cta}</Link>}
               </li>
@@ -107,7 +108,7 @@ export default function Overview() {
         </div>
 
         <div className="card">
-          <div className="card-head"><h2>🏆 Peringkat sementara</h2><span className="spacer" /><Link to="laporan" className="small">Selengkapnya</Link></div>
+          <div className="card-head"><CardTitle icon={<Trophy size={18} />} tone="warn">Peringkat sementara</CardTitle><span className="spacer" /><Link to="laporan" className="small">Selengkapnya</Link></div>
           {data.ranking.filter((r) => r.final_score > 0).slice(0, 5).map((r) => (
             <div key={r.participant_id} className="item" style={{ padding: '8px 0' }}>
               <span className={`medal ${r.rank <= 3 ? `r${r.rank}` : ''}`}>{r.rank}</span>
@@ -140,7 +141,7 @@ export default function Overview() {
         <Check label="Tampilkan papan peringkat ke peserta" hint="Peserta melihat top 10 dan posisinya sendiri (nama peserta lain terlihat)." checked={form.show_leaderboard} onChange={(v) => setForm({ ...form, show_leaderboard: v })} />
         <div className="row between">
           <button className="btn primary" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan perubahan'}</button>
-          <button type="button" className="btn danger" onClick={() => void remove()}>Hapus kegiatan</button>
+          <button type="button" className="btn danger" onClick={() => void remove()}><Trash2 size={16} /> Hapus kegiatan</button>
         </div>
       </form>
     </div>

@@ -1,6 +1,7 @@
+import { CalendarClock, ClipboardList, Copy, Eye, EyeOff, FileQuestion, Plus, Repeat, Timer, Trash2, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
+import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtDateTime } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Quiz, QuizType } from '../../lib/types'
@@ -97,12 +98,10 @@ export default function QuizzesTab() {
 
   return (
     <div className="stack">
-      <div className="row between">
-        <p className="muted" style={{ margin: 0 }}>Buat pre test &amp; post test dengan batas waktu. Peserta mengerjakan lewat link pribadi mereka.</p>
-        <button className="btn primary" onClick={() => setCreating(true)}>＋ Buat kuis</button>
-      </div>
+      <PageHeader title="Kuis" subtitle="Buat pre test dan post test dengan batas waktu. Peserta mengerjakan lewat link pribadi mereka."
+        actions={<button className="btn primary" onClick={() => setCreating(true)}><Plus size={17} /> Buat kuis</button>} />
 
-      {data.length === 0 && <div className="card"><Empty icon="📝" title="Belum ada kuis">Mulai dengan Pre Test untuk mengukur pengetahuan awal peserta.</Empty></div>}
+      {data.length === 0 && <div className="card"><Empty icon={<ClipboardList size={26} />} title="Belum ada kuis">Mulai dengan Pre Test untuk mengukur pengetahuan awal peserta.</Empty></div>}
 
       <div className="grid cols-2">
         {data.map((q) => {
@@ -110,22 +109,23 @@ export default function QuizzesTab() {
           const attempts = q.quiz_attempts[0]?.count ?? 0
           return (
             <div className="card" key={q.id}>
-              <div className="row" style={{ marginBottom: 6 }}>
+              <div className="row tight" style={{ marginBottom: 10 }}>
                 <span className={`badge ${TYPE_TONE[q.type]}`}>{TYPE_LABEL[q.type]}</span>
-                {q.is_published ? <span className="badge success">Terbit</span> : <span className="badge warn">Draft</span>}
+                {q.is_published ? <span className="badge dot success">Terbit</span> : <span className="badge dot warn">Draft</span>}
               </div>
-              <h3><Link to={q.id}>{q.title}</Link></h3>
-              <div className="muted small" style={{ lineHeight: 1.8 }}>
-                📋 {n} soal · ⏱ {q.duration_minutes ? `${q.duration_minutes} menit` : 'tanpa batas waktu'} · 🔁 maks {q.max_attempts}x<br />
-                🗓️ {windowText(q)}<br />
-                👥 {attempts} percobaan masuk
+              <h3 style={{ fontSize: '1.08rem' }}><Link to={q.id} style={{ color: 'var(--text)' }}>{q.title}</Link></h3>
+              <div className="muted small" style={{ display: 'grid', gap: 5, margin: '10px 0 16px' }}>
+                <span className="row tight"><FileQuestion size={15} /> {n} soal</span>
+                <span className="row tight"><Timer size={15} /> {q.duration_minutes ? `${q.duration_minutes} menit` : 'Tanpa batas waktu'} <Repeat size={15} style={{ marginLeft: 8 }} /> maks {q.max_attempts}x</span>
+                <span className="row tight"><CalendarClock size={15} /> {windowText(q)}</span>
+                <span className="row tight"><Users size={15} /> {attempts} percobaan masuk</span>
               </div>
-              <div className="row" style={{ marginTop: 12 }}>
+              <div className="row tight" style={{ paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 <Link className="btn sm primary" to={q.id}>Kelola soal &amp; pengaturan</Link>
-                <button className="btn sm" onClick={() => void togglePublish(q)}>{q.is_published ? 'Sembunyikan' : 'Terbitkan'}</button>
-                {q.type === 'pre' && <button className="btn sm" onClick={() => void copyAs(q, 'post')} title="Salin soal ini menjadi Post Test">Jadikan Post Test ⧉</button>}
+                <button className="btn sm" onClick={() => void togglePublish(q)}>{q.is_published ? <><EyeOff size={14} /> Sembunyikan</> : <><Eye size={14} /> Terbitkan</>}</button>
+                {q.type === 'pre' && <button className="btn sm" onClick={() => void copyAs(q, 'post')} title="Salin soal ini menjadi Post Test"><Copy size={14} /> Jadikan Post Test</button>}
                 <span className="spacer" />
-                <button className="btn ghost sm" onClick={() => void remove(q)} aria-label="Hapus kuis">🗑️</button>
+                <button className="icon-btn danger" onClick={() => void remove(q)} aria-label="Hapus kuis" title="Hapus kuis"><Trash2 size={16} /></button>
               </div>
             </div>
           )

@@ -1,3 +1,4 @@
+import { Compass } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
@@ -31,7 +32,7 @@ function RequireAuth() {
 function NotFound() {
   return (
     <div className="auth-wrap"><div className="card auth-card center">
-      <div style={{ fontSize: '2.5rem' }}>🧭</div>
+      <div className="empty" style={{ padding: '8px 0' }}><div className="big"><Compass size={26} /></div></div>
       <h2>Halaman tidak ditemukan</h2>
       <p className="muted">Periksa kembali link yang Anda buka.</p>
     </div></div>

@@ -1,3 +1,4 @@
+import { ClipboardPaste, Download, ExternalLink, Link2, MessageCircle, Pencil, Plus, Printer, QrCode, RefreshCcw, Search, Trash2, Users } from 'lucide-react'
 import QRCode from 'qrcode'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
@@ -84,23 +85,23 @@ export default function ParticipantsTab() {
   return (
     <>
       <div className="card flush no-print">
-        <div style={{ padding: 16 }} className="row between">
+        <div className="toolbar">
           <div className="row">
-            <input className="input" style={{ width: 240 }} placeholder="🔍 Cari nama / ID / instansi" value={q} onChange={(e) => setQ(e.target.value)} />
-            <span className="muted">{data?.length ?? 0} peserta</span>
+            <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, ID, atau instansi" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
+            <span className="muted small">{data?.length ?? 0} peserta</span>
           </div>
-          <div className="row">
-            <button className="btn sm" onClick={exportLinks} disabled={!data?.length}>⬇ Unduh link (CSV)</button>
-            <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}>🖨 Cetak kartu QR</button>
-            <button className="btn sm" onClick={() => setBulk(true)}>📋 Impor banyak</button>
-            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY })}>＋ Peserta</button>
+          <div className="row tight">
+            <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
+            <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
+            <button className="btn sm" onClick={() => setBulk(true)}><ClipboardPaste size={15} /> Impor banyak</button>
+            <button className="btn primary sm" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> Peserta</button>
           </div>
         </div>
 
         {loading && <Loading />}
         {error && <div style={{ padding: 16 }}><ErrorBox error={error} onRetry={() => void reload()} /></div>}
         {!loading && !error && !data?.length && (
-          <Empty icon="👥" title="Belum ada peserta">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
+          <Empty icon={<Users size={26} />} title="Belum ada peserta">Tambahkan satu per satu atau tempel daftar dari Excel.</Empty>
         )}
         {!!data?.length && (
           <div className="table-wrap">
@@ -114,17 +115,21 @@ export default function ParticipantsTab() {
                     <td className="mono">{p.identifier ?? '—'}</td>
                     <td>{p.institution ?? '—'}</td>
                     <td className="actions">
-                      <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')}>🔗 Salin</button>{' '}
-                      <button className="btn sm" onClick={() => setQr(p)}>QR</button>{' '}
-                      {waNumber(p.phone)
-                        ? <a className="btn sm" target="_blank" rel="noreferrer" href={`https://wa.me/${waNumber(p.phone)}?text=${encodeURIComponent(waText(p))}`}>WhatsApp</a>
-                        : <a className="btn sm" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(waText(p))}`} title="Nomor HP kosong — pilih kontak sendiri">WhatsApp</a>}{' '}
-                      <a className="btn sm" href={`/p/${p.token}`} target="_blank" rel="noreferrer">Buka ↗</a>
+                      <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                        <button className="btn sm" onClick={async () => toast((await copy(participantLink(p.token))) ? 'Link disalin.' : 'Gagal menyalin.', 'success')}><Link2 size={14} /> Salin</button>
+                        <button className="btn sm" onClick={() => setQr(p)}><QrCode size={14} /> QR</button>
+                        <a className="btn sm" target="_blank" rel="noreferrer"
+                          href={`https://wa.me/${waNumber(p.phone) ?? ''}?text=${encodeURIComponent(waText(p))}`}
+                          title={waNumber(p.phone) ? 'Kirim lewat WhatsApp' : 'Nomor HP kosong, pilih kontak sendiri'}><MessageCircle size={14} /> WhatsApp</a>
+                        <a className="icon-btn" href={`/p/${p.token}`} target="_blank" rel="noreferrer" aria-label="Buka halaman peserta" title="Buka halaman peserta"><ExternalLink size={16} /></a>
+                      </div>
                     </td>
                     <td className="actions">
-                      <button className="btn ghost sm" onClick={() => setEditing(p)} aria-label="Ubah">✏️</button>
-                      <button className="btn ghost sm" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link">♻️</button>
-                      <button className="btn ghost sm" onClick={() => void remove(p)} aria-label="Hapus">🗑️</button>
+                      <div className="row tight" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                        <button className="icon-btn" onClick={() => setEditing(p)} aria-label="Ubah" title="Ubah"><Pencil size={16} /></button>
+                        <button className="icon-btn" onClick={() => void regenerate(p)} aria-label="Buat ulang link" title="Buat ulang link"><RefreshCcw size={16} /></button>
+                        <button className="icon-btn danger" onClick={() => void remove(p)} aria-label="Hapus" title="Hapus"><Trash2 size={16} /></button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -247,8 +252,8 @@ function QrModal({ p, activityName, onClose }: { p: Participant; activityName: s
   return (
     <Modal title="QR link peserta" onClose={onClose}
       footer={<>
-        <button className="btn" onClick={async () => toast((await copy(link)) ? 'Link disalin.' : 'Gagal menyalin.', 'success')}>🔗 Salin link</button>
-        {img && <a className="btn primary" href={img} download={`qr-${safeName(p.name)}.png`}>⬇ Unduh PNG</a>}
+        <button className="btn" onClick={async () => toast((await copy(link)) ? 'Link disalin.' : 'Gagal menyalin.', 'success')}><Link2 size={16} /> Salin link</button>
+        {img && <a className="btn primary" href={img} download={`qr-${safeName(p.name)}.png`}><Download size={16} /> Unduh PNG</a>}
       </>}>
       <div className="qr-card">
         <div className="muted small">{activityName}</div>

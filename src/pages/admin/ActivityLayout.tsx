@@ -1,20 +1,15 @@
+import { ArrowLeft, Calendar, MapPin } from 'lucide-react'
 import { Link, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom'
-import { ErrorBox, Loading, useAsync } from '../../components/ui'
+import { ErrorBox, Loading, PageHeader, useAsync } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity } from '../../lib/types'
+import { useSidebarActivity } from './AdminShell'
 import { STATUS_LABEL, STATUS_TONE } from './Dashboard'
+import { ACTIVITY_NAV } from './nav'
 
 export interface ActivityCtx { activity: Activity; reload: () => Promise<void> }
 export const useActivity = () => useOutletContext<ActivityCtx>()
-
-const TABS = [
-  { to: '', label: 'Ringkasan', end: true },
-  { to: 'peserta', label: '👥 Peserta' },
-  { to: 'absensi', label: '🗓️ Absensi' },
-  { to: 'kuis', label: '📝 Kuis' },
-  { to: 'laporan', label: '📊 Laporan' },
-]
 
 export default function ActivityLayout() {
   const { id } = useParams()
@@ -25,25 +20,28 @@ export default function ActivityLayout() {
     return data as Activity
   }, [id])
 
+  useSidebarActivity(data ? { id: data.id, name: data.name, statusLabel: STATUS_LABEL[data.status] } : null)
+
   if (loading && !data) return <Loading />
   if (error || !data) return <ErrorBox error={error ?? 'Kegiatan tidak ditemukan.'} onRetry={() => void reload()} />
 
   return (
     <>
-      <div className="no-print"><Link to="/admin" className="muted small">← Semua kegiatan</Link></div>
-      <div className="row between" style={{ marginTop: 6 }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>{data.name}</h1>
-          <div className="row" style={{ gap: 8 }}>
-            <span className={`badge ${STATUS_TONE[data.status]}`}>{STATUS_LABEL[data.status]}</span>
-            <span className="muted small">{fmtDateRange(data.start_date, data.end_date)}</span>
-            {data.location && <span className="muted small">📍 {data.location}</span>}
+      <PageHeader
+        back={<Link to="/admin" className="crumb no-print"><ArrowLeft size={15} /> Semua kegiatan</Link>}
+        title={data.name}
+        subtitle={
+          <div className="meta">
+            <span className={`badge dot ${STATUS_TONE[data.status]}`}>{STATUS_LABEL[data.status]}</span>
+            <span><Calendar size={15} /> {fmtDateRange(data.start_date, data.end_date)}</span>
+            {data.location && <span><MapPin size={15} /> {data.location}</span>}
           </div>
-        </div>
-      </div>
-      <nav className="tabs" aria-label="Menu kegiatan">
-        {TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>{t.label}</NavLink>
+        }
+      />
+      {/* di desktop menu ada di sidebar; di layar kecil tampil sebagai tab */}
+      <nav className="tabs only-mobile" aria-label="Menu kegiatan">
+        {ACTIVITY_NAV.map(({ to, label, icon: Icon, end }) => (
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}><Icon size={16} />{label}</NavLink>
         ))}
       </nav>
       <Outlet context={{ activity: data, reload: () => reload(true) } satisfies ActivityCtx} />
