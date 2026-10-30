@@ -1,13 +1,14 @@
 import { ArrowDownAZ, Building2, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { RoleBadge } from '../../components/RoleBadge'
+import { RoleBadges } from '../../components/RoleBadge'
+import { rolesOf } from '../../lib/people'
 import { SortableList } from '../../components/SortableList'
 import { Modal, useConfirm, useToast } from '../../components/ui'
 import { groupBySatker, type SatkerGroup } from '../../lib/satker'
 import type { PersonRole } from '../../lib/types'
 
 /** Data minimal yang dibutuhkan untuk mengurutkan: peserta kegiatan maupun pegawai. */
-export interface OrderPerson { id: string; name: string; institution: string | null; job_title: string | null; role?: PersonRole }
+export interface OrderPerson { id: string; name: string; institution: string | null; job_title: string | null; role?: PersonRole; roles?: PersonRole[] }
 
 const byName = (a: OrderPerson, b: OrderPerson) => a.name.localeCompare(b.name, 'id', { sensitivity: 'base' })
 
@@ -135,7 +136,7 @@ function PeopleOrder<T extends OrderPerson>({ items, noun, onChange }: { items: 
             {c.handle}
             <span className="sort-num">{c.index + 1}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <b>{p.name}</b>{p.role && <RoleBadge role={p.role} />}
+              <b>{p.name}</b>{p.role && <RoleBadges roles={rolesOf({ role: p.role, roles: p.roles })} />}
               {p.job_title && <div className="muted small">{p.job_title}</div>}
             </div>
             {c.buttons}

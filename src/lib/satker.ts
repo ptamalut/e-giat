@@ -1,3 +1,4 @@
+import { rolesOf } from './people'
 import type { PersonRole } from './types'
 
 export const NO_SATKER = 'Tanpa satuan kerja'
@@ -63,9 +64,9 @@ export function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
 }
 
 /** Hitungan per peran, tanpa peran yang kosong: "3 peserta · 1 narasumber". */
-export function roleSummary(items: readonly { role: PersonRole }[]): string {
+export function roleSummary(items: readonly { role: PersonRole; roles?: PersonRole[] }[]): string {
   const n: Record<PersonRole, number> = { peserta: 0, narasumber: 0, moderator: 0, panitia: 0 }
-  for (const i of items) n[i.role]++
+  for (const i of items) for (const r of rolesOf(i)) n[r]++ // yang merangkap dihitung di tiap jenisnya
   return (['peserta', 'narasumber', 'moderator', 'panitia'] as const).filter((r) => n[r] > 0).map((r) => `${n[r]} ${r}`).join(' · ')
 }
 

@@ -3,10 +3,10 @@ import { Fragment, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, ErrorBox, HBar, BarChart, Loading, RankMedal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
-import { RoleBadge } from '../../components/RoleBadge'
+import { RoleBadges } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
-import { ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
+import { hasRole, ROLE_LABEL, ROLES, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
   attendanceMatrix, gainTable, itemAnalysis, memberMapOf, nGainCategory, quizResults, satkerSummary, sessionRole,
@@ -162,14 +162,14 @@ function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: stri
   const [grouped, setGrouped] = useState(true)
   const [unit, setUnit] = useState('')
   const { collapsed, toggle, setAll } = useCollapsed()
-  const byRole = useMemo(() => data.participants.filter((p) => roleFilter === 'semua' || p.role === roleFilter), [data.participants, roleFilter])
+  const byRole = useMemo(() => data.participants.filter((p) => roleFilter === 'semua' || hasRole(p, roleFilter)), [data.participants, roleFilter])
   const unitGroups = useMemo(() => groupBySatker(byRole, (p) => p.institution, satkerOrder), [byRole, satkerOrder])
   // diurutkan per satuan kerja sehingga tabel dan CSV selalu berkelompok
   const people = useMemo(() => unitGroups.flatMap((g) => g.items).filter((p) => matchesUnit(unit, p.institution)), [unitGroups, unit])
   const rows = useMemo(() => attendanceMatrix(people, data.sessions, data.attendances, data.members), [people, data.sessions, data.attendances, data.members])
   const rowGroups = useMemo(() => groupBySatker(rows, (r) => r.participant.institution, satkerOrder), [rows, satkerOrder])
   const mm = useMemo(() => memberMapOf(data.members), [data.members])
-  const roleCount = (r: 'semua' | PersonRole) => data.participants.filter((p) => r === 'semua' || p.role === r).length
+  const roleCount = (r: 'semua' | PersonRole) => data.participants.filter((p) => r === 'semua' || hasRole(p, r)).length
   if (data.sessions.length === 0) return <div className="card"><Empty icon={<CalendarCheck size={26} />} title="Belum ada sesi absensi" /></div>
   const avg = rows.length ? rows.reduce((s, r) => s + (r.pct ?? 0), 0) / rows.length : 0
   const perSession = data.sessions.map((s) => ({
@@ -180,7 +180,7 @@ function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: stri
   return (
     <>
       <div className="row no-print">
-        {data.participants.some((p) => p.role !== 'peserta') && (
+        {data.participants.some((p) => rolesOf(p).some((r) => r !== 'peserta')) && (
           <div className="pills" role="group" aria-label="Filter peran">
             {(['semua', ...ROLES] as const).map((r) => (
               <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
@@ -209,7 +209,7 @@ function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: stri
           <h2>Rekap kehadiran</h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`kehadiran-${safeName(name)}`, [
             ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', ...data.sessions.map((s) => s.title), 'Hadir', 'Persen'],
-            ...rows.map((r) => [ROLE_LABEL[r.participant.role], r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution,
+            ...rows.map((r) => [rolesLabel(r.participant), r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution,
               ...data.sessions.map((s) => {
                 if (!r.applicable[s.id]) return 'Tidak ikut'
                 const a = r.cells[s.id], jr = sessionRole(s, r.participant, mm)
@@ -229,7 +229,7 @@ function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: stri
                 meta={`rata-rata hadir ${fmtPct(pct)} · ${g.items.length} orang (${roleSummary(g.items.map((r) => r.participant))})`} />}
               {!isCollapsed && g.items.map((r) => (
             <tr key={r.participant.id}>
-              <td><b>{r.participant.name}</b><RoleBadge role={r.participant.role} /><div className="muted small">{roleLine(r.participant)}</div></td>
+              <td><b>{r.participant.name}</b><RoleBadges roles={rolesOf(r.participant)} /><div className="muted small">{roleLine(r.participant)}</div></td>
               {data.sessions.map((s) => {
                 if (!r.applicable[s.id]) return <td key={s.id} title="Tidak ikut sesi ini"><span className="muted">×</span></td>
                 const a = r.cells[s.id], jr = sessionRole(s, r.participant, mm)

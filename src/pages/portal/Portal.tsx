@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
-import { nameInitial, ROLE_LABEL, ROLE_TONE, roleLine } from '../../lib/people'
+import { hasRole, nameInitial, ROLE_LABEL, ROLE_TONE, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import CheckInDialog, { type CheckInResult } from './CheckInDialog'
 import { DocsSection, NotesSection } from './PortalExtras'
 import { certPublicUrl } from '../../lib/certificateApi'
@@ -110,7 +110,7 @@ export default function Portal() {
             <span className="avatar" aria-hidden>{nameInitial(p.name)}</span>
             <div>
               <b>{p.name}</b>
-              <span><span className="role-chip" aria-label={`Kedudukan Anda: ${ROLE_LABEL[p.role]}`}>Kedudukan: {ROLE_LABEL[p.role]}</span></span>
+              <span><span className="role-chip" aria-label={`Kedudukan Anda: ${rolesLabel(p)}`}>Kedudukan: {rolesLabel(p)}</span></span>
               {(p.identifier || p.grade) && <span>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</span>}
               {roleLine(p) && <span>{roleLine(p)}</span>}
             </div>
@@ -121,7 +121,7 @@ export default function Portal() {
       <div className="container narrow portal-body stack" style={{ paddingBottom: 48 }}>
         {error && <div className="alert warn">Koneksi bermasalah, data mungkin tidak terbaru. {error}</div>}
         {closed && <div className="alert warn">Kegiatan ini belum dibuka oleh panitia. Absensi dan kuis belum tersedia.</div>}
-        {p.role !== 'peserta' && <div className="alert info"><span>Anda terdaftar sebagai <b>{ROLE_LABEL[p.role].toLowerCase()}</b>{f.attendance && !f.quiz ? '. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.' : '.'}</span></div>}
+        {rolesOf(p).some((r) => r !== 'peserta') && <div className="alert info"><span>Anda terdaftar sebagai <b>{rolesLabel(p, ', ').toLowerCase()}</b>{rolesOf(p).length > 1 ? '. Kedudukan Anda pada tiap sesi absensi dapat berbeda; lihat keterangan "Sebagai …" di setiap sesi.' : f.attendance && !f.quiz ? '. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.' : '.'}</span></div>}
         {none && <div className="alert info"><span>Belum ada menu yang tersedia untuk Anda pada kegiatan ini. Hubungi panitia bila ini tidak sesuai.</span></div>}
         {a.description && <div className="card"><p style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-2)' }}>{a.description}</p></div>}
 
@@ -134,7 +134,7 @@ export default function Portal() {
             return (
               <div className="item" key={s.id}>
                 <div className="grow">
-                  <div className="title">{s.title}{s.role && s.role !== p.role && <span className={`badge ${ROLE_TONE[s.role]}`} style={{ marginLeft: 8 }}>Sebagai {ROLE_LABEL[s.role].toLowerCase()}</span>}</div>
+                  <div className="title">{s.title}{s.role && (s.role !== p.role || rolesOf(p).length > 1) && <span className={`badge ${ROLE_TONE[s.role]}`} style={{ marginLeft: 8 }}>Sebagai {ROLE_LABEL[s.role].toLowerCase()}</span>}</div>
                   <div className="muted small">{fmtDate(s.start_at)} · {fmtTime(s.start_at)} – {fmtTime(s.end_at)}</div>
                 </div>
                 {att ? (
@@ -167,7 +167,7 @@ export default function Portal() {
 
         {f.certificate && data.certificate && <CertificateCard token={token} personName={p.name} cert={data.certificate} />}
 
-        {a.show_leaderboard && (f.quiz || f.attendance) && p.role === 'peserta' && (
+        {a.show_leaderboard && (f.quiz || f.attendance) && hasRole(p, 'peserta') && (
           <section className="card">
             <div className="card-head">
               <CardTitle icon={<Trophy size={18} />} tone="warn">Peringkat</CardTitle><span className="spacer" />

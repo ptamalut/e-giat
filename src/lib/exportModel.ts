@@ -1,5 +1,5 @@
 import { fmtDateRange } from './format'
-import { ROLE_LABEL } from './people'
+import { rolesLabel, rolesOf } from './people'
 import { groupBySatker } from './satker'
 import type { Activity, Participant, PersonRole } from './types'
 
@@ -60,14 +60,14 @@ export function buildExportModel(
   opts: ExportOptions,
 ): ExportModel {
   const cols = ORDER.filter((c) => opts.columns.includes(c))
-  const selected = people.filter((p) => opts.roles.includes(p.role))
+  const selected = people.filter((p) => rolesOf(p).some((r) => opts.roles.includes(r)))
   const cell = (p: Participant, c: ExportColumn): string => {
     switch (c) {
       case 'identifier': return p.identifier ?? ''
       case 'grade': return p.grade ?? ''
       case 'job_title': return p.job_title ?? ''
       case 'phone': return p.phone ?? ''
-      case 'role': return ROLE_LABEL[p.role]
+      case 'role': return rolesLabel(p)
       case 'signature': return ''
     }
   }

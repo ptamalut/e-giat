@@ -1,6 +1,7 @@
 import { Award, CheckCircle2, Download, ExternalLink, FileImage, FileText, Lock, LockOpen, Replace, Search, Trash2, Upload, UploadCloud, X } from 'lucide-react'
 import { useMemo, useRef, useState, type DragEvent } from 'react'
-import { RoleBadge } from '../../components/RoleBadge'
+import { RoleBadges } from '../../components/RoleBadge'
+import { rolesOf } from '../../lib/people'
 import { Empty, ErrorBox, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { certPublicUrl, deleteCertificate, uploadCertificate } from '../../lib/certificateApi'
 import { CERT_ACCEPT, CERT_MAX_BYTES, certDownloadName, fmtBytes, matchFiles, sniffType, type CertMime, type Confidence } from '../../lib/certificates'
@@ -273,7 +274,7 @@ export default function CertificatesTab() {
                 const name = certDownloadName(p.name, c?.mime_type ?? null, c?.file_name ?? 'sertifikat.pdf')
                 return (
                   <tr key={p.id}>
-                    <td style={{ minWidth: 220 }}><b>{p.name}</b><RoleBadge role={p.role} />{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
+                    <td style={{ minWidth: 220 }}><b>{p.name}</b><RoleBadges roles={rolesOf(p)} />{p.identifier && <div className="mono muted">NIP {p.identifier}</div>}</td>
                     <td>{p.institution ?? <span className="muted">—</span>}</td>
                     <td>{c
                       ? <><span className="badge success">Ada</span><div className="muted small" style={{ marginTop: 2, overflowWrap: 'anywhere' }}>{c.file_name} · {fmtBytes(c.size_bytes)} · {fmtDateTime(c.uploaded_at)}</div></>

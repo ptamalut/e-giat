@@ -4,9 +4,9 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Empty, ErrorBox, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
-import { RoleBadge } from '../../components/RoleBadge'
+import { RoleBadges } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
-import { ROLE_LABEL, ROLES, roleLine } from '../../lib/people'
+import { hasRole, ROLE_LABEL, ROLES, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import { activeMenus } from '../../lib/menus'
 import { participantLink } from '../../lib/format'
 import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
@@ -54,7 +54,7 @@ export default function ParticipantsTab() {
 
   const counts = useMemo(() => {
     const all = data ?? []
-    return Object.fromEntries([['semua', all.length], ...ROLES.map((r) => [r, all.filter((p) => p.role === r).length])]) as Record<'semua' | PersonRole, number>
+    return Object.fromEntries([['semua', all.length], ...ROLES.map((r) => [r, all.filter((p) => hasRole(p, r)).length])]) as Record<'semua' | PersonRole, number>
   }, [data])
 
   // semua kelompok (tanpa filter) berurutan sesuai pengaturan; dipakai untuk pilihan satker, ubah nama, ekspor, dan cetak
@@ -63,14 +63,14 @@ export default function ParticipantsTab() {
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return ordered.filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
+    return ordered.filter((p) => (roleFilter === 'semua' || hasRole(p, roleFilter)) && matchesUnit(unit, p.institution) && (!s || [p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone].some((v) => v?.toLowerCase().includes(s))))
   }, [ordered, q, roleFilter, unit])
   const groups = useMemo(() => groupBySatker(list, (p) => p.institution, activity.satker_order), [list, activity.satker_order])
 
   const waText = (p: Participant) => {
     const m = allowedMenus(p, activity)
     const what = m.length ? `untuk ${m.join(', ').toLowerCase()}` : 'kegiatan'
-    return `Yth. ${p.name}, berikut link pribadi Anda ${what} pada kegiatan "${activity.name}"${p.role !== 'peserta' ? ` (sebagai ${ROLE_LABEL[p.role].toLowerCase()})` : ''}:\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+    return `Yth. ${p.name}, berikut link pribadi Anda ${what} pada kegiatan "${activity.name}"${rolesOf(p).some((r) => r !== 'peserta') ? ` (sebagai ${rolesLabel(p, ' / ').toLowerCase()})` : ''}:\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
   }
 
   async function remove(p: Participant) {  // mengeluarkan dari kegiatan (data pegawainya tidak terhapus)
@@ -122,7 +122,7 @@ export default function ParticipantsTab() {
   function exportLinks() {
     downloadCsv(`link-peserta-${safeName(activity.name)}`, [
       ['Peran', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'No. WhatsApp', 'Link'],
-      ...ordered.map((p) => [ROLE_LABEL[p.role], p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
+      ...ordered.map((p) => [rolesLabel(p), p.name, p.identifier, p.grade, p.job_title, p.institution, p.phone, participantLink(p.token)]),
     ])
   }
 
@@ -137,7 +137,7 @@ export default function ParticipantsTab() {
       <td><input type="checkbox" className="rowcheck" checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} aria-label={`Pilih ${p.name}`} /></td>
       <td className="muted">{i + 1}</td>
       <td style={{ minWidth: 220 }}>
-        <b>{p.name}</b><RoleBadge role={p.role} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div>
+        <b>{p.name}</b><RoleBadges roles={rolesOf(p)} /><div className="mono muted">{p.identifier ? `NIP ${p.identifier}` : '—'}</div>
         <div className="access-chips" title="Menu yang boleh dipakai lewat link pribadinya" style={{ marginTop: 5 }}>
           {activeMenus(activity).map((m) => (
             <span key={m.key} className={`access-chip ${p[m.access] ? '' : 'off'}`}>{m.label}</span>
@@ -271,7 +271,7 @@ export default function ParticipantsTab() {
                 <div style={{ fontWeight: 700 }}>{activity.name}</div>
                 <img src={img} alt={`QR ${p.name}`} />
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.name}</div>
-                {p.role !== 'peserta' && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{ROLE_LABEL[p.role]}</div>}
+                {rolesOf(p).some((r) => r !== 'peserta') && <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{rolesLabel(p)}</div>}
                 <div>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</div>
                 <div>{roleLine(p)}</div>
                 <div style={{ fontSize: 10, marginTop: 4 }}>{allowedMenus(p, activity).length ? `Scan untuk ${allowedMenus(p, activity).join(', ').toLowerCase()}` : 'Scan untuk membuka halaman kegiatan'}</div>

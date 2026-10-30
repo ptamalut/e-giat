@@ -2,7 +2,7 @@ import { ArrowUpDown, FileText, FileType2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Check, Field, Modal, useToast } from '../../components/ui'
 import { buildExportModel, downloadBlob, exportFilename, type ExportColumn, type ExportOptions } from '../../lib/exportModel'
-import { ROLE_LABEL, ROLES } from '../../lib/people'
+import { hasRole, ROLE_LABEL, ROLES } from '../../lib/people'
 import { errMsg } from '../../lib/supabase'
 import type { Activity, Participant, PersonRole } from '../../lib/types'
 
@@ -24,7 +24,7 @@ export default function ExportModal({ activity, people, onClose, onOrder }: {
   onOrder: () => void
 }) {
   const toast = useToast()
-  const present = ROLES.filter((r) => people.some((p) => p.role === r))
+  const present = ROLES.filter((r) => people.some((p) => hasRole(p, r)))
   const [title, setTitle] = useState('Daftar Peserta')
   const [roles, setRoles] = useState<PersonRole[]>(present.length ? present : ['peserta'])
   // bila ada lebih dari satu peran, kolom Peran diaktifkan agar pembaca dokumen tahu siapa narasumber/panitia
@@ -73,7 +73,7 @@ export default function ExportModal({ activity, people, onClose, onOrder }: {
         <div>
           <div className="label" style={{ marginBottom: 8 }}>Siapa saja yang dimasukkan</div>
           {ROLES.map((r) => {
-            const n = people.filter((p) => p.role === r).length
+            const n = people.filter((p) => hasRole(p, r)).length
             return <Check key={r} label={`${ROLE_LABEL[r]} (${n})`} checked={roles.includes(r)} onChange={() => setRoles(toggle(roles, r))} />
           })}
         </div>

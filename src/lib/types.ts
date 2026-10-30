@@ -102,7 +102,10 @@ export interface Participant {
   institution: string | null
   email: string | null
   phone: string | null
+  /** jenis utama (= roles[0]) */
   role: PersonRole
+  /** semua jenis yang dipegang (merangkap), minimal satu; kedudukan pada tiap sesi dipilih di sesi absensi */
+  roles: PersonRole[]
   /** pegawai asal data ini (null bila pegawainya sudah dihapus) */
   employee_id: string | null
   /** hak akses menu per orang (berlaku bila menunya aktif di kegiatan) */
@@ -274,6 +277,7 @@ export interface PortalData {
     job_title: string | null
     institution: string | null
     role: PersonRole
+    roles: PersonRole[]
   }
   activity: {
     id: string

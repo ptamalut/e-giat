@@ -3,21 +3,28 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
 import { activeMenus, type MenuDef } from '../../lib/menus'
-import { ACCESS_KEYS, defaultAccess, ROLE_HINT, ROLE_LABEL, ROLES, type Access } from '../../lib/people'
+import { ACCESS_KEYS, defaultAccessFor, rolesOf, ROLE_HINT, ROLE_LABEL, ROLES, sortRoles, type Access } from '../../lib/people'
 import { groupBySatker, matchesUnit, NONE_KEY, sortPeople } from '../../lib/satker'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Activity, Employee, Participant, PersonRole } from '../../lib/types'
 
-/** Pilihan jenis (peserta/narasumber/panitia). */
-function RolePills({ value, onChange }: { value: PersonRole; onChange: (r: PersonRole) => void }) {
+/** Pilihan jenis (peserta/narasumber/moderator/panitia). Boleh lebih dari satu (merangkap); minimal satu. */
+function RolePills({ value, onChange }: { value: PersonRole[]; onChange: (r: PersonRole[]) => void }) {
+  const toggle = (r: PersonRole) => {
+    if (value.includes(r)) { if (value.length > 1) onChange(sortRoles(value.filter((x) => x !== r))) } else onChange(sortRoles([...value, r]))
+  }
   return (
-    <div className="pills" role="radiogroup" aria-label="Jenis">
+    <div className="pills" role="group" aria-label="Jenis">
       {ROLES.map((r) => (
-        <button type="button" key={r} role="radio" aria-checked={value === r} className={`pill ${value === r ? 'active' : ''}`} onClick={() => onChange(r)}>{ROLE_LABEL[r]}</button>
+        <button type="button" key={r} aria-pressed={value.includes(r)} className={`pill ${value.includes(r) ? 'active' : ''}`} onClick={() => toggle(r)}>{ROLE_LABEL[r]}</button>
       ))}
     </div>
   )
 }
+
+const roleHint = (rs: PersonRole[]) => (rs.length > 1
+  ? 'Merangkap: bisa dipilih berperan sebagai apa pada tiap sesi absensi. Hak akses menu menggabungkan bawaan tiap jenis.'
+  : ROLE_HINT[rs[0]])
 
 /** Kotak hak akses menu: hanya menu yang aktif pada kegiatan (sama dengan daftar di Ringkasan → Menu kegiatan). */
 function AccessChecks({ activity, value, onChange }: { activity: Activity; value: Access; onChange: (a: Access) => void }) {
@@ -40,8 +47,8 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
   const [q, setQ] = useState('')
   const [unit, setUnit] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
-  const [role, setRole] = useState<PersonRole>('peserta')
-  const [access, setAccess] = useState<Access>(defaultAccess('peserta'))
+  const [roles, setRoles] = useState<PersonRole[]>(['peserta'])
+  const [access, setAccess] = useState<Access>(defaultAccessFor(['peserta']))
   const [busy, setBusy] = useState(false)
 
   // urutan yang diatur di Data pegawai dipakai juga di sini
@@ -76,11 +83,11 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
     setBusy(true)
     const { error } = await supabase.from('participants').insert(chosen.map((e) => ({
       activity_id: activity.id, employee_id: e.id, name: e.name, identifier: e.identifier, grade: e.grade,
-      job_title: e.job_title, institution: e.institution, phone: e.phone, role, ...access,
+      job_title: e.job_title, institution: e.institution, phone: e.phone, role: roles[0], roles, ...access,
     })))
     setBusy(false)
     if (error) return toast(errMsg(error), 'error')
-    toast(`${chosen.length} orang ditambahkan sebagai ${ROLE_LABEL[role].toLowerCase()}.`, 'success')
+    toast(`${chosen.length} orang ditambahkan sebagai ${roles.map((r) => ROLE_LABEL[r].toLowerCase()).join(' + ')}.`, 'success')
     onSaved()
   }
 
@@ -134,8 +141,8 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
           </div>
 
           <div className="picker-settings">
-            <Field label={`Jenis untuk ${n || 'yang dipilih'} orang`} hint={ROLE_HINT[role]}>
-              <RolePills value={role} onChange={(r) => { setRole(r); setAccess(defaultAccess(r)) }} />
+            <Field label={`Jenis untuk ${n || 'yang dipilih'} orang`} hint={roleHint(roles)}>
+              <RolePills value={roles} onChange={(r) => { setRoles(r); setAccess(defaultAccessFor(r)) }} />
             </Field>
             <Field label="Hak akses menu" hint="Menu yang boleh dipakai orang-orang ini lewat link pribadinya. Bisa diubah lagi per orang.">
               <AccessChecks activity={activity} value={access} onChange={setAccess} />
@@ -156,7 +163,7 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
   const toast = useToast()
   const bulk = people.length > 1
   const one = people[0]
-  const [role, setRole] = useState<PersonRole | 'keep'>(bulk ? 'keep' : one.role)
+  const [roles, setRoles] = useState<PersonRole[] | 'keep'>(bulk ? 'keep' : rolesOf(one))
   const menus = activeMenus(activity)
   const [access, setAccess] = useState<Access>(() => Object.fromEntries(ACCESS_KEYS.map((k) => [k, one[k]])) as unknown as Access)
   const [tri, setTri] = useState<Record<string, Tri>>({})
@@ -165,7 +172,7 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
   async function save() {
     setBusy(true)
     const patch: Record<string, unknown> = {}
-    if (role !== 'keep') patch.role = role
+    if (roles !== 'keep') { patch.roles = roles; patch.role = roles[0] }
     // hanya menu yang aktif di kegiatan yang diatur; menu nonaktif dibiarkan seperti semula
     for (const m of menus) {
       const t = tri[m.access] ?? 'keep'
@@ -183,15 +190,15 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
     <Modal title={bulk ? `Atur jenis & hak akses (${people.length} orang)` : `Jenis & hak akses: ${one.name}`} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" disabled={busy} onClick={() => void save()}>{busy ? 'Menyimpan…' : 'Simpan'}</button></>}>
       {!bulk && <p className="muted small" style={{ marginTop: 0 }}>Data diri (nama, NIP, jabatan, satuan kerja) diubah di <Link to="/admin/pegawai">Data pegawai</Link>.</p>}
-      <Field label="Jenis" hint={role === 'keep' ? 'Jenis tidak diubah.' : ROLE_HINT[role]}>
+      <Field label="Jenis" hint={roles === 'keep' ? 'Jenis tidak diubah.' : roleHint(roles)}>
         {bulk && (
           <div className="pills" style={{ marginBottom: 8 }}>
-            <button type="button" className={`pill ${role === 'keep' ? 'active' : ''}`} onClick={() => setRole('keep')}>Tidak diubah</button>
+            <button type="button" aria-pressed={roles === 'keep'} className={`pill ${roles === 'keep' ? 'active' : ''}`} onClick={() => setRoles('keep')}>Tidak diubah</button>
           </div>
         )}
-        <RolePills value={role === 'keep' ? ('' as PersonRole) : role} onChange={(r) => {
-          setRole(r)
-          if (!bulk) setAccess((cur) => ({ ...cur, ...Object.fromEntries(menus.map((m) => [m.access, defaultAccess(r)[m.access]])) })) // jenis baru = isian awal baru untuk menu aktif (boleh diubah lagi)
+        <RolePills value={roles === 'keep' ? [] : roles} onChange={(r) => {
+          setRoles(r)
+          if (!bulk) setAccess((cur) => ({ ...cur, ...Object.fromEntries(menus.map((m) => [m.access, defaultAccessFor(r)[m.access]])) })) // jenis baru = isian awal baru untuk menu aktif (boleh diubah lagi)
         }} />
       </Field>
       <Field label="Hak akses menu" hint={bulk ? 'Pilih "Tidak diubah" untuk membiarkan pengaturan masing-masing orang.' : 'Menu yang boleh dipakai lewat link pribadinya.'}>

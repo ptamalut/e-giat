@@ -10,6 +10,14 @@ export const ROLE_HINT: Record<PersonRole, string> = {
   panitia: 'Bawaan: semua menu kecuali kuis, tidak masuk peringkat.',
 }
 
+/** Semua jenis yang dipegang seseorang (merangkap), urut menurut urutan baku. */
+export const rolesOf = (p: { role: PersonRole; roles?: PersonRole[] }): PersonRole[] => (p.roles?.length ? ROLES.filter((r) => p.roles!.includes(r)) : [p.role])
+export const hasRole = (p: { role: PersonRole; roles?: PersonRole[] }, r: PersonRole) => rolesOf(p).includes(r)
+/** Urutkan jenis menurut urutan baku dan buang duplikat; jenis pertama menjadi jenis utama. */
+export const sortRoles = (rs: readonly PersonRole[]): PersonRole[] => ROLES.filter((r) => rs.includes(r))
+/** "Narasumber / Moderator" */
+export const rolesLabel = (p: { role: PersonRole; roles?: PersonRole[] }, sep = ' / ') => rolesOf(p).map((r) => ROLE_LABEL[r]).join(sep)
+
 /** Hak akses menu per orang (berlaku bila menunya aktif di kegiatan). Urutan = urutan menu kegiatan. */
 export interface Access {
   access_attendance: boolean; access_notes: boolean; access_quiz: boolean; access_certificate: boolean; access_documentation: boolean
@@ -22,6 +30,13 @@ export const ACCESS_LABEL: Record<keyof Access, string> = {
 export const defaultAccess = (r: PersonRole): Access => ({
   access_attendance: true, access_notes: r === 'panitia', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia',
 })
+
+/** Isian awal hak akses untuk beberapa jenis sekaligus: gabungan (atau) dari isian awal tiap jenis. */
+export const defaultAccessFor = (rs: readonly PersonRole[]): Access => {
+  const base: Access = { access_attendance: false, access_notes: false, access_quiz: false, access_certificate: false, access_documentation: false }
+  for (const r of rs.length ? rs : (['peserta'] as PersonRole[])) for (const k of ACCESS_KEYS) base[k] ||= defaultAccess(r)[k]
+  return base
+}
 
 /** Pangkat/golongan ruang PNS, dipakai sebagai saran isian (boleh mengetik bebas, mis. golongan PPPK). */
 export const GRADE_SUGGESTIONS = [
