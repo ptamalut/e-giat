@@ -97,6 +97,7 @@ di halaman depan (lihat di bawah).
   panah) dan tersimpan di database. Urutan dipakai di tab Peserta, Absensi, rekap kehadiran, kartu QR, CSV, dan ekspor.
   Satker baru dan orang baru otomatis menyusul di akhir; "Kembali ke abjad" menghapus urutan khusus.
   Bila filter jenis (Peserta/Narasumber/Moderator/Panitia) sedang dipilih, **Atur urutan** hanya memuat dan mengatur jenis itu; urutan jenis lain tidak bergeser (orang yang merangkap ikut berpindah di semua jenisnya karena urutannya satu).
+- **Ekspor absensi Word/PDF** (Absensi → *Word / PDF*): pilih **sesi** (satu atau beberapa; tiap sesi jadi bagian/halaman tersendiri), **jenis** menurut kedudukan pada sesi, dan **satuan kerja** (semua atau satu). Tabel bisa dikelompokkan **per satker**, **per jenis**, atau satu tabel; kolom bisa dipilih (NIP, pangkat, jabatan, WhatsApp, kedudukan, status, jam absen, kolom tanda tangan untuk daftar hadir cetak). Ringkasan hadir/terlambat/izin/sakit/alpa/belum absen ikut dicantumkan, dan urutan mengikuti pengaturan urutan di tab Peserta.
 - **Ekspor Word (.docx) dan PDF**: daftar peserta/narasumber/panitia per satker atau satu tabel, dengan pilihan peran,
   kolom (NIP, Pangkat/Gol., Jabatan, WhatsApp, Peran, kolom tanda tangan untuk daftar hadir), judul, dan orientasi A4.
   Dokumen dibuat langsung di browser (tanpa server) dengan nomor halaman dan tanggal cetak.

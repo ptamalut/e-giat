@@ -5,6 +5,7 @@ import type {
 } from './types'
 
 export const ATTENDED: AttendanceStatus[] = ['hadir', 'terlambat']
+export const ATT_LABEL: Record<AttendanceStatus, string> = { hadir: 'Hadir', terlambat: 'Terlambat', izin: 'Izin', sakit: 'Sakit', alpa: 'Alpa' }
 
 /* ---------- Kehadiran ---------- */
 

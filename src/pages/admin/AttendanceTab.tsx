@@ -1,9 +1,9 @@
-import { Camera, CalendarCheck, CalendarX, CheckCircle2, Clock, Copy, Download, HeartPulse, ImageOff, MapPin, Pencil, Plus, RefreshCw, Search, Trash2, UserX, Users } from 'lucide-react'
+import { Camera, CalendarCheck, CalendarX, CheckCircle2, Clock, Copy, Download, FileDown, HeartPulse, ImageOff, MapPin, Pencil, Plus, RefreshCw, Search, Trash2, UserX, Users } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { fmtDateTime, fmtTime, fromLocalInput, timeState, toLocalInput } from '../../lib/format'
-import { memberMapOf, sessionCounts, sessionRole } from '../../lib/reports'
+import { ATT_LABEL, memberMapOf, sessionCounts, sessionRole } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
@@ -13,9 +13,10 @@ import type { Attendance, AttendanceSession, AttendanceStatus, Participant, Pers
 import { fmtAccuracy, fmtCoord, mapsUrl } from '../../lib/capture'
 import { deleteSessionPhotos, removeSelfiesOf, signedSelfieUrls } from '../../lib/selfieApi'
 import { useActivity } from './ActivityLayout'
+import AttendanceExport from './AttendanceExport'
 import MembersEditor, { assignSummary, defaultAssign, summaryText, type Assign } from './SessionMembers'
 
-export const ATT_LABEL: Record<AttendanceStatus, string> = { hadir: 'Hadir', terlambat: 'Terlambat', izin: 'Izin', sakit: 'Sakit', alpa: 'Alpa' }
+export { ATT_LABEL }
 export const ATT_TONE: Record<AttendanceStatus, string> = { hadir: 'success', terlambat: 'warn', izin: 'info', sakit: 'info', alpa: 'danger' }
 
 const STATE_BADGE = {
@@ -36,6 +37,7 @@ export default function AttendanceTab() {
   const [unit, setUnit] = useState('')
   const { collapsed, toggle, setAll } = useCollapsed()
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [exporting, setExporting] = useState(false)
   const [viewing, setViewing] = useState<{ p: Participant; a: Attendance } | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
@@ -227,6 +229,7 @@ export default function AttendanceTab() {
                 <button className="btn sm" onClick={() => void reload(true)}><RefreshCw size={14} /> Segarkan</button>
                 <button className="btn sm" onClick={() => void markAbsentAsAlpa()}>Belum absen = Alpa</button>
                 <button className="btn sm" onClick={exportCsv}><Download size={14} /> CSV</button>
+                <button className="btn sm" onClick={() => setExporting(true)}><FileDown size={14} /> Word / PDF</button>
               </div>
             </div>
             {group.length === 0
@@ -290,6 +293,8 @@ export default function AttendanceTab() {
         </Modal>
       )}
 
+      {exporting && <AttendanceExport activity={activity} people={data.participants.filter((p) => p.access_attendance)} sessions={data.sessions} attendances={data.attendances} members={data.members}
+        currentId={current?.id} onClose={() => setExporting(false)} />}
       {editing && <SessionForm value={editing.value} members={editing.members} activityId={activity.id}
         people={data.participants.filter((p) => p.access_attendance)} satkerOrder={activity.satker_order}
         attendedIds={new Set(data.attendances.filter((a) => editing.value.id && a.session_id === editing.value.id).map((a) => a.participant_id))}
