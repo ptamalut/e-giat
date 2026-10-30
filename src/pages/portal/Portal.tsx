@@ -4,8 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
-import { RoleBadge } from '../../components/RoleBadge'
-import { nameInitial, ROLE_LABEL, roleLine } from '../../lib/people'
+import { nameInitial, ROLE_LABEL, ROLE_TONE, roleLine } from '../../lib/people'
 import CheckInDialog, { type CheckInResult } from './CheckInDialog'
 import { DocsSection, NotesSection } from './PortalExtras'
 import { certPublicUrl } from '../../lib/certificateApi'
@@ -110,7 +109,8 @@ export default function Portal() {
           <div className="me">
             <span className="avatar" aria-hidden>{nameInitial(p.name)}</span>
             <div>
-              <b>{p.name}<RoleBadge role={p.role} style={{ background: 'rgb(255 255 255 / 20%)', color: '#fff' }} /></b>
+              <b>{p.name}</b>
+              <span><span className="role-chip" aria-label={`Kedudukan Anda: ${ROLE_LABEL[p.role]}`}>Kedudukan: {ROLE_LABEL[p.role]}</span></span>
               {(p.identifier || p.grade) && <span>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</span>}
               {roleLine(p) && <span>{roleLine(p)}</span>}
             </div>
@@ -134,7 +134,7 @@ export default function Portal() {
             return (
               <div className="item" key={s.id}>
                 <div className="grow">
-                  <div className="title">{s.title}<RoleBadge role={s.role} /></div>
+                  <div className="title">{s.title}{s.role && s.role !== p.role && <span className={`badge ${ROLE_TONE[s.role]}`} style={{ marginLeft: 8 }}>Sebagai {ROLE_LABEL[s.role].toLowerCase()}</span>}</div>
                   <div className="muted small">{fmtDate(s.start_at)} · {fmtTime(s.start_at)} – {fmtTime(s.end_at)}</div>
                 </div>
                 {att ? (

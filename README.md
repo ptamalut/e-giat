@@ -73,7 +73,7 @@ di halaman depan (lihat di bawah).
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
 - Data peserta: **Nama lengkap beserta gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp**
   (saran pangkat/golongan PNS tersedia di formulir; avatar melewati gelar di depan nama seperti Dr., Ir., H.).
-- **Jenis**: setiap orang berjenis *Peserta*, *Narasumber*, *Moderator*, atau *Panitia* dan punya link/QR pribadi. Menu yang tampil di
+- **Jenis**: setiap orang berjenis *Peserta*, *Narasumber*, *Moderator*, atau *Panitia* dan punya link/QR pribadi. Kedudukannya selalu tampil di bagian atas halaman pribadi ("Kedudukan: Narasumber", dst.); bila pada sebuah sesi kedudukannya berbeda, sesi itu diberi keterangan "Sebagai …". Menu yang tampil di
   linknya mengikuti hak akses (bawaan narasumber/panitia: absensi + sertifikat, tanpa kuis); hanya *Peserta* yang masuk peringkat.
   Laporan kuis memuat orang yang punya hak akses kuis, laporan kehadiran memuat yang punya hak akses absensi.
 - **Sertifikat**: admin mengunggah sertifikat (PDF/PNG/JPG, maks. 10 MB) per orang di tab *Sertifikat*, satu per satu atau
