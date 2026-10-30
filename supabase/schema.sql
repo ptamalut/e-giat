@@ -84,8 +84,8 @@ create table if not exists public.participants (
   institution  text,                -- satuan kerja
   email        text,                -- tidak lagi diisi dari aplikasi (dipertahankan untuk data lama)
   phone        text,                -- nomor WhatsApp
-  -- peran: peserta mengerjakan kuis & masuk peringkat; narasumber dan panitia hanya absen
-  role         text not null default 'peserta' check (role in ('peserta', 'narasumber', 'panitia')),
+  -- jenis: peserta (masuk peringkat), narasumber, moderator, panitia; hak akses menu diatur terpisah per orang
+  role         text not null default 'peserta' check (role in ('peserta', 'narasumber', 'moderator', 'panitia')),
   -- urutan tampil di dalam satuan kerja (kecil = lebih atas); null = setelah yang berurutan, lalu abjad
   sort_order   int,
   -- token rahasia untuk link unik peserta (122 bit acak)
@@ -159,7 +159,7 @@ alter table public.participants add column if not exists access_documentation bo
 create unique index if not exists participants_employee_uq on public.participants (activity_id, employee_id) where employee_id is not null;
 -- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
 alter table public.participants drop constraint if exists participants_role_check;
-alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'panitia'));
+alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'moderator', 'panitia'));
 
 -- Sesi absensi (mis. Hari 1, Hari 2, Sesi Pagi, ...)
 create table if not exists public.attendance_sessions (
@@ -179,6 +179,20 @@ create table if not exists public.attendance_sessions (
 );
 alter table public.attendance_sessions add column if not exists require_selfie   boolean not null default false;
 alter table public.attendance_sessions add column if not exists require_location boolean not null default false;
+-- false: semua orang di kegiatan ikut sesi ini dengan jenis masing-masing; true: hanya yang terdaftar di session_members, dengan jenis per sesi
+alter table public.attendance_sessions add column if not exists custom_members boolean not null default false;
+
+-- Anggota sesi absensi (dipakai bila custom_members = true): siapa ikut sesi ini dan sebagai apa
+create table if not exists public.session_members (
+  session_id      uuid not null,
+  activity_id     uuid not null,
+  participant_id  uuid not null,
+  role            text not null check (role in ('peserta', 'narasumber', 'moderator', 'panitia')),
+  primary key (session_id, participant_id),
+  foreign key (session_id, activity_id) references public.attendance_sessions (id, activity_id) on delete cascade,
+  foreign key (participant_id, activity_id) references public.participants (id, activity_id) on delete cascade
+);
+create index if not exists session_members_participant_idx on public.session_members (participant_id);
 create index if not exists sessions_activity_idx on public.attendance_sessions (activity_id, start_at);
 
 create table if not exists public.attendances (
@@ -367,6 +381,7 @@ alter table public.questions           enable row level security;
 alter table public.quiz_attempts       enable row level security;
 alter table public.certificates        enable row level security;
 alter table public.employees           enable row level security;
+alter table public.session_members     enable row level security;
 alter table public.employee_settings   enable row level security;
 alter table public.meeting_notes       enable row level security;
 alter table public.documentation       enable row level security;
@@ -429,6 +444,11 @@ create trigger employees_sync after update on public.employees
 
 drop policy if exists sessions_owner on public.attendance_sessions;
 create policy sessions_owner on public.attendance_sessions
+  for all to authenticated
+  using (public.is_activity_owner(activity_id)) with check (public.is_activity_owner(activity_id));
+
+drop policy if exists session_members_owner on public.session_members;
+create policy session_members_owner on public.session_members
   for all to authenticated
   using (public.is_activity_owner(activity_id)) with check (public.is_activity_owner(activity_id));
 
@@ -553,6 +573,18 @@ begin
   end loop;
 end $$;
 
+-- Jenis seseorang pada sebuah sesi absensi: jenis di sesi (bila sesi diatur per orang) atau jenis di kegiatan; null = tidak ikut sesi ini
+create or replace function public._session_role(p_session uuid, p_participant uuid)
+returns text
+language sql stable security definer set search_path = public as $$
+  select case when s.custom_members
+              then (select m.role from public.session_members m where m.session_id = s.id and m.participant_id = p_participant)
+              else (select p.role from public.participants p where p.id = p_participant and p.activity_id = s.activity_id)
+         end
+    from public.attendance_sessions s
+   where s.id = p_session;
+$$;
+
 -- Perhitungan nilai akhir & peringkat (satu sumber kebenaran untuk panitia & peserta)
 --   kehadiran% = sesi berstatus hadir/terlambat / total sesi
 --   rata-rata kuis = rata-rata skor terbaik tiap kuis (published & counts_toward_final);
@@ -574,20 +606,26 @@ language sql stable security definer set search_path = public as $$
   with w as (
     select weight_attendance, enable_attendance, enable_quiz from public.activities where id = p_activity
   ),
-  sess as (
-    -- menu absensi dimatikan: kehadiran tidak ikut dihitung
-    select case when (select enable_attendance from w) then count(*)::int else 0 end as n
-      from public.attendance_sessions where activity_id = p_activity
-  ),
   qz as (
     select id from public.quizzes
      where activity_id = p_activity and is_published and counts_toward_final and (select enable_quiz from w)
   ),
+  -- sesi yang diikuti tiap orang (semua sesi, atau hanya yang mencantumkannya bila sesi diatur per orang)
+  mine as (
+    select p.id as pid, s.id as sid
+      from public.participants p
+      join public.attendance_sessions s on s.activity_id = p.activity_id
+     where p.activity_id = p_activity and p.role = 'peserta' and (select enable_attendance from w)
+       and (not s.custom_members
+            or exists (select 1 from public.session_members m where m.session_id = s.id and m.participant_id = p.id))
+  ),
   att as (
     select p.id as pid,
+           count(m.sid)::int as n,
            count(a.id) filter (where a.status in ('hadir', 'terlambat'))::int as c
       from public.participants p
-      left join public.attendances a on a.participant_id = p.id
+      left join mine m on m.pid = p.id
+      left join public.attendances a on a.session_id = m.sid and a.participant_id = p.id
      where p.activity_id = p_activity and p.role = 'peserta'
      group by p.id
   ),
@@ -605,13 +643,12 @@ language sql stable security definer set search_path = public as $$
     select pid, round(avg(s), 2) as v from best group by pid
   ),
   base as (
-    select p.id as pid, p.name, p.institution, att.c, sess.n,
-           case when sess.n > 0 and p.access_attendance then round(att.c::numeric * 100 / sess.n, 2) end as ap,
+    select p.id as pid, p.name, p.institution, att.c, att.n,
+           case when att.n > 0 and p.access_attendance then round(att.c::numeric * 100 / att.n, 2) end as ap,
            qavg.v as qa,
            w.weight_attendance as wt
       from public.participants p
       join att on att.pid = p.id
-     cross join sess
      cross join w
       left join qavg on qavg.pid = p.id
      where p.activity_id = p_activity and p.role = 'peserta'
@@ -661,6 +698,7 @@ begin
            'late_minutes', s.late_minutes,
            'require_selfie', s.require_selfie,
            'require_location', s.require_location,
+           'role', public._session_role(s.id, p.id),
            'state', case when v_now < s.start_at then 'upcoming'
                          when v_now > s.end_at then 'closed'
                          else 'open' end,
@@ -672,7 +710,8 @@ begin
     into v_sess
     from public.attendance_sessions s
     left join public.attendances at on at.session_id = s.id and at.participant_id = p.id
-   where s.activity_id = a.id and a.enable_attendance and p.access_attendance;
+   where s.activity_id = a.id and a.enable_attendance and p.access_attendance
+     and public._session_role(s.id, p.id) is not null;  -- hanya sesi yang diikuti orang ini
 
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', q.id,
@@ -761,6 +800,9 @@ begin
   if not found then
     raise exception 'Sesi absensi tidak ditemukan.' using errcode = 'P0002';
   end if;
+  if public._session_role(s.id, p.id) is null then
+    raise exception 'Anda tidak terdaftar pada sesi absensi ini.' using errcode = 'P0001';
+  end if;
   if v_now < s.start_at then raise exception 'Absensi belum dibuka.' using errcode = 'P0001'; end if;
   if v_now > s.end_at   then raise exception 'Absensi sudah ditutup.' using errcode = 'P0001'; end if;
   if exists (select 1 from public.attendances where session_id = s.id and participant_id = p.id) then
@@ -810,6 +852,9 @@ begin
   select * into s from public.attendance_sessions where id = p_session and activity_id = p.activity_id;
   if not found then
     raise exception 'Sesi absensi tidak ditemukan.' using errcode = 'P0002';
+  end if;
+  if public._session_role(s.id, p.id) is null then
+    raise exception 'Anda tidak terdaftar pada sesi absensi ini.' using errcode = 'P0001';
   end if;
   if v_now < s.start_at then
     raise exception 'Absensi belum dibuka.' using errcode = 'P0001';
@@ -1410,6 +1455,7 @@ revoke all on function
   public._finalize_attempt(uuid, jsonb, boolean),
   public._close_expired(uuid),
   public._ranking(uuid),
+  public._session_role(uuid, uuid),
   public._attempt_result(public.quiz_attempts)
 from public, anon, authenticated;
 

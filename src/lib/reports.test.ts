@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attendanceMatrix, bestAttempt, gainTable, itemAnalysis, quizResults, sessionCounts } from './reports'
+import { attendanceMatrix, bestAttempt, gainTable, itemAnalysis, memberMapOf, quizResults, sessionCounts, sessionRole } from './reports'
 import type { Attendance, AttendanceSession, Participant, Question, Quiz, QuizAttempt } from './types'
 
 const P = (id: string): Participant => ({ id, activity_id: 'a', name: id, identifier: null, grade: null, job_title: null, institution: null, email: null, phone: null, role: 'peserta', employee_id: null, access_attendance: true, access_quiz: true, access_certificate: true, access_notes: false, access_documentation: false, sort_order: null, token: id, created_at: '' })
@@ -59,7 +59,7 @@ describe('kuis', () => {
 
 describe('kehadiran', () => {
   const ps = [P('a'), P('b')]
-  const ss: AttendanceSession[] = ['s1', 's2'].map((id) => ({ id, activity_id: 'a', title: id, start_at: '', end_at: '', late_minutes: 0, require_selfie: false, require_location: false }))
+  const ss: AttendanceSession[] = ['s1', 's2'].map((id) => ({ id, activity_id: 'a', title: id, start_at: '', end_at: '', late_minutes: 0, require_selfie: false, require_location: false, custom_members: false }))
   const at = (s: string, p: string, status: Attendance['status']): Attendance => ({ id: s + p, activity_id: 'a', session_id: s, participant_id: p, status, checked_in_at: '', note: null, manual: false, selfie_path: null, lat: null, lng: null, accuracy_m: null })
   const list = [at('s1', 'a', 'hadir'), at('s2', 'a', 'terlambat'), at('s1', 'b', 'izin')]
 
@@ -68,6 +68,17 @@ describe('kehadiran', () => {
     expect(m[0].pct).toBe(100)
     expect(m[1].pct).toBe(0)
     expect(attendanceMatrix(ps, [], [])[0].pct).toBeNull()
+  })
+  it('sesi yang diatur per orang: penyebut hanya sesi yang diikuti, jenis per sesi', () => {
+    const custom = ss.map((s) => (s.id === 's2' ? { ...s, custom_members: true } : s))
+    const members = [{ session_id: 's2', activity_id: 'a', participant_id: 'a', role: 'narasumber' as const }]
+    const m = attendanceMatrix(ps, custom, list, members)
+    expect(m[0]).toMatchObject({ total: 2, attended: 2, pct: 100 })          // a ikut s1 dan s2
+    expect(m[1]).toMatchObject({ total: 1, attended: 0, pct: 0, applicable: { s1: true, s2: false } }) // b hanya s1 (izin)
+    const mm = memberMapOf(members)
+    expect(sessionRole(custom[1], ps[0], mm)).toBe('narasumber')
+    expect(sessionRole(custom[1], ps[1], mm)).toBeNull()
+    expect(sessionRole(custom[0], ps[1], mm)).toBe('peserta')               // sesi tanpa pengaturan: jenis di kegiatan
   })
   it('rekap per sesi termasuk yang belum absen', () => {
     expect(sessionCounts(ps, list, 's1')).toEqual({ hadir: 1, terlambat: 0, izin: 1, sakit: 0, alpa: 0, belum: 0 })

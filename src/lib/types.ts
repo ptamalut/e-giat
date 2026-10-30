@@ -1,8 +1,8 @@
 export type ActivityStatus = 'draft' | 'aktif' | 'selesai'
 export type AttendanceStatus = 'hadir' | 'terlambat' | 'izin' | 'sakit' | 'alpa'
 export type QuizType = 'pre' | 'post' | 'lainnya'
-/** peserta: mengerjakan kuis & masuk peringkat. narasumber dan panitia: hanya absen. */
-export type PersonRole = 'peserta' | 'narasumber' | 'panitia'
+/** jenis seseorang pada kegiatan (atau pada satu sesi absensi); hak akses menu diatur terpisah per orang. */
+export type PersonRole = 'peserta' | 'narasumber' | 'moderator' | 'panitia'
 
 export interface Activity {
   id: string
@@ -127,6 +127,16 @@ export interface AttendanceSession {
   /** wajib foto selfie / lokasi saat absen mandiri */
   require_selfie: boolean
   require_location: boolean
+  /** false: semua orang di kegiatan ikut dengan jenis masing-masing; true: hanya yang terdaftar di session_members, dengan jenis per sesi */
+  custom_members: boolean
+}
+
+/** Anggota sebuah sesi absensi yang diatur per orang. */
+export interface SessionMember {
+  session_id: string
+  activity_id: string
+  participant_id: string
+  role: PersonRole
 }
 
 export interface Attendance {
@@ -218,6 +228,8 @@ export interface PortalSession {
   late_minutes: number
   require_selfie: boolean
   require_location: boolean
+  /** jenis orang ini pada sesi tersebut */
+  role: PersonRole
   state: TimeState
   attendance: { status: AttendanceStatus; checked_in_at: string; has_selfie?: boolean; has_location?: boolean } | null
 }

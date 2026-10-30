@@ -53,7 +53,7 @@ describe('helper satker', () => {
 
 describe('satkerSummary', () => {
   const ps = [P('a', 'Dinas A'), P('b', 'Dinas A'), P('c', 'Dinas B'), P('d', 'Dinas B', 'narasumber'), P('e', 'Dinas C', 'panitia')]
-  const ss: AttendanceSession[] = [{ id: 's1', activity_id: 'a', title: 's1', start_at: '', end_at: '', late_minutes: 0, require_selfie: false, require_location: false }]
+  const ss: AttendanceSession[] = [{ id: 's1', activity_id: 'a', title: 's1', start_at: '', end_at: '', late_minutes: 0, require_selfie: false, require_location: false, custom_members: false }]
   const at = (p: string): Attendance => ({ id: p, activity_id: 'a', session_id: 's1', participant_id: p, status: 'hadir', checked_in_at: '', note: null, manual: false, selfie_path: null, lat: null, lng: null, accuracy_m: null })
   const rk = (id: string, quiz: number, final: number): RankingRow => ({ participant_id: id, name: id, institution: null, sessions_attended: 0, sessions_total: 1, attendance_pct: 0, quiz_avg: quiz, final_score: final, rank: 1 })
   const rows = satkerSummary(ps, ss, [at('a'), at('d')], [rk('a', 80, 90), rk('b', 60, 40), rk('c', 100, 95)])

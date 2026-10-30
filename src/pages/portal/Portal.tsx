@@ -134,7 +134,7 @@ export default function Portal() {
             return (
               <div className="item" key={s.id}>
                 <div className="grow">
-                  <div className="title">{s.title}</div>
+                  <div className="title">{s.title}<RoleBadge role={s.role} /></div>
                   <div className="muted small">{fmtDate(s.start_at)} · {fmtTime(s.start_at)} – {fmtTime(s.end_at)}</div>
                 </div>
                 {att ? (

@@ -34,6 +34,15 @@ di halaman depan (lihat di bawah).
   dalam 10 menit, dan hanya kegiatan berjalan yang dibuka untuk umum. Untuk kegiatan yang menuntut keamanan lebih tinggi (mis. kuis yang menentukan nilai),
   matikan opsi ini dan bagikan link/QR pribadi saja.
 
+**Siapa yang ikut tiap sesi absensi**
+- Tiap sesi absensi punya pilihan **Siapa yang ikut sesi ini**: *Semua orang di kegiatan* (bawaan; masing-masing dengan jenisnya di kegiatan) atau
+  *Atur per sesi*. Pada "Atur per sesi" panitia menentukan untuk tiap orang apakah ia **peserta, narasumber, moderator, panitia**, atau **tidak ikut**
+  pada sesi itu (jenis per sesi boleh berbeda dari jenis di kegiatan, mis. seorang peserta menjadi narasumber di sesi Hari 2). Ada pengaturan massal
+  per satuan kerja, "Samakan dengan jenis di kegiatan", dan "Kosongkan semua"; duplikat sesi ikut menyalin anggotanya.
+- Daftar absensi sesi hanya memuat anggota sesi dengan jenisnya di sesi itu (filter, hitungan, dan CSV mengikutinya). Di halaman pribadi hanya sesi yang
+  diikuti yang tampil (dengan lencana jenisnya), dan server menolak absen pada sesi yang tidak diikuti. Persentase kehadiran (laporan dan peringkat)
+  dihitung terhadap sesi yang diikuti saja; laporan menandai sesi yang tidak diikuti dengan "×".
+
 **Menu per kegiatan, data pegawai, dan hak akses**
 - **Menu kegiatan**: di *Ringkasan → Menu kegiatan* panitia mengaktifkan/menonaktifkan *Absensi, Notula, Kuis, Sertifikat,
   Dokumentasi* untuk tiap kegiatan (bawaan: semua aktif). Menu nonaktif hilang dari panitia dan peserta, dan ditolak di server;
@@ -64,7 +73,7 @@ di halaman depan (lihat di bawah).
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
 - Data peserta: **Nama lengkap beserta gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp**
   (saran pangkat/golongan PNS tersedia di formulir; avatar melewati gelar di depan nama seperti Dr., Ir., H.).
-- **Jenis**: setiap orang berjenis *Peserta*, *Narasumber*, atau *Panitia* dan punya link/QR pribadi. Menu yang tampil di
+- **Jenis**: setiap orang berjenis *Peserta*, *Narasumber*, *Moderator*, atau *Panitia* dan punya link/QR pribadi. Menu yang tampil di
   linknya mengikuti hak akses (bawaan narasumber/panitia: absensi + sertifikat, tanpa kuis); hanya *Peserta* yang masuk peringkat.
   Laporan kuis memuat orang yang punya hak akses kuis, laporan kehadiran memuat yang punya hak akses absensi.
 - **Sertifikat**: admin mengunggah sertifikat (PDF/PNG/JPG, maks. 10 MB) per orang di tab *Sertifikat*, satu per satu atau
@@ -134,7 +143,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, lalu `010_urutan_pegawai.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, lalu `011_moderator_anggota_sesi.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
