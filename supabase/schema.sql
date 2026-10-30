@@ -155,6 +155,34 @@ begin
 end $$;
 alter table public.participants add column if not exists access_notes         boolean not null default false;
 alter table public.participants add column if not exists access_documentation boolean not null default false;
+-- Jenis yang dirangkap: satu orang boleh memegang beberapa jenis (mis. narasumber + moderator).
+-- `roles` adalah daftar jenis (minimal satu); `role` tetap ada sebagai jenis utama (= roles[1]) dan dijaga sinkron oleh pemicu.
+-- Kedudukan sebenarnya pada tiap sesi dipilih di sesi absensi (session_members.role).
+alter table public.participants add column if not exists roles text[];
+update public.participants set roles = array[role] where roles is null;
+alter table public.participants alter column roles set default '{}';
+alter table public.participants alter column roles set not null;
+alter table public.participants drop constraint if exists participants_roles_check;
+alter table public.participants add constraint participants_roles_check
+  check (cardinality(roles) >= 1 and roles <@ array['peserta', 'narasumber', 'moderator', 'panitia']);
+
+create or replace function public._sync_roles()
+returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    if coalesce(cardinality(new.roles), 0) = 0 then new.roles := array[new.role]; end if;
+  elsif new.roles is not distinct from old.roles and new.role is distinct from old.role then
+    new.roles := array[new.role];  -- hanya `role` yang diubah (klien lama): jenisnya diganti
+  end if;
+  -- buang duplikat dengan urutan dipertahankan; jenis utama = yang pertama
+  new.roles := (select array_agg(r order by ord) from (select r, min(ord) as ord from unnest(new.roles) with ordinality as u(r, ord) group by r) x);
+  new.role := new.roles[1];
+  return new;
+end $$;
+drop trigger if exists participants_sync_roles on public.participants;
+create trigger participants_sync_roles before insert or update on public.participants
+  for each row execute function public._sync_roles();
 -- satu pegawai hanya sekali per kegiatan
 create unique index if not exists participants_employee_uq on public.participants (activity_id, employee_id) where employee_id is not null;
 -- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
@@ -615,7 +643,7 @@ language sql stable security definer set search_path = public as $$
     select p.id as pid, s.id as sid
       from public.participants p
       join public.attendance_sessions s on s.activity_id = p.activity_id
-     where p.activity_id = p_activity and p.role = 'peserta' and (select enable_attendance from w)
+     where p.activity_id = p_activity and 'peserta' = any(p.roles) and (select enable_attendance from w)
        and (not s.custom_members
             or exists (select 1 from public.session_members m where m.session_id = s.id and m.participant_id = p.id))
   ),
@@ -626,7 +654,7 @@ language sql stable security definer set search_path = public as $$
       from public.participants p
       left join mine m on m.pid = p.id
       left join public.attendances a on a.session_id = m.sid and a.participant_id = p.id
-     where p.activity_id = p_activity and p.role = 'peserta'
+     where p.activity_id = p_activity and 'peserta' = any(p.roles)
      group by p.id
   ),
   best as (
@@ -636,7 +664,7 @@ language sql stable security definer set search_path = public as $$
      cross join qz
       left join public.quiz_attempts t
              on t.participant_id = p.id and t.quiz_id = qz.id and t.submitted_at is not null
-     where p.activity_id = p_activity and p.role = 'peserta' and p.access_quiz
+     where p.activity_id = p_activity and 'peserta' = any(p.roles) and p.access_quiz
      group by p.id, qz.id
   ),
   qavg as (
@@ -651,7 +679,7 @@ language sql stable security definer set search_path = public as $$
       join att on att.pid = p.id
      cross join w
       left join qavg on qavg.pid = p.id
-     where p.activity_id = p_activity and p.role = 'peserta'
+     where p.activity_id = p_activity and 'peserta' = any(p.roles)
   ),
   scored as (
     select *,
@@ -754,7 +782,7 @@ begin
     'now', v_now,
     'participant', jsonb_build_object(
       'id', p.id, 'name', p.name, 'identifier', p.identifier, 'grade', p.grade,
-      'job_title', p.job_title, 'institution', p.institution, 'role', p.role),
+      'job_title', p.job_title, 'institution', p.institution, 'role', p.role, 'roles', p.roles),
     -- menu yang boleh dipakai orang ini = menu aktif di kegiatan DAN hak akses orang ini
     'features', jsonb_build_object(
       'attendance', a.enable_attendance and p.access_attendance,
@@ -1115,12 +1143,12 @@ declare
 begin
   p := public._participant_by_token(p_token);
   select * into a from public.activities where id = p.activity_id;
-  if not a.show_leaderboard or p.role <> 'peserta' or not (a.enable_attendance or a.enable_quiz) then
+  if not a.show_leaderboard or not ('peserta' = any(p.roles)) or not (a.enable_attendance or a.enable_quiz) then
     return jsonb_build_object('enabled', false, 'rows', '[]'::jsonb);
   end if;
   return jsonb_build_object(
     'enabled', true,
-    'total', (select count(*) from public.participants where activity_id = a.id and role = 'peserta'),
+    'total', (select count(*) from public.participants where activity_id = a.id and 'peserta' = any(roles)),
     'rows', (
       select coalesce(jsonb_agg(jsonb_build_object(
                'rank', r.rank, 'name', r.name, 'institution', r.institution,
@@ -1503,6 +1531,7 @@ revoke execute on function public.activity_ranking(uuid), public.is_activity_own
 
 revoke all on function public.save_employee_order(jsonb, uuid[]) from public, anon;
 grant execute on function public.save_employee_order(jsonb, uuid[]) to authenticated;
+revoke all on function public._sync_roles() from public, anon, authenticated;
 revoke all on function public.is_employee_owner(uuid) from public, anon;
 grant execute on function public.is_employee_owner(uuid) to authenticated;
 revoke all on function public._sync_employee() from public, anon, authenticated;

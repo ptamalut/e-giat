@@ -25,7 +25,7 @@ export default function Dashboard() {
     const { data, error } = await supabase
       .from('activities')
       .select('*, participants(count), attendance_sessions(count), quizzes(count)')
-      .eq('participants.role', 'peserta') // hitung peserta saja (narasumber & panitia tidak dihitung)
+      .filter('participants.roles', 'cs', '{peserta}') // hitung yang berjenis peserta (termasuk yang merangkap)
       .order('created_at', { ascending: false })
     if (error) throw new Error(errMsg(error))
     return data as Row[]

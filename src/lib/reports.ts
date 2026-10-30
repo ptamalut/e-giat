@@ -1,3 +1,4 @@
+import { hasRole } from './people'
 import { groupBySatker } from './satker'
 import type {
   Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole, Question, Quiz, QuizAttempt, RankingRow, SessionMember,
@@ -277,10 +278,10 @@ export function satkerSummary(
     return {
       key: g.key,
       label: g.label,
-      peserta: g.items.filter((p) => p.role === 'peserta').length,
-      narasumber: g.items.filter((p) => p.role === 'narasumber').length,
-      moderator: g.items.filter((p) => p.role === 'moderator').length,
-      panitia: g.items.filter((p) => p.role === 'panitia').length,
+      peserta: g.items.filter((p) => hasRole(p, 'peserta')).length,
+      narasumber: g.items.filter((p) => hasRole(p, 'narasumber')).length,
+      moderator: g.items.filter((p) => hasRole(p, 'moderator')).length,
+      panitia: g.items.filter((p) => hasRole(p, 'panitia')).length,
       attendancePct: mean(pcts),
       avgQuiz: mean(rk.map((r) => r.quiz_avg).filter((v): v is number => v != null).map(Number)),
       avgFinal: mean(rk.map((r) => Number(r.final_score))),

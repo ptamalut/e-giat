@@ -78,7 +78,7 @@ export default function AttendanceTab() {
   // urutan mengikuti pengaturan satker & orang (tab Peserta -> Atur urutan)
   const orderedAll = useMemo(() => groupBySatker((data?.participants ?? []).filter((p) => p.access_attendance), (p) => p.institution, activity.satker_order)
     .flatMap((g) => g.items)
-    .flatMap((p) => { const r = current ? sessionRole(current, p, memberMap) : null; return r ? [{ ...p, role: r }] : [] }),
+    .flatMap((p) => { const r = current ? sessionRole(current, p, memberMap) : null; return r ? [{ ...p, role: r, roles: [r] }] : [] }),
   [data, activity.satker_order, current, memberMap])
   const roleCount = (r: 'semua' | PersonRole) => orderedAll.filter((p) => r === 'semua' || p.role === r).length
   const group = orderedAll.filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution))
@@ -187,7 +187,7 @@ export default function AttendanceTab() {
                 <div className="meta"><span><Clock size={15} /> {fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)}</span><span>Terlambat bila absen lewat {current.late_minutes} menit dari jam mulai</span>
                   <span><Camera size={15} /> {current.require_selfie ? 'Selfie wajib' : 'Selfie tidak diminta'}</span>
                   <span><MapPin size={15} /> {current.require_location ? 'Lokasi wajib' : 'Lokasi tidak diminta'}</span>
-                  <span><Users size={15} /> {current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan (sesuai jenisnya)'}</span></div>
+                  <span><Users size={15} /> {current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan (sesuai jenis utamanya)'}</span></div>
               </div>
               <div className="row tight">
                 <button className="btn sm" onClick={() => setEditing({ value: current, members: current.custom_members ? data.members.filter((m) => m.session_id === current.id) : null })}><Pencil size={14} /> Ubah</button>
@@ -367,8 +367,8 @@ function SessionForm({ value, members, activityId, people, satkerOrder, attended
         <p className="hint">Foto dan lokasi hanya dapat dilihat admin kegiatan ini. Jika keduanya dimatikan, peserta langsung absen satu ketukan.</p>
 
         <Field label="Siapa yang ikut sesi ini" hint={custom
-          ? 'Tentukan jenis tiap orang pada sesi ini: peserta, narasumber, moderator, atau panitia. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.'
-          : 'Semua orang yang berhak absen di kegiatan ini ikut sesi ini, dengan jenis masing-masing (sebagai peserta, narasumber, moderator, atau panitia).'}>
+          ? 'Tentukan kedudukan tiap orang pada sesi ini: peserta, narasumber, moderator, atau panitia. Orang yang merangkap tinggal dipilihkan salah satu kedudukannya. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.'
+          : 'Semua orang yang berhak absen di kegiatan ini ikut sesi ini, dengan jenis masing-masing. Yang merangkap mengikuti jenis utamanya (jenis pertama); pilih "Atur per sesi" bila ingin menentukan kedudukannya pada sesi ini.'}>
           <div className="pills" role="radiogroup" aria-label="Siapa yang ikut sesi ini">
             <button type="button" role="radio" aria-checked={!custom} className={`pill ${!custom ? 'active' : ''}`} onClick={() => setCustom(false)}>Semua orang di kegiatan</button>
             <button type="button" role="radio" aria-checked={custom} className={`pill ${custom ? 'active' : ''}`} onClick={() => setCustom(true)}>Atur per sesi</button>

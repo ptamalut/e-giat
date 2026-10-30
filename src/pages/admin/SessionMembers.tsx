@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { RoleBadge } from '../../components/RoleBadge'
-import { ROLE_LABEL, ROLES } from '../../lib/people'
+import { RoleBadges } from '../../components/RoleBadge'
+import { ROLE_LABEL, ROLES, rolesOf } from '../../lib/people'
 import { groupBySatker, matchesUnit, NONE_KEY } from '../../lib/satker'
 import type { Participant, PersonRole } from '../../lib/types'
 
@@ -24,6 +24,21 @@ export const summaryText = (counts: Record<PersonRole, number>) =>
   ROLES.filter((r) => counts[r] > 0).map((r) => `${counts[r]} ${ROLE_LABEL[r].toLowerCase()}`).join(' · ')
 
 const OPTIONS: { value: PersonRole | ''; label: string }[] = [...ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] })), { value: '', label: 'Tidak ikut' }]
+
+/** Pilihan kedudukan satu orang: bila merangkap, jenis yang dipegangnya ditampilkan lebih dulu. */
+function PersonOptions({ p }: { p: Participant }) {
+  const own = rolesOf(p)
+  if (own.length < 2) return <>{OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}</>
+  return (
+    <>
+      <optgroup label="Merangkap sebagai">{own.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</optgroup>
+      <optgroup label="Lainnya">
+        {ROLES.filter((r) => !own.includes(r)).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+        <option value="">Tidak ikut</option>
+      </optgroup>
+    </>
+  )
+}
 
 /** Tentukan siapa yang ikut sebuah sesi dan sebagai apa (peserta, narasumber, moderator, panitia). */
 export default function MembersEditor({ people, assign, onChange, satkerOrder }: {
@@ -76,12 +91,12 @@ export default function MembersEditor({ people, assign, onChange, satkerOrder }:
             {g.items.map((p) => (
               <div key={p.id} className={`picker-row ${assign[p.id] ? '' : 'off'}`} style={{ cursor: 'default' }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <b>{p.name}</b><RoleBadge role={p.role} />
+                  <b>{p.name}</b><RoleBadges roles={rolesOf(p)} />
                   <span className="muted small" style={{ display: 'block' }}>{[p.identifier && `NIP ${p.identifier}`, p.job_title].filter(Boolean).join(' · ') || '—'}</span>
                 </span>
                 <select className="input" style={{ width: 140, minHeight: 32, padding: '4px 8px' }} value={assign[p.id] ?? ''} aria-label={`Jenis ${p.name} pada sesi ini`}
                   onChange={(e) => onChange({ ...assign, [p.id]: e.target.value as PersonRole | '' })}>
-                  {OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}
+                  <PersonOptions p={p} />
                 </select>
               </div>
             ))}

@@ -28,12 +28,12 @@ export default function Overview() {
 
   const { data, error, loading, reload: refresh } = useAsync(async () => {
     const [p, s, q, att, rank, spk] = await Promise.all([
-      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).eq('role', 'peserta'),
+      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).contains('roles', ['peserta']),
       supabase.from('attendance_sessions').select('id', { count: 'exact', head: true }).eq('activity_id', a.id),
       supabase.from('quizzes').select('id, is_published, questions(count)').eq('activity_id', a.id),
       supabase.from('quiz_attempts').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).not('submitted_at', 'is', null),
       supabase.rpc('activity_ranking', { p_activity: a.id }),
-      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).neq('role', 'peserta'),
+      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('activity_id', a.id).not('roles', 'cs', '{peserta}'),
     ])
     for (const r of [p, s, q, att, rank, spk]) if (r.error) throw new Error(errMsg(r.error))
     const quizzes = (q.data ?? []) as { id: string; is_published: boolean; questions: { count: number }[] }[]
@@ -112,7 +112,7 @@ export default function Overview() {
   return (
     <div className="stack">
       <div className="grid cols-4">
-        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} narasumber/panitia` : undefined} />
+        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} narasumber/moderator/panitia` : undefined} />
         {menuOn(a, 'attendance') && <Stat icon={<CalendarCheck size={20} />} tone="success" value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />}
         {menuOn(a, 'quiz') && <Stat icon={<ClipboardList size={20} />} tone="warn" value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />}
         {menuOn(a, 'quiz') && <Stat icon={<CheckCheck size={20} />} tone="info" value={data.attempts} label="Kuis terkumpul" />}
