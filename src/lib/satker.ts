@@ -54,6 +54,16 @@ export function sortPeople<T extends { sort_order: number | null; name: string }
     (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) || a.name.localeCompare(b.name, 'id', { sensitivity: 'base' }))
 }
 
+/**
+ * Terapkan urutan baru sebuah himpunan bagian ke daftar lengkap: anggota himpunan bagian menempati kembali
+ * "slot" yang tadi mereka duduki (menurut urutan baru), sedangkan yang lain tidak bergeser.
+ */
+export function mergeSlots<T>(full: readonly T[], subsetNew: readonly T[]): T[] {
+  const inSubset = new Set(subsetNew)
+  let i = 0
+  return full.map((x) => (inSubset.has(x) ? subsetNew[i++] : x))
+}
+
 /** Pindahkan item pada indeks `from` ke indeks `to` (hasil array baru). */
 export function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
   if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return [...arr]
