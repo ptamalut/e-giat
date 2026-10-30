@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupBySatker, matchesUnit, NONE_KEY, normSatker, roleSummary, satkerKey } from './satker'
+import { groupBySatker, matchesUnit, NONE_KEY, mergeSlots, normSatker, roleSummary, satkerKey } from './satker'
 import { satkerSummary } from './reports'
 import type { Attendance, AttendanceSession, Participant, RankingRow } from './types'
 
@@ -80,5 +80,14 @@ describe('satkerSummary', () => {
     expect(by['Dinas B'].rank).toBe(1)
     expect(by['Dinas A'].rank).toBe(2)
     expect(by['Dinas C'].rank).toBeNull()
+  })
+})
+
+describe('mergeSlots', () => {
+  it('himpunan bagian menempati kembali slotnya, yang lain tidak bergeser', () => {
+    expect(mergeSlots(['a', 'x', 'b', 'y', 'c'], ['c', 'a', 'b'])).toEqual(['c', 'x', 'a', 'y', 'b'])
+  })
+  it('himpunan bagian kosong tidak mengubah apa pun', () => {
+    expect(mergeSlots(['a', 'b'], [])).toEqual(['a', 'b'])
   })
 })

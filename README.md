@@ -96,6 +96,7 @@ di halaman depan (lihat di bawah).
 - **Atur urutan**: urutan satuan kerja dan urutan orang di dalam tiap satker bisa diatur (seret ikon ⋮⋮ atau tombol
   panah) dan tersimpan di database. Urutan dipakai di tab Peserta, Absensi, rekap kehadiran, kartu QR, CSV, dan ekspor.
   Satker baru dan orang baru otomatis menyusul di akhir; "Kembali ke abjad" menghapus urutan khusus.
+  Bila filter jenis (Peserta/Narasumber/Moderator/Panitia) sedang dipilih, **Atur urutan** hanya memuat dan mengatur jenis itu; urutan jenis lain tidak bergeser (orang yang merangkap ikut berpindah di semua jenisnya karena urutannya satu).
 - **Ekspor Word (.docx) dan PDF**: daftar peserta/narasumber/panitia per satker atau satu tabel, dengan pilihan peran,
   kolom (NIP, Pangkat/Gol., Jabatan, WhatsApp, Peran, kolom tanda tangan untuk daftar hadir), judul, dan orientasi A4.
   Dokumen dibuat langsung di browser (tanpa server) dengan nomor halaman dan tanggal cetak.

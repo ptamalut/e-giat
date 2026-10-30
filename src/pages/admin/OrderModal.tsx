@@ -16,8 +16,8 @@ const byName = (a: OrderPerson, b: OrderPerson) => a.name.localeCompare(b.name, 
  * Atur urutan satuan kerja dan urutan orang di dalam tiap satuan kerja.
  * Penyimpanan diserahkan ke pemanggil (`save` dan `reset` mengembalikan pesan galat, atau null bila berhasil).
  */
-export default function OrderModal<T extends OrderPerson>({ people, satkerOrder, noun = 'orang', hint, save: persist, reset, onClose, onSaved }: {
-  people: T[]; satkerOrder: readonly string[] | null; noun?: string; hint?: string
+export default function OrderModal<T extends OrderPerson>({ people, satkerOrder, noun = 'orang', hint, resetNote, save: persist, reset, onClose, onSaved }: {
+  people: T[]; satkerOrder: readonly string[] | null; noun?: string; hint?: string; resetNote?: string
   save: (satkerOrder: string[], ids: string[]) => Promise<string | null>
   reset: () => Promise<string | null>
   onClose: () => void; onSaved: () => void
@@ -50,7 +50,7 @@ export default function OrderModal<T extends OrderPerson>({ people, satkerOrder,
   /** Kembali ke urutan otomatis (abjad): hapus urutan khusus di database. */
   async function resetAuto() {
     const ok = await confirm({ title: 'Kembali ke urutan otomatis?', confirmText: 'Ya, kembalikan',
-      message: `Urutan satuan kerja dan urutan ${noun} yang pernah Anda atur dihapus; semuanya diurutkan abjad lagi.` })
+      message: `Urutan satuan kerja dan urutan ${noun} yang pernah Anda atur dihapus; semuanya diurutkan abjad lagi.${resetNote ? ` ${resetNote}` : ''}` })
     if (!ok) return
     setBusy(true)
     const err = await reset()

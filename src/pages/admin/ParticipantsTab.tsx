@@ -9,7 +9,7 @@ import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/S
 import { hasRole, ROLE_LABEL, ROLES, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import { activeMenus } from '../../lib/menus'
 import { participantLink } from '../../lib/format'
-import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
+import { groupBySatker, matchesUnit, mergeSlots, roleSummary, sortPeople } from '../../lib/satker'
 import { waNumber } from '../../lib/parsers'
 import { removeParticipantCertificateFiles } from '../../lib/certificateApi'
 import { removeSelfiesOf } from '../../lib/selfieApi'
@@ -44,7 +44,7 @@ export default function ParticipantsTab() {
   const [grouped, setGrouped] = useState(true)
   const [unit, setUnit] = useState('')
   const { collapsed, toggle, setAll } = useCollapsed()
-  const [ordering, setOrdering] = useState(false)
+  const [ordering, setOrdering] = useState<'semua' | PersonRole | null>(null)
   const [exporting, setExporting] = useState(false)
   const [cards, setCards] = useState<{ p: Participant; img: string }[] | null>(null)
 
@@ -188,7 +188,7 @@ export default function ParticipantsTab() {
             )}
           </div>
           <div className="row tight">
-            <button className="btn sm" onClick={() => setOrdering(true)} disabled={!data?.length}><ArrowUpDown size={15} /> Atur urutan</button>
+            <button className="btn sm" onClick={() => setOrdering(roleFilter)} disabled={!data?.length}><ArrowUpDown size={15} /> Atur urutan</button>
             <button className="btn sm" onClick={() => setExporting(true)} disabled={!data?.length}><FileDown size={15} /> Ekspor Word / PDF</button>
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
             <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
@@ -247,20 +247,37 @@ export default function ParticipantsTab() {
 
       {picking && <PickEmployees activity={activity} taken={taken} onClose={() => setPicking(false)} onSaved={() => { setPicking(false); void reload(true) }} />}
       {access && <AccessModal activity={activity} people={access} onClose={() => setAccess(null)} onSaved={() => { setAccess(null); setSel(new Set()); void reload(true) }} />}
-      {ordering && data && <OrderModal people={data} satkerOrder={activity.satker_order}
-        save={async (satker, ids) => { const { error } = await supabase.rpc('save_activity_order', { p_activity: activity.id, p_satker_order: satker, p_participants: ids }); return error ? errMsg(error) : null }}
-        reset={async () => {
-          const [a, p] = await Promise.all([
-            supabase.from('activities').update({ satker_order: null }).eq('id', activity.id),
-            supabase.from('participants').update({ sort_order: null }).eq('activity_id', activity.id),
-          ])
-          const err = a.error ?? p.error
-          return err ? errMsg(err) : null
-        }}
-        onClose={() => setOrdering(false)}
-        onSaved={() => { setOrdering(false); void reloadActivity(); void reload(true) }} />}
+      {ordering && data && (
+        <OrderModal people={ordering === 'semua' ? data : data.filter((p) => hasRole(p, ordering))} satkerOrder={activity.satker_order}
+          noun={ordering === 'semua' ? 'orang' : ROLE_LABEL[ordering].toLowerCase()}
+          hint={ordering === 'semua' ? undefined : 'Hanya mengatur urutan jenis ini; urutan jenis lain tidak berubah.'}
+          resetNote={ordering === 'semua' ? undefined : 'Berlaku untuk semua jenis, bukan hanya jenis ini.'}
+          save={async (satker, ids) => {
+            // urutan hanya untuk satu jenis: gabungkan ke urutan lengkap agar jenis lain tidak bergeser
+            const all = ordering === 'semua'
+            const keys = all ? satker : mergeSlots(allGroups.map((g) => g.key).filter((k) => k !== ''), satker)
+            const idsOut = all ? ids : keys.concat('').flatMap((k) => {
+              const g = allGroups.find((x) => x.key === k)
+              if (!g) return []
+              const here = new Set(g.items.map((p) => p.id))
+              return mergeSlots([...here], ids.filter((id) => here.has(id)))
+            })
+            const { error } = await supabase.rpc('save_activity_order', { p_activity: activity.id, p_satker_order: keys, p_participants: idsOut })
+            return error ? errMsg(error) : null
+          }}
+          reset={async () => {
+            const [a, p] = await Promise.all([
+              supabase.from('activities').update({ satker_order: null }).eq('id', activity.id),
+              supabase.from('participants').update({ sort_order: null }).eq('activity_id', activity.id),
+            ])
+            const err = a.error ?? p.error
+            return err ? errMsg(err) : null
+          }}
+          onClose={() => setOrdering(null)}
+          onSaved={() => { setOrdering(null); void reloadActivity(); void reload(true) }} />
+      )}
       {exporting && data && <ExportModal activity={activity} people={ordered} onClose={() => setExporting(false)}
-        onOrder={() => { setExporting(false); setOrdering(true) }} />}
+        onOrder={() => { setExporting(false); setOrdering('semua') }} />}
       {qr && <QrModal p={qr} activityName={activity.name} onClose={() => setQr(null)} />}
 
       <div className="print-cards-wrap">
