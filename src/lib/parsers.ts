@@ -101,7 +101,7 @@ export const PARTICIPANT_COLUMNS: Field[] = ['name', 'identifier', 'grade', 'job
 
 export const PARTICIPANT_FORMAT_HELP = `Satu peserta per baris. Cara termudah: salin kolom dari Excel lalu tempel di sini (pemisah Tab).
 Urutan kolom: Nama Lengkap & Gelar, NIP, Pangkat/Gol. Ruang, Jabatan, Satuan Kerja, No. WhatsApp
-Baris judul (header) boleh disertakan; urutan kolom akan dibaca dari judulnya. Kolom opsional "Peran" (Peserta/Narasumber/Panitia)
+Baris judul (header) boleh disertakan; urutan kolom akan dibaca dari judulnya. Kolom opsional "Peran" (Peserta/Narasumber/Moderator/Panitia)
 hanya dibaca bila ada di baris judul.
 
 Nama bergelar sering memuat koma (mis. "Budi, S.Pd., M.Si."), jadi gunakan Tab, titik koma (;), atau garis tegak (|)
@@ -140,12 +140,13 @@ export function normalizeNip(v: string): string {
 }
 
 const SPEAKER = /nara\s*sumber|pembicara|pemateri|instruktur|widyaiswara|fasilitator/i
-const COMMITTEE = /panitia|committee|sekretariat|penyelenggara|petugas|moderator/i
+const MODERATOR = /moderator|pemandu\s*acara|\bmc\b|pembawa\s*acara/i
+const COMMITTEE = /panitia|committee|sekretariat|penyelenggara|petugas/i
 
 /** Nilai kolom Peran -> peran; tidak dikenali dianggap bawaan. */
 export function parseRole(v: string | undefined, fallback: PersonRole): PersonRole {
   if (!v) return fallback
-  return SPEAKER.test(v) ? 'narasumber' : COMMITTEE.test(v) ? 'panitia' : /peserta|participant/i.test(v) ? 'peserta' : fallback
+  return MODERATOR.test(v) ? 'moderator' : SPEAKER.test(v) ? 'narasumber' : COMMITTEE.test(v) ? 'panitia' : /peserta|participant/i.test(v) ? 'peserta' : fallback
 }
 
 export function parseParticipants(input: string, defaultRole: PersonRole = 'peserta'): ParseResult<ParsedParticipant> {

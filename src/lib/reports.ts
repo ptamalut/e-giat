@@ -1,33 +1,64 @@
 import { groupBySatker } from './satker'
 import type {
-  Attendance, AttendanceSession, AttendanceStatus, Participant, Question, Quiz, QuizAttempt, RankingRow,
+  Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole, Question, Quiz, QuizAttempt, RankingRow, SessionMember,
 } from './types'
 
 export const ATTENDED: AttendanceStatus[] = ['hadir', 'terlambat']
 
 /* ---------- Kehadiran ---------- */
 
+/** Anggota sesi yang diatur per orang: id sesi -> (id orang -> jenis pada sesi itu). */
+export type MemberMap = Map<string, Map<string, PersonRole>>
+
+export function memberMapOf(members: readonly SessionMember[]): MemberMap {
+  const m: MemberMap = new Map()
+  for (const x of members) {
+    const inner = m.get(x.session_id) ?? new Map<string, PersonRole>()
+    inner.set(x.participant_id, x.role)
+    m.set(x.session_id, inner)
+  }
+  return m
+}
+
+/**
+ * Jenis seseorang pada sebuah sesi: jenis di sesi (bila sesi diatur per orang) atau jenis di kegiatan.
+ * null = orang itu tidak ikut sesi tersebut.
+ */
+export function sessionRole(s: Pick<AttendanceSession, 'id' | 'custom_members'>, p: Pick<Participant, 'id' | 'role'>, mm: MemberMap): PersonRole | null {
+  return s.custom_members ? mm.get(s.id)?.get(p.id) ?? null : p.role
+}
+
 export interface AttendanceRow {
   participant: Participant
   cells: Record<string, Attendance | undefined>
+  /** sesi yang diikuti orang ini (false = tidak ikut sesi itu) */
+  applicable: Record<string, boolean>
   attended: number
+  /** jumlah sesi yang diikuti */
+  total: number
   pct: number | null
 }
 
 export function attendanceMatrix(
-  participants: Participant[], sessions: AttendanceSession[], attendances: Attendance[],
+  participants: Participant[], sessions: AttendanceSession[], attendances: Attendance[], members: readonly SessionMember[] = [],
 ): AttendanceRow[] {
   const byKey = new Map<string, Attendance>()
   for (const a of attendances) byKey.set(`${a.participant_id}:${a.session_id}`, a)
+  const mm = memberMapOf(members)
   return participants.map((p) => {
     const cells: Record<string, Attendance | undefined> = {}
-    let attended = 0
+    const applicable: Record<string, boolean> = {}
+    let attended = 0, total = 0
     for (const s of sessions) {
+      const joined = sessionRole(s, p, mm) != null
+      applicable[s.id] = joined
+      if (!joined) continue
+      total++
       const a = byKey.get(`${p.id}:${s.id}`)
       cells[s.id] = a
       if (a && ATTENDED.includes(a.status)) attended++
     }
-    return { participant: p, cells, attended, pct: sessions.length ? (attended / sessions.length) * 100 : null }
+    return { participant: p, cells, applicable, attended, total, pct: total ? (attended / total) * 100 : null }
   })
 }
 
@@ -222,6 +253,7 @@ export interface SatkerRow {
   label: string
   peserta: number
   narasumber: number
+  moderator: number
   panitia: number
   /** rata-rata kehadiran seluruh orang di satker (semua peran), null bila belum ada sesi */
   attendancePct: number | null
@@ -233,9 +265,9 @@ export interface SatkerRow {
 }
 
 export function satkerSummary(
-  participants: Participant[], sessions: AttendanceSession[], attendances: Attendance[], ranking: RankingRow[],
+  participants: Participant[], sessions: AttendanceSession[], attendances: Attendance[], ranking: RankingRow[], members: readonly SessionMember[] = [],
 ): SatkerRow[] {
-  const att = new Map(attendanceMatrix(participants, sessions, attendances).map((r) => [r.participant.id, r.pct]))
+  const att = new Map(attendanceMatrix(participants, sessions, attendances, members).map((r) => [r.participant.id, r.pct]))
   const rankBy = new Map(ranking.map((r) => [r.participant_id, r]))
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
 
@@ -247,6 +279,7 @@ export function satkerSummary(
       label: g.label,
       peserta: g.items.filter((p) => p.role === 'peserta').length,
       narasumber: g.items.filter((p) => p.role === 'narasumber').length,
+      moderator: g.items.filter((p) => p.role === 'moderator').length,
       panitia: g.items.filter((p) => p.role === 'panitia').length,
       attendancePct: mean(pcts),
       avgQuiz: mean(rk.map((r) => r.quiz_avg).filter((v): v is number => v != null).map(Number)),

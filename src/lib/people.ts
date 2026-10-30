@@ -1,11 +1,12 @@
 import type { PersonRole } from './types'
 
-export const ROLES: PersonRole[] = ['peserta', 'narasumber', 'panitia']
-export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber', panitia: 'Panitia' }
-export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 'info', panitia: 'warn' }
+export const ROLES: PersonRole[] = ['peserta', 'narasumber', 'moderator', 'panitia']
+export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber', moderator: 'Moderator', panitia: 'Panitia' }
+export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 'info', moderator: 'primary', panitia: 'warn' }
 export const ROLE_HINT: Record<PersonRole, string> = {
   peserta: 'Bawaan: absensi, kuis, dan sertifikat; masuk peringkat.',
   narasumber: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
+  moderator: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
   panitia: 'Bawaan: semua menu kecuali kuis, tidak masuk peringkat.',
 }
 
@@ -17,7 +18,7 @@ export const ACCESS_KEYS = ['access_attendance', 'access_notes', 'access_quiz', 
 export const ACCESS_LABEL: Record<keyof Access, string> = {
   access_attendance: 'Absensi', access_notes: 'Notula', access_quiz: 'Kuis', access_certificate: 'Sertifikat', access_documentation: 'Dokumentasi',
 }
-/** Isian awal hak akses mengikuti jenis (bisa diubah per orang): peserta = absensi, kuis, sertifikat; narasumber = absensi, sertifikat; panitia = semua kecuali kuis. */
+/** Isian awal hak akses mengikuti jenis (bisa diubah per orang): peserta = absensi, kuis, sertifikat; narasumber dan moderator = absensi, sertifikat; panitia = semua kecuali kuis. */
 export const defaultAccess = (r: PersonRole): Access => ({
   access_attendance: true, access_notes: r === 'panitia', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia',
 })

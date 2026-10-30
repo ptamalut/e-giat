@@ -11,7 +11,7 @@ const COLUMNS: { id: ExportColumn; label: string; hint?: string }[] = [
   { id: 'grade', label: 'Pangkat/Gol. Ruang' },
   { id: 'job_title', label: 'Jabatan' },
   { id: 'phone', label: 'No. WhatsApp' },
-  { id: 'role', label: 'Peran', hint: 'Peserta / Narasumber / Panitia' },
+  { id: 'role', label: 'Peran', hint: 'Peserta / Narasumber / Moderator / Panitia' },
   { id: 'signature', label: 'Kolom tanda tangan', hint: 'Untuk daftar hadir yang dicetak' },
 ]
 const PRESETS = ['Daftar Peserta', 'Daftar Hadir', 'Daftar Narasumber', 'Daftar Panitia']

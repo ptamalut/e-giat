@@ -3,16 +3,17 @@ import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { fmtDateTime, fmtTime, fromLocalInput, timeState, toLocalInput } from '../../lib/format'
-import { sessionCounts } from '../../lib/reports'
+import { memberMapOf, sessionCounts, sessionRole } from '../../lib/reports'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
 import { ROLE_LABEL, ROLES } from '../../lib/people'
-import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole } from '../../lib/types'
+import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole, SessionMember } from '../../lib/types'
 import { fmtAccuracy, fmtCoord, mapsUrl } from '../../lib/capture'
 import { deleteSessionPhotos, removeSelfiesOf, signedSelfieUrls } from '../../lib/selfieApi'
 import { useActivity } from './ActivityLayout'
+import MembersEditor, { assignSummary, defaultAssign, summaryText, type Assign } from './SessionMembers'
 
 export const ATT_LABEL: Record<AttendanceStatus, string> = { hadir: 'Hadir', terlambat: 'Terlambat', izin: 'Izin', sakit: 'Sakit', alpa: 'Alpa' }
 export const ATT_TONE: Record<AttendanceStatus, string> = { hadir: 'success', terlambat: 'warn', izin: 'info', sakit: 'info', alpa: 'danger' }
@@ -28,7 +29,7 @@ export default function AttendanceTab() {
   const toast = useToast()
   const confirm = useConfirm()
   const [sel, setSel] = useState<string | null>(null)
-  const [editing, setEditing] = useState<Partial<AttendanceSession> | null>(null)
+  const [editing, setEditing] = useState<{ value: Partial<AttendanceSession>; members: SessionMember[] | null } | null>(null)
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
   const [grouped, setGrouped] = useState(true)
@@ -38,12 +39,13 @@ export default function AttendanceTab() {
   const [viewing, setViewing] = useState<{ p: Participant; a: Attendance } | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [sessions, participants, attendances] = await Promise.all([
+    const [sessions, participants, attendances, members] = await Promise.all([
       fetchAll<AttendanceSession>((a, b) => supabase.from('attendance_sessions').select('*').eq('activity_id', activity.id).order('start_at').order('id').range(a, b)),
       fetchAll<Participant>((a, b) => supabase.from('participants').select('*').eq('activity_id', activity.id).order('name').order('id').range(a, b)),
       fetchAll<Attendance>((a, b) => supabase.from('attendances').select('*').eq('activity_id', activity.id).order('id').range(a, b)),
+      fetchAll<SessionMember>((a, b) => supabase.from('session_members').select('*').eq('activity_id', activity.id).order('session_id').order('participant_id').range(a, b)),
     ])
-    return { sessions, participants: sortPeople(participants), attendances }
+    return { sessions, participants: sortPeople(participants), attendances, members }
   }, [activity.id])
 
   // pantau kehadiran secara berkala selama tab terbuka
@@ -71,9 +73,14 @@ export default function AttendanceTab() {
     return () => { alive = false; clearInterval(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey])
-  const roleCount = (r: 'semua' | PersonRole) => (data?.participants ?? []).filter((p) => p.access_attendance && (r === 'semua' || p.role === r)).length
+  // yang ikut sesi ini, dengan jenisnya PADA SESI ini (jenis di kegiatan, atau jenis yang diatur per sesi)
+  const memberMap = useMemo(() => memberMapOf(data?.members ?? []), [data?.members])
   // urutan mengikuti pengaturan satker & orang (tab Peserta -> Atur urutan)
-  const orderedAll = useMemo(() => groupBySatker((data?.participants ?? []).filter((p) => p.access_attendance), (p) => p.institution, activity.satker_order).flatMap((g) => g.items), [data, activity.satker_order])
+  const orderedAll = useMemo(() => groupBySatker((data?.participants ?? []).filter((p) => p.access_attendance), (p) => p.institution, activity.satker_order)
+    .flatMap((g) => g.items)
+    .flatMap((p) => { const r = current ? sessionRole(current, p, memberMap) : null; return r ? [{ ...p, role: r }] : [] }),
+  [data, activity.satker_order, current, memberMap])
+  const roleCount = (r: 'semua' | PersonRole) => orderedAll.filter((p) => r === 'semua' || p.role === r).length
   const group = orderedAll.filter((p) => (roleFilter === 'semua' || p.role === roleFilter) && matchesUnit(unit, p.institution))
   const counts = current ? sessionCounts(group, data!.attendances, current.id) : null
   const rows = group.filter((p) => !q.trim() || [p.name, p.identifier, p.job_title, p.institution].some((v) => v?.toLowerCase().includes(q.trim().toLowerCase())))
@@ -132,7 +139,10 @@ export default function AttendanceTab() {
 
   function duplicateNextDay(s: AttendanceSession) {
     const shift = (iso: string) => new Date(new Date(iso).getTime() + 86400000).toISOString()
-    setEditing({ title: s.title.replace(/\d+/, (n) => String(Number(n) + 1)) || s.title, start_at: shift(s.start_at), end_at: shift(s.end_at), late_minutes: s.late_minutes, require_selfie: s.require_selfie, require_location: s.require_location })
+    setEditing({
+      value: { title: s.title.replace(/\d+/, (n) => String(Number(n) + 1)) || s.title, start_at: shift(s.start_at), end_at: shift(s.end_at), late_minutes: s.late_minutes, require_selfie: s.require_selfie, require_location: s.require_location, custom_members: s.custom_members },
+      members: s.custom_members ? (data?.members ?? []).filter((m) => m.session_id === s.id) : null, // anggota sesi ikut disalin
+    })
   }
 
   function exportCsv() {
@@ -158,7 +168,7 @@ export default function AttendanceTab() {
           <h2>Sesi absensi</h2><span className="spacer" />
           <button className="btn primary sm" onClick={() => {
             const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1)
-            setEditing({ title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15, require_selfie: true, require_location: true })
+            setEditing({ value: { title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15, require_selfie: true, require_location: true, custom_members: false }, members: null })
           }}><Plus size={16} /> Tambah sesi</button>
         </div>
         {sessions.length === 0
@@ -176,10 +186,11 @@ export default function AttendanceTab() {
                 <h2 style={{ marginBottom: 6, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{current.title} {STATE_BADGE[timeState(current.start_at, current.end_at, Date.now())]}</h2>
                 <div className="meta"><span><Clock size={15} /> {fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)}</span><span>Terlambat bila absen lewat {current.late_minutes} menit dari jam mulai</span>
                   <span><Camera size={15} /> {current.require_selfie ? 'Selfie wajib' : 'Selfie tidak diminta'}</span>
-                  <span><MapPin size={15} /> {current.require_location ? 'Lokasi wajib' : 'Lokasi tidak diminta'}</span></div>
+                  <span><MapPin size={15} /> {current.require_location ? 'Lokasi wajib' : 'Lokasi tidak diminta'}</span>
+                  <span><Users size={15} /> {current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan (sesuai jenisnya)'}</span></div>
               </div>
               <div className="row tight">
-                <button className="btn sm" onClick={() => setEditing(current)}><Pencil size={14} /> Ubah</button>
+                <button className="btn sm" onClick={() => setEditing({ value: current, members: current.custom_members ? data.members.filter((m) => m.session_id === current.id) : null })}><Pencil size={14} /> Ubah</button>
                 <button className="btn sm" onClick={() => duplicateNextDay(current)}><Copy size={14} /> Duplikat +1 hari</button>
                 {photoPaths.length > 0 && <button className="btn sm" onClick={() => void removePhotos(current)}><ImageOff size={14} /> Hapus foto</button>}
                 <button className="btn sm danger" onClick={() => void removeSession(current)}><Trash2 size={14} /> Hapus</button>
@@ -279,38 +290,68 @@ export default function AttendanceTab() {
         </Modal>
       )}
 
-      {editing && <SessionForm value={editing} activityId={activity.id} onClose={() => setEditing(null)}
+      {editing && <SessionForm value={editing.value} members={editing.members} activityId={activity.id}
+        people={data.participants.filter((p) => p.access_attendance)} satkerOrder={activity.satker_order}
+        attendedIds={new Set(data.attendances.filter((a) => editing.value.id && a.session_id === editing.value.id).map((a) => a.participant_id))}
+        onClose={() => setEditing(null)}
         onSaved={(id) => { setEditing(null); setSel(id); void reload(true) }} />}
     </div>
   )
 }
 
-function SessionForm({ value, activityId, onClose, onSaved }: {
-  value: Partial<AttendanceSession>; activityId: string; onClose: () => void; onSaved: (id: string) => void
+function SessionForm({ value, members, activityId, people, satkerOrder, attendedIds, onClose, onSaved }: {
+  value: Partial<AttendanceSession>; members: SessionMember[] | null; activityId: string; people: Participant[]
+  satkerOrder: readonly string[] | null; attendedIds: Set<string>; onClose: () => void; onSaved: (id: string) => void
 }) {
   const toast = useToast()
+  const confirm = useConfirm()
   const [f, setF] = useState({ title: value.title ?? '', start: toLocalInput(value.start_at), end: toLocalInput(value.end_at), late: value.late_minutes ?? 15,
     selfie: value.require_selfie ?? true, loc: value.require_location ?? true })
+  const [custom, setCustom] = useState(value.custom_members ?? false)
+  // bila sesi sudah diatur per orang: pakai anggota tersimpan (yang tidak tercantum = tidak ikut); selain itu mulai dari jenis di kegiatan
+  const [assign, setAssign] = useState<Assign>(() => members
+    ? Object.fromEntries(people.map((p) => [p.id, members.find((m) => m.participant_id === p.id)?.role ?? ''])) as Assign
+    : defaultAssign(people))
   const [busy, setBusy] = useState(false)
+  const { counts } = assignSummary(people, assign)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     const start = fromLocalInput(f.start), end = fromLocalInput(f.end)
     if (!start || !end) return toast('Isi waktu mulai dan selesai.', 'error')
     if (new Date(end) <= new Date(start)) return toast('Waktu selesai harus setelah waktu mulai.', 'error')
+    const chosen = people.filter((p) => assign[p.id])
+    if (custom && !chosen.length) return toast('Pilih minimal satu orang yang ikut sesi ini, atau pilih "Semua orang di kegiatan".', 'error')
+    if (custom && value.id) {
+      // orang yang sudah tercatat absen tetapi dikeluarkan dari sesi: konfirmasi, catatannya tidak lagi dihitung
+      const dropped = people.filter((p) => !assign[p.id] && attendedIds.has(p.id)).length
+      if (dropped) {
+        const ok = await confirm({ title: `${dropped} orang yang sudah absen dikeluarkan dari sesi ini`, confirmText: 'Tetap simpan', danger: true,
+          message: 'Catatan absen mereka tetap tersimpan tetapi tidak lagi tampil dan tidak dihitung pada sesi ini.' })
+        if (!ok) return
+      }
+    }
     setBusy(true)
-    const payload = { title: f.title.trim(), start_at: start, end_at: end, late_minutes: f.late, require_selfie: f.selfie, require_location: f.loc }
+    const payload = { title: f.title.trim(), start_at: start, end_at: end, late_minutes: f.late, require_selfie: f.selfie, require_location: f.loc, custom_members: custom }
     const res = value.id
       ? await supabase.from('attendance_sessions').update(payload).eq('id', value.id).select('id').single()
       : await supabase.from('attendance_sessions').insert({ ...payload, activity_id: activityId }).select('id').single()
+    if (res.error) { setBusy(false); return toast(errMsg(res.error), 'error') }
+    const sid = res.data.id
+    // anggota sesi: diganti seluruhnya (dihapus bila sesi kembali ke "semua orang")
+    const del = await supabase.from('session_members').delete().eq('session_id', sid)
+    if (del.error) { setBusy(false); return toast(errMsg(del.error), 'error') }
+    if (custom) {
+      const ins = await supabase.from('session_members').insert(chosen.map((p) => ({ session_id: sid, activity_id: activityId, participant_id: p.id, role: assign[p.id] })))
+      if (ins.error) { setBusy(false); return toast(errMsg(ins.error), 'error') }
+    }
     setBusy(false)
-    if (res.error) return toast(errMsg(res.error), 'error')
     toast('Sesi disimpan.', 'success')
-    onSaved(res.data.id)
+    onSaved(sid)
   }
 
   return (
-    <Modal title={value.id ? 'Ubah sesi absensi' : 'Sesi absensi baru'} onClose={onClose}
+    <Modal wide title={value.id ? 'Ubah sesi absensi' : 'Sesi absensi baru'} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="sform" disabled={busy}>Simpan</button></>}>
       <form id="sform" onSubmit={submit}>
         <Field label="Nama sesi *"><input className="input" required autoFocus value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="mis. Hari 1 — Pagi" /></Field>
@@ -324,6 +365,23 @@ function SessionForm({ value, activityId, onClose, onSaved }: {
         <Check label="Wajib foto selfie" hint="Peserta diminta izin kamera lalu mengambil foto saat absen. Tanpa foto, absen ditolak." checked={f.selfie} onChange={(v) => setF({ ...f, selfie: v })} />
         <Check label="Wajib lokasi" hint="Peserta diminta izin lokasi; koordinat dan akurasinya dicatat. Tanpa lokasi, absen ditolak." checked={f.loc} onChange={(v) => setF({ ...f, loc: v })} />
         <p className="hint">Foto dan lokasi hanya dapat dilihat admin kegiatan ini. Jika keduanya dimatikan, peserta langsung absen satu ketukan.</p>
+
+        <Field label="Siapa yang ikut sesi ini" hint={custom
+          ? 'Tentukan jenis tiap orang pada sesi ini: peserta, narasumber, moderator, atau panitia. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.'
+          : 'Semua orang yang berhak absen di kegiatan ini ikut sesi ini, dengan jenis masing-masing (sebagai peserta, narasumber, moderator, atau panitia).'}>
+          <div className="pills" role="radiogroup" aria-label="Siapa yang ikut sesi ini">
+            <button type="button" role="radio" aria-checked={!custom} className={`pill ${!custom ? 'active' : ''}`} onClick={() => setCustom(false)}>Semua orang di kegiatan</button>
+            <button type="button" role="radio" aria-checked={custom} className={`pill ${custom ? 'active' : ''}`} onClick={() => setCustom(true)}>Atur per sesi</button>
+          </div>
+        </Field>
+        {custom && (
+          <>
+            <MembersEditor people={people} assign={assign} onChange={setAssign} satkerOrder={satkerOrder} />
+            <p className="hint" style={{ marginTop: 8 }}>
+              Ringkasan sesi ini: {summaryText(counts) || 'belum ada yang dipilih'}. Orang yang ditambahkan ke kegiatan setelah sesi ini dibuat perlu ditambahkan lewat <b>Ubah</b> sesi.
+            </p>
+          </>
+        )}
       </form>
     </Modal>
   )
