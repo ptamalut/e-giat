@@ -4,7 +4,7 @@ import { groupBySatker } from './satker'
 import type { Activity, Participant, PersonRole } from './types'
 
 export type ExportColumn = 'identifier' | 'grade' | 'job_title' | 'phone' | 'role' | 'signature'
-export type ColumnKey = ExportColumn | 'no' | 'name' | 'unit'
+export type ColumnKey = ExportColumn | 'no' | 'name' | 'unit' | 'status' | 'time'
 
 export interface ExportOptions {
   title: string
@@ -31,7 +31,7 @@ const LABEL: Record<ExportColumn, string> = {
   identifier: 'NIP', grade: 'Pangkat/Gol. Ruang', job_title: 'Jabatan', phone: 'No. WhatsApp', role: 'Peran', signature: 'Tanda Tangan',
 }
 /** Lebar tetap (mm) untuk kolom data pendek agar nomor, NIP, dan nomor WhatsApp tidak terpecah baris. */
-const FIXED_MM: Partial<Record<ColumnKey, number>> = { no: 10, identifier: 36, phone: 30, role: 20, signature: 32 }
+const FIXED_MM: Partial<Record<ColumnKey, number>> = { no: 10, identifier: 36, phone: 30, role: 24, signature: 32, status: 22, time: 20 }
 /** Bobot kolom teks panjang yang berbagi sisa lebar. */
 const FLEX_WEIGHT: Partial<Record<ColumnKey, number>> = { name: 26, unit: 18, grade: 15, job_title: 20 }
 

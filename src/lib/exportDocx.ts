@@ -7,8 +7,23 @@ import { columnWidthsMm, type ExportModel } from './exportModel'
 const CM = 567 // twips per cm
 const FONT = 'Calibri'
 
-/** Dokumen Word (.docx) dari model ekspor. */
-export async function exportDocx(model: ExportModel, printedAt = new Date()): Promise<Blob> {
+const run = (text: string, o: { bold?: boolean; size?: number; color?: string } = {}) =>
+  new TextRun({ text, bold: o.bold, size: o.size ?? 19, color: o.color, font: FONT })
+
+const makeFooter = (printedAt: Date) => new Footer({
+  children: [new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [
+      run(`Dicetak ${printedAt.toLocaleDateString('id-ID', { dateStyle: 'long' })} · Halaman `, { size: 16, color: '64748B' }),
+      new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '64748B', font: FONT }),
+      run(' dari ', { size: 16, color: '64748B' }),
+      new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '64748B', font: FONT }),
+    ],
+  })],
+})
+
+/** Bagian dokumen (satu model ekspor = satu bagian, mulai di halaman baru). */
+function buildSection(model: ExportModel, footer: Footer) {
   const margin = Math.round(1.5 * CM)
   const pageW = model.landscape ? 29.7 * CM : 21 * CM
   const contentW = Math.round(pageW - 2 * margin)
@@ -18,8 +33,6 @@ export async function exportDocx(model: ExportModel, printedAt = new Date()): Pr
 
   const line = { style: BorderStyle.SINGLE, size: 4, color: '9AA3B8' }
   const borders = { top: line, bottom: line, left: line, right: line }
-  const run = (text: string, o: { bold?: boolean; size?: number; color?: string } = {}) =>
-    new TextRun({ text, bold: o.bold, size: o.size ?? 19, color: o.color, font: FONT })
 
   const headCell = (text: string, i: number) => new TableCell({
     width: { size: widths[i], type: WidthType.DXA },
@@ -68,32 +81,26 @@ export async function exportDocx(model: ExportModel, printedAt = new Date()): Pr
     }))
   })
 
-  const footer = new Footer({
-    children: [new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [
-        run(`Dicetak ${printedAt.toLocaleDateString('id-ID', { dateStyle: 'long' })} · Halaman `, { size: 16, color: '64748B' }),
-        new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '64748B', font: FONT }),
-        run(' dari ', { size: 16, color: '64748B' }),
-        new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '64748B', font: FONT }),
-      ],
-    })],
-  })
+  return {
+    properties: {
+      page: {
+        size: { width: Math.round(21 * CM), height: Math.round(29.7 * CM), orientation: model.landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
+        margin: { top: margin, bottom: margin, left: margin, right: margin },
+      },
+    },
+    footers: { default: footer },
+    children,
+  }
+}
 
+/** Dokumen Word (.docx) dari satu atau beberapa model ekspor (tiap model menjadi bagian tersendiri). */
+export async function exportDocx(models: ExportModel | readonly ExportModel[], printedAt = new Date()): Promise<Blob> {
+  const list: readonly ExportModel[] = 'headers' in models ? [models] : models
   const doc = new Document({
     creator: 'LAKSANA',
-    title: model.title,
+    title: list[0].title,
     styles: { default: { document: { run: { font: FONT, size: 19 } } } },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: Math.round(21 * CM), height: Math.round(29.7 * CM), orientation: model.landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
-          margin: { top: margin, bottom: margin, left: margin, right: margin },
-        },
-      },
-      footers: { default: footer },
-      children,
-    }],
+    sections: list.map((m) => buildSection(m, makeFooter(printedAt))),
   })
   return Packer.toBlob(doc)
 }
