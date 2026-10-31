@@ -9,7 +9,7 @@ function readMode(): ThemeMode {
     const v = localStorage.getItem(KEY)
     if (v === 'light' || v === 'dark' || v === 'system') return v
   } catch { /* penyimpanan tidak tersedia */ }
-  return 'system'
+  return 'light' // bawaan: terang; pilihan pengguna tersimpan di perangkat
 }
 
 const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -17,11 +17,11 @@ const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matc
 function apply(mode: ThemeMode) {
   const resolved = mode === 'system' ? (prefersDark() ? 'dark' : 'light') : mode
   document.documentElement.dataset.theme = resolved
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#0a0e1f' : '#4f46e5')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#0a0e1f' : '#4b5ef0')
 }
 
 interface ThemeState { mode: ThemeMode; setMode: (m: ThemeMode) => void }
-const Ctx = createContext<ThemeState>({ mode: 'system', setMode: () => {} })
+const Ctx = createContext<ThemeState>({ mode: 'light', setMode: () => {} })
 export const useTheme = () => useContext(Ctx)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
