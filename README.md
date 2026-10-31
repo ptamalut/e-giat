@@ -131,7 +131,7 @@ di halaman depan (lihat di bawah).
 - Peserta dapat melihat papan peringkat (top 10 + posisinya) bila diaktifkan panitia.
 
 ## Tema tampilan
-Tersedia mode **terang**, **gelap**, dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
+Tampilan bawaan **terang** dan cerah (sidebar putih, kepala halaman berwarna biru-ungu-toska). Tersedia juga mode **gelap** dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
 panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan disimpan di browser masing-masing pengguna.
 
 ## Menjalankan
