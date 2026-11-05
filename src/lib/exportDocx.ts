@@ -37,7 +37,7 @@ function buildSection(model: ExportModel, footer: Footer) {
   const headCell = (text: string, i: number) => new TableCell({
     width: { size: widths[i], type: WidthType.DXA },
     borders,
-    shading: { type: ShadingType.CLEAR, fill: '4F46E5', color: 'auto' },
+    shading: { type: ShadingType.CLEAR, fill: '0E7A45', color: 'auto' },
     verticalAlign: VerticalAlign.CENTER,
     margins: { top: 70, bottom: 70, left: 90, right: 90 },
     children: [new Paragraph({ alignment: i === 0 ? AlignmentType.CENTER : AlignmentType.LEFT, children: [run(text, { bold: true, color: 'FFFFFF', size: 18 })] })],
@@ -63,7 +63,7 @@ function buildSection(model: ExportModel, footer: Footer) {
     if (g.label) {
       children.push(new Paragraph({
         keepNext: true, spacing: { before: gi === 0 ? 60 : 280, after: 100 },
-        children: [run(`${gi + 1}. ${g.label}`, { bold: true, size: 22, color: '312E81' })],
+        children: [run(`${gi + 1}. ${g.label}`, { bold: true, size: 22, color: '0A5C33' })],
       }))
     }
     children.push(new Table({

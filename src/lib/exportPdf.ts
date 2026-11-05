@@ -5,7 +5,7 @@ import { columnWidthsMm, type ExportModel } from './exportModel'
 /** Font bawaan PDF hanya mendukung Latin-1 + tanda baca umum; karakter lain diganti agar tidak menjadi sampah. */
 export const pdfSafe = (s: string) => s.normalize('NFC').replace(/[^\x20-\x7E\xA0-\xFF‘’“”–—…•]/g, '?')
 
-const INDIGO: [number, number, number] = [79, 70, 229]
+const BRAND: [number, number, number] = [14, 122, 69]
 
 /** Dokumen PDF (A4) dari satu atau beberapa model ekspor (tiap model mulai di halaman baru). */
 export async function exportPdf(models: ExportModel | readonly ExportModel[], printedAt = new Date()): Promise<Blob> {
@@ -39,7 +39,7 @@ export async function exportPdf(models: ExportModel | readonly ExportModel[], pr
       const need = (g.label ? 9 : 0) + 8 + Math.max(7, rowMin)
       if (y + need > bottom) { doc.addPage(); y = 16 }
       if (g.label) {
-        doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(49, 46, 129)
+        doc.setFont('helvetica', 'bold').setFontSize(10.5).setTextColor(10, 92, 51)
         doc.text(pdfSafe(`${gi + 1}. ${g.label}`), M, y + 3)
         y += 6
       }
@@ -50,7 +50,7 @@ export async function exportPdf(models: ExportModel | readonly ExportModel[], pr
         body: g.rows.map((r) => r.map(pdfSafe)),
         theme: 'grid',
         styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.8, lineColor: [154, 163, 184], lineWidth: 0.1, valign: 'middle', textColor: [15, 23, 42], minCellHeight: rowMin },
-        headStyles: { fillColor: INDIGO, textColor: 255, fontStyle: 'bold', halign: 'left' },
+        headStyles: { fillColor: BRAND, textColor: 255, fontStyle: 'bold', halign: 'left' },
         columnStyles,
         didParseCell: (h) => { if (h.section === 'head' && h.column.index === 0) h.cell.styles.halign = 'center' },
         rowPageBreak: 'avoid',
