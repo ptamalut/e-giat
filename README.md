@@ -131,7 +131,7 @@ di halaman depan (lihat di bawah).
 - Peserta dapat melihat papan peringkat (top 10 + posisinya) bila diaktifkan panitia.
 
 ## Tema tampilan
-Tampilan bawaan **terang** dan cerah (sidebar putih, kepala halaman berwarna biru-ungu-toska). Tersedia juga mode **gelap** dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
+Tampilan bawaan **terang** dan cerah dengan palet **hijau–emas** ala peradilan agama (sidebar putih, kepala halaman hijau dengan aksen emas; warna utama `--primary`, aksen `--gold` di `src/styles.css`). Tabel ekspor Word/PDF memakai hijau yang sama. Tersedia juga mode **gelap** dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
 panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan disimpan di browser masing-masing pengguna.
 
 ## Menjalankan

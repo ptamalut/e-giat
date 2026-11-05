@@ -17,7 +17,7 @@ const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matc
 function apply(mode: ThemeMode) {
   const resolved = mode === 'system' ? (prefersDark() ? 'dark' : 'light') : mode
   document.documentElement.dataset.theme = resolved
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#0a0e1f' : '#4b5ef0')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#07120c' : '#0e7a45')
 }
 
 interface ThemeState { mode: ThemeMode; setMode: (m: ThemeMode) => void }
