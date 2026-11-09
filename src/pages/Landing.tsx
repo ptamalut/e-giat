@@ -1,23 +1,18 @@
-import { ArrowRight, CalendarCheck, ClipboardList, Images, LogIn, MapPin, Award, QrCode, UserRound, ClipboardPaste, CalendarDays } from 'lucide-react'
+import { ArrowRight, CalendarCheck, CalendarDays, Eye, Images, LogIn, MapPin, TrendingUp, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark, useBrand } from '../components/brand'
+import InstallInfo from '../components/InstallInfo'
 import { ThemeToggle } from '../components/theme'
 import { contactLines, copyright, DEFAULT_HERO_TEXT, DEFAULT_HERO_TITLE, websiteHref } from '../lib/branding'
 import { fmtDateRange } from '../lib/format'
+import { fetchGalleryRecent, galleryPhotoUrl, type GalleryRecent } from '../lib/galleryApi'
 import { fetchPublicActivities } from '../lib/publicApi'
+import { fmtCount, recordVisit, type SiteStats } from '../lib/siteApi'
 import { errMsg } from '../lib/supabase'
 import type { PublicActivity } from '../lib/types'
 
-
-const FEATURES = [
-  { icon: QrCode, title: 'Absensi mudah', text: 'Absen dari HP, lengkap dengan foto selfie dan lokasi bila diminta panitia.' },
-  { icon: ClipboardList, title: 'Kuis berwaktu', text: 'Pre test dan post test dengan hitung mundur dan penilaian otomatis.' },
-  { icon: Award, title: 'Sertifikat', text: 'Unduh sertifikat Anda langsung dari halaman pribadi setelah dibuka panitia.' },
-  { icon: ClipboardPaste, title: 'Notula', text: 'Hasil rapat dan tindak lanjut tercatat rapi dan bisa dibuka peserta yang berhak.' },
-  { icon: Images, title: 'Dokumentasi', text: 'Foto dan tautan kegiatan dikelompokkan per album.' },
-]
 
 const STEPS = [
   { icon: CalendarDays, title: 'Pilih kegiatan', text: 'Temukan kegiatan yang sedang berjalan di bawah ini.' },
@@ -40,10 +35,14 @@ export default function Landing() {
   const { settings: brand } = useBrand()
   const [items, setItems] = useState<PublicActivity[] | null>(null)
   const [error, setError] = useState('')
+  const [stats, setStats] = useState<SiteStats | null>(null)
+  const [recent, setRecent] = useState<GalleryRecent[]>([])
 
   useEffect(() => {
     let alive = true
     fetchPublicActivities().then((d) => alive && setItems(d)).catch((e) => alive && setError(errMsg(e)))
+    recordVisit().then((s) => alive && setStats(s)).catch(() => { /* statistik tidak wajib */ })
+    fetchGalleryRecent(8).then((d) => alive && setRecent(d)).catch(() => { /* galeri belum aktif */ })
     return () => { alive = false }
   }, [])
 
@@ -54,8 +53,9 @@ export default function Landing() {
           <nav className="landing-nav" aria-label="Navigasi utama">
             <Brand light />
             <span className="spacer" />
+            <Link className="landing-navlink" to="/galeri"><Images size={16} /> Galeri</Link>
             <ThemeToggle onDark />
-            <Link className="btn landing-login" to={session ? '/admin' : '/login'}><LogIn size={16} /> {session ? 'Buka dashboard' : 'Masuk panitia'}</Link>
+            <Link className="btn landing-login" to={session ? '/admin' : '/login'}><LogIn size={16} /> {session ? 'Buka dashboard' : 'Masuk'}</Link>
           </nav>
           <div className="landing-hero-body">
             <span className="landing-pill">{brand.app_name}{brand.tagline ? ` · ${brand.tagline}` : ''}</span>
@@ -102,6 +102,24 @@ export default function Landing() {
           )}
         </section>
 
+        {recent.length > 0 && (
+          <section className="container landing-section" aria-labelledby="h-galeri">
+            <div className="landing-head row between">
+              <div><h2 id="h-galeri">Galeri kegiatan</h2><p className="muted" style={{ margin: 0 }}>Potret terbaru dari kegiatan kami.</p></div>
+              <Link to="/galeri" className="landing-go">Lihat semua galeri <ArrowRight size={16} /></Link>
+            </div>
+            <div className="landing-recent">
+              {recent.map((r) => (
+                <Link key={r.path} to={`/galeri/${r.activity_id}`} aria-label={`Galeri ${r.activity_name}`} title={r.caption || r.activity_name}>
+                  <img src={galleryPhotoUrl(r.path)} alt={r.caption || r.activity_name} loading="lazy" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="container landing-section" aria-label="Pasang aplikasi"><InstallInfo /></section>
+
         <section className="landing-band" aria-labelledby="h-cara">
           <div className="container landing-section">
             <div className="landing-head"><h2 id="h-cara">Cara masuk</h2></div>
@@ -116,23 +134,17 @@ export default function Landing() {
             </ol>
           </div>
         </section>
-
-        <section className="container landing-section" aria-labelledby="h-fitur">
-          <div className="landing-head"><h2 id="h-fitur">Yang bisa Anda lakukan</h2><p className="muted">Menu yang tampil di halaman pribadi menyesuaikan kegiatan dan hak akses Anda.</p></div>
-          <div className="landing-features">
-            {FEATURES.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="landing-feature">
-                <span className="icon-chip"><Icon size={18} /></span>
-                <b>{title}</b><span className="muted small">{text}</span>
-              </div>
-            ))}
-          </div>
-        </section>
       </main>
 
       <footer className="landing-foot">
         <div className="container row between" style={{ alignItems: 'flex-start' }}>
           <div>
+            {stats && (
+              <div className="site-stats" aria-label="Statistik kunjungan" style={{ marginBottom: 8 }}>
+                <span><Eye size={15} style={{ verticalAlign: '-0.2em' }} /> Kunjungan hari ini: <b>{fmtCount(stats.today)}</b></span>
+                <span><TrendingUp size={15} style={{ verticalAlign: '-0.2em' }} /> Total kunjungan: <b>{fmtCount(stats.total)}</b></span>
+              </div>
+            )}
             <span>{copyright(brand)}</span>
             {contactLines(brand).length > 0 && (
               <div className="small" style={{ marginTop: 6 }}>
@@ -140,7 +152,7 @@ export default function Landing() {
               </div>
             )}
           </div>
-          <Link to={session ? '/admin' : '/login'}>Masuk panitia</Link>
+          <Link to={session ? '/admin' : '/login'}>{session ? 'Buka dashboard' : 'Masuk'}</Link>
         </div>
       </footer>
     </div>

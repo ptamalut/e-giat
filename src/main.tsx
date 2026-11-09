@@ -6,8 +6,11 @@ import { AuthProvider } from './auth/AuthContext'
 import { BrandProvider } from './components/brand'
 import { ThemeProvider } from './components/theme'
 import { UIProvider } from './components/ui'
+import { registerServiceWorker } from './lib/pwa'
 import '@fontsource-variable/inter'
 import './styles.css'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

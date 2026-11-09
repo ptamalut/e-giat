@@ -1,9 +1,11 @@
 import { Compass } from 'lucide-react'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import { Loading } from './components/ui'
+import { recordVisit } from './lib/siteApi'
 import { isConfigured } from './lib/supabase'
+import { GalleryActivityPage, GalleryList } from './pages/Gallery'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import PublicActivityPage from './pages/PublicActivity'
@@ -47,6 +49,7 @@ function NotFound() {
 }
 
 export default function App() {
+  useEffect(() => { if (isConfigured) void recordVisit().catch(() => { /* statistik tidak wajib */ }) }, [])
   if (!isConfigured) return <SetupNeeded />
   return (
     <Suspense fallback={<Loading />}>
@@ -54,6 +57,8 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/k/:id" element={<PublicActivityPage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/galeri" element={<GalleryList />} />
+        <Route path="/galeri/:id" element={<GalleryActivityPage />} />
 
         <Route path="/p/:token" element={<Portal />} />
         <Route path="/p/:token/kuis/:quizId" element={<QuizRun />} />
