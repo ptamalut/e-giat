@@ -27,6 +27,8 @@ export interface Activity {
   enable_documentation: boolean
   /** tampil di halaman depan (kegiatan berjalan) dan peserta bisa masuk dengan NIP */
   public_access: boolean
+  /** foto dokumentasi tampil di galeri publik */
+  gallery_public: boolean
   created_at: string
 }
 

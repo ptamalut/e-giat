@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, Download, ExternalLink, ImagePlus, Images, Link2, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
 import { compressImage, DEFAULT_ALBUM, groupByAlbum, normalizeUrl, randomDocPath } from '../../lib/docs'
 import { removeDocFiles, signedDocUrls, uploadDoc } from '../../lib/docsApi'
@@ -64,6 +65,15 @@ export default function DocsTab() {
           <input ref={fileInput} type="file" accept="image/*" multiple hidden aria-label="Pilih foto dokumentasi"
             onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ''; if (f.length) setFiles(f) }} />
         </>} />
+
+      <div className={`alert ${activity.gallery_public ? 'success' : 'info'}`}>
+        <Images size={18} />
+        <span>
+          {activity.gallery_public
+            ? <>Foto kegiatan ini tampil di <Link to={`/galeri/${activity.id}`} target="_blank">galeri publik</Link>. Matikan di <Link to=".." relative="path">Ringkasan</Link> bila tidak ingin dipublikasikan.</>
+            : <>Foto kegiatan ini <b>tidak</b> tampil di galeri publik. Aktifkan di <Link to=".." relative="path">Ringkasan</Link> (Tampilkan foto dokumentasi di galeri publik) bila ingin dipublikasikan.</>}
+        </span>
+      </div>
 
       {loading && !data && <Loading />}
       {error && <ErrorBox error={error} onRetry={() => void reload()} />}

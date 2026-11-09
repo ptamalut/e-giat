@@ -144,6 +144,19 @@ atau diunggah sendiri (PNG/JPG/WEBP/SVG, otomatis diubah ke PNG dan dikecilkan; 
 Hanya **pemilik aplikasi** yang boleh mengubah (akun yang pertama terdaftar saat migrasi 013 dijalankan; bila belum ada pemilik, akun yang masuk bisa mengklaimnya
 lewat tombol *Jadikan saya pemilik*). Akun panitia lain hanya melihat. Pengaturan dibaca publik lewat fungsi `public_app_settings()` dan di-cache di browser agar tidak berkedip.
 
+## Masuk, kunjungan, galeri, dan pemasangan (PWA)
+- **Masuk dengan nama pengguna**: halaman *Masuk* memakai nama pengguna (bukan email). Saat mendaftar, isi nama pengguna (3–30 karakter: huruf kecil, angka, titik, garis bawah, strip),
+  email, dan kata sandi; email tetap dibutuhkan Supabase Auth untuk akun dan pemulihan. Akun lama otomatis dibuatkan nama pengguna dari bagian depan emailnya
+  (migrasi 014) dan boleh tetap masuk dengan email di kolom yang sama; nama penggunanya bisa dilihat dan diubah di *Pengaturan aplikasi → Akun saya*.
+  Catatan: halaman login mencari email dari nama pengguna lewat fungsi `login_email()` yang bisa dipanggil tanpa login, jadi email sebuah akun dapat diketahui oleh orang yang menebak nama penggunanya.
+- **Statistik kunjungan**: footer halaman depan menampilkan *Kunjungan hari ini* dan *Total kunjungan*. Satu kunjungan = satu browser yang membuka website pada satu hari (zona WIT);
+  muat ulang tidak menambah hitungan. Browser dikenali dari id acak di perangkat (tanpa data pribadi).
+- **Galeri kegiatan** (`/galeri`): foto dokumentasi per kegiatan, dibuka ke umum **per kegiatan** lewat *Ringkasan → Tampilkan foto dokumentasi di galeri publik* (bawaan: tertutup).
+  Daftar kegiatan, halaman foto per album dengan penampil layar penuh (panah/Esc), dan foto terbaru di halaman depan. Hanya foto (bukan tautan) dari kegiatan berstatus Berjalan/Selesai.
+- **PWA**: aplikasi bisa dipasang di layar utama HP atau komputer (manifest `public/manifest.webmanifest`, ikon di `public/icons/`, service worker `public/sw.js`).
+  Bagian *Pasang di perangkat Anda* di halaman depan (dan ajakan singkat di halaman peserta) menampilkan tombol Pasang atau langkahnya per perangkat (Android, iPhone/Safari, Chrome/Edge).
+  Service worker hanya menyimpan berkas aplikasi sendiri; permintaan ke Supabase tidak disimpan, sehingga data selalu terbaru dan tampilan dasar tetap terbuka saat offline.
+
 ## Tema tampilan
 Tampilan bawaan **terang** dan cerah dengan palet **hijau–emas** ala peradilan agama (sidebar putih, kepala halaman hijau dengan aksen emas; warna utama `--primary`, aksen `--gold` di `src/styles.css`). Tabel ekspor Word/PDF memakai hijau yang sama. Tersedia juga mode **gelap** dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
 panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan disimpan di browser masing-masing pengguna.
@@ -160,7 +173,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, lalu `013_pengaturan_aplikasi.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, lalu `014_username_kunjungan_galeri.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

@@ -1,5 +1,7 @@
 import { CheckCheck, ImagePlus, RotateCcw, ShieldAlert, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { isValidUsername, normalizeUsername, USERNAME_HELP } from '../../lib/account'
+import { fetchMyProfile, setMyUsername } from '../../lib/accountApi'
 import { useBrand } from '../../components/brand'
 import { ErrorBox, Field, Loading, PageHeader, useAsync, useToast } from '../../components/ui'
 import {
@@ -17,6 +19,36 @@ const isNew = (p: Pick): p is { blob: Blob; url: string } => 'blob' in p
 const TEXT_KEYS = ['app_name', 'tagline', 'org_name', 'hero_title', 'hero_text', 'address', 'phone', 'email', 'website', 'footer_text'] as const
 type TextForm = Record<(typeof TEXT_KEYS)[number], string>
 const toForm = (s: AppSettings): TextForm => Object.fromEntries(TEXT_KEYS.map((k) => [k, s[k] ?? ''])) as TextForm
+
+/** Akun yang sedang masuk: nama pengguna untuk login (bisa diubah). */
+function AccountCard() {
+  const toast = useToast()
+  const me = useAsync(fetchMyProfile, [])
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (me.data) setName(me.data.username) }, [me.data])
+  const dirty = !!me.data && normalizeUsername(name) !== me.data.username
+  async function save() {
+    if (!isValidUsername(name)) return toast(USERNAME_HELP, 'error')
+    setBusy(true)
+    try { await setMyUsername(name); await me.reload(); toast('Nama pengguna diperbarui.', 'success') } catch (e) { toast(errMsg(e), 'error') } finally { setBusy(false) }
+  }
+  if (me.error || (!me.loading && !me.data)) return null   // migrasi belum dijalankan
+  return (
+    <div className="card">
+      <h2>Akun saya</h2>
+      <div className="form-grid">
+        <Field label="Nama pengguna" hint="Dipakai untuk masuk. Huruf kecil, angka, titik, garis bawah, atau strip (3-30 karakter).">
+          <input className="input" value={name} autoCapitalize="none" spellCheck={false} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Email akun" hint="Tidak dipakai untuk masuk; diubah lewat Supabase.">
+          <input className="input" value={me.data?.email ?? ''} disabled />
+        </Field>
+      </div>
+      <button className="btn primary" disabled={!dirty || busy} onClick={() => void save()}>{busy ? 'Menyimpan…' : 'Simpan nama pengguna'}</button>
+    </div>
+  )
+}
 
 /** Pengaturan aplikasi: nama, slogan, kontak, teks halaman depan, logo, dan favicon. Hanya pemilik aplikasi yang boleh mengubah. */
 export default function SettingsPage() {
@@ -94,6 +126,8 @@ export default function SettingsPage() {
     <div className="stack">
       <PageHeader title="Pengaturan aplikasi" subtitle="Nama, slogan, kontak, logo, dan favicon yang tampil di halaman depan, login, halaman peserta, dan tab browser."
         actions={<button className="btn primary" disabled={ro || busy || !dirty} onClick={() => void save()}>{busy ? 'Menyimpan…' : 'Simpan pengaturan'}</button>} />
+
+      <AccountCard />
 
       {ro && (
         <div className="alert warn">

@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext'
 import { BrandMark, useBrand } from '../components/brand'
 import { ThemeToggle } from '../components/theme'
 import { Field } from '../components/ui'
+import { isValidUsername, normalizeUsername, USERNAME_HELP } from '../lib/account'
+import { resolveLoginEmail, usernameAvailable } from '../lib/accountApi'
 import { copyright } from '../lib/branding'
 import { errMsg, supabase } from '../lib/supabase'
 
@@ -19,6 +21,7 @@ export default function Login() {
   const { settings: brand } = useBrand()
   const loc = useLocation()
   const [mode, setMode] = useState<'in' | 'up'>('in')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -32,16 +35,20 @@ export default function Login() {
     setBusy(true); setError(''); setInfo('')
     try {
       if (mode === 'in') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const login = await resolveLoginEmail(username)
+        if (!login) throw new Error('Nama pengguna atau kata sandi salah.')
+        const { error } = await supabase.auth.signInWithPassword({ email: login, password })
         if (error) throw error
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        if (!isValidUsername(username)) throw new Error(USERNAME_HELP)
+        if (!(await usernameAvailable(username))) throw new Error('Nama pengguna sudah dipakai. Pilih yang lain.')
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { username: normalizeUsername(username) } } })
         if (error) throw error
         if (!data.session) setInfo('Pendaftaran berhasil. Cek email Anda untuk konfirmasi, lalu masuk.')
       }
     } catch (err) {
       const m = errMsg(err)
-      setError(/invalid login credentials/i.test(m) ? 'Email atau kata sandi salah.' : m)
+      setError(/invalid login credentials/i.test(m) ? 'Nama pengguna atau kata sandi salah.' : m)
     } finally { setBusy(false) }
   }
 
@@ -71,14 +78,19 @@ export default function Login() {
       <div className="auth-main">
         <div className="auth-card">
           <div className="only-mobile" style={{ marginBottom: 28 }}><div className="brand"><BrandMark size={18} />{brand.app_name}</div>{brand.tagline && <div className="brand-sub">{brand.tagline}</div>}</div>
-          <h1 style={{ marginBottom: 6 }}>{mode === 'in' ? 'Selamat datang kembali' : 'Buat akun panitia'}</h1>
+          <h1 style={{ marginBottom: 6 }}>{mode === 'in' ? 'Selamat datang kembali' : 'Buat akun'}</h1>
           <p className="muted" style={{ marginBottom: 24 }}>{mode === 'in' ? 'Masuk untuk mengelola kegiatan Anda.' : 'Daftar untuk mulai membuat kegiatan.'}</p>
           {error && <div className="alert error">{error}</div>}
           {info && <div className="alert success">{info}</div>}
           <form onSubmit={submit}>
-            <Field label="Email">
-              <input className="input" type="email" required autoComplete="email" placeholder="nama@instansi.id" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Field label="Nama pengguna" hint={mode === 'up' ? USERNAME_HELP : undefined}>
+              <input className="input" required autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="mis. budi.santoso" value={username} onChange={(e) => setUsername(e.target.value)} />
             </Field>
+            {mode === 'up' && (
+              <Field label="Email" hint="Dipakai Supabase untuk akun dan pemulihan; tidak dipakai untuk masuk.">
+                <input className="input" type="email" required autoComplete="email" placeholder="nama@instansi.id" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
+            )}
             <Field label="Kata sandi" hint={mode === 'up' ? 'Minimal 6 karakter' : undefined}>
               <input className="input" type="password" required minLength={6} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
             </Field>

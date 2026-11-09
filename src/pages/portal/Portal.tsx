@@ -2,6 +2,7 @@ import { Award, Calendar, CalendarCheck, ClipboardList, Download, ExternalLink, 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BrandMark, useBrand } from '../../components/brand'
+import InstallInfo from '../../components/InstallInfo'
 import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
@@ -121,6 +122,7 @@ export default function Portal() {
       </div>
 
       <div className="container narrow portal-body stack" style={{ paddingBottom: 48 }}>
+        <InstallInfo compact />
         {error && <div className="alert warn">Koneksi bermasalah, data mungkin tidak terbaru. {error}</div>}
         {closed && <div className="alert warn">Kegiatan ini belum dibuka oleh panitia. Absensi dan kuis belum tersedia.</div>}
         {rolesOf(p).some((r) => r !== 'peserta') && <div className="alert info"><span>Anda terdaftar sebagai <b>{rolesLabel(p, ', ').toLowerCase()}</b>{rolesOf(p).length > 1 ? '. Kedudukan Anda pada tiap sesi absensi dapat berbeda; lihat keterangan "Sebagai …" di setiap sesi.' : f.attendance && !f.quiz ? '. Cukup lakukan absensi pada sesi yang sedang dibuka; kuis tidak diperlukan.' : '.'}</span></div>}

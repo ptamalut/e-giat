@@ -19,7 +19,7 @@ export default function Overview() {
   const [form, setForm] = useState({
     name: a.name, description: a.description ?? '', location: a.location ?? '',
     start_date: a.start_date ?? '', end_date: a.end_date ?? '', status: a.status,
-    weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard, public_access: a.public_access,
+    weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard, public_access: a.public_access, gallery_public: a.gallery_public,
   })
   const [saving, setSaving] = useState(false)
   const [savingMenu, setSavingMenu] = useState<string | null>(null)
@@ -61,6 +61,7 @@ export default function Overview() {
       weight_attendance: form.weight_attendance,
       show_leaderboard: form.show_leaderboard,
       public_access: form.public_access,
+      gallery_public: form.gallery_public,
     }).eq('id', a.id)
     setSaving(false)
     if (error) return toast(errMsg(error), 'error')
@@ -184,6 +185,9 @@ export default function Overview() {
         <Check label="Tampilkan di halaman depan (masuk dengan NIP)"
           hint={`Saat status Berjalan, kegiatan ini muncul di halaman depan aplikasi dan peserta bisa membuka halaman pribadinya dengan memasukkan NIP. Matikan bila peserta hanya boleh masuk lewat link/QR. Alamat langsung: ${location.origin}/k/${a.id}`}
           checked={form.public_access} onChange={(v) => setForm({ ...form, public_access: v })} />
+        <Check label="Tampilkan foto dokumentasi di galeri publik"
+          hint={`Semua foto di menu Dokumentasi kegiatan ini bisa dilihat siapa saja di halaman Galeri (${location.origin}/galeri/${a.id}), tanpa login. Aktifkan hanya bila fotonya layak dipublikasikan.`}
+          checked={form.gallery_public} onChange={(v) => setForm({ ...form, gallery_public: v })} />
         <div className="row between">
           <button className="btn primary" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan perubahan'}</button>
           <button type="button" className="btn danger" onClick={() => void remove()}><Trash2 size={16} /> Hapus kegiatan</button>
