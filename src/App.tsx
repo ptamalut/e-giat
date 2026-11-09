@@ -21,6 +21,7 @@ const QuizEditor = lazy(() => import('./pages/admin/QuizEditor'))
 const CertificatesTab = lazy(() => import('./pages/admin/CertificatesTab'))
 const ReportsTab = lazy(() => import('./pages/admin/ReportsTab'))
 const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'))
+const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
 const NotesTab = lazy(() => import('./pages/admin/NotesTab'))
 const DocsTab = lazy(() => import('./pages/admin/DocsTab'))
 const Portal = lazy(() => import('./pages/portal/Portal'))
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/admin" element={<AdminShell />}>
             <Route index element={<Dashboard />} />
             <Route path="pegawai" element={<EmployeesPage />} />
+            <Route path="pengaturan" element={<SettingsPage />} />
             <Route path="kegiatan/:id" element={<ActivityLayout />}>
               <Route index element={<Overview />} />
               <Route path="peserta" element={<ParticipantsTab />} />

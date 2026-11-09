@@ -1,7 +1,8 @@
-import { CheckCheck, Contact, LayoutGrid, LogOut } from 'lucide-react'
+import { Contact, LayoutGrid, LogOut, Settings } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
+import { BrandMark, useBrand } from '../../components/brand'
 import { ThemeToggle } from '../../components/theme'
 import type { MenuKey } from '../../lib/menus'
 import { activityNav } from './nav'
@@ -21,7 +22,8 @@ export function useSidebarActivity(a: SideActivity | null) {
 }
 
 export function Brand({ to = '/admin' }: { to?: string }) {
-  return <Link to={to} className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>LAKSANA</Link>
+  const { settings } = useBrand()
+  return <Link to={to} className="brand"><BrandMark size={18} />{settings.app_name}</Link>
 }
 
 export default function AdminShell() {
@@ -40,6 +42,9 @@ export default function AdminShell() {
             </NavLink>
             <NavLink to="/admin/pegawai" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
               <Contact size={18} /> Data pegawai
+            </NavLink>
+            <NavLink to="/admin/pengaturan" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
+              <Settings size={18} /> Pengaturan aplikasi
             </NavLink>
             {act && (
               <>

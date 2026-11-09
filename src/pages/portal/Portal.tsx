@@ -1,6 +1,7 @@
-import { Award, Calendar, CalendarCheck, CheckCheck, ClipboardList, Download, ExternalLink, Hourglass, LinkIcon, Lock, MapPin, Play, RotateCcw, Trophy, UserCheck } from 'lucide-react'
+import { Award, Calendar, CalendarCheck, ClipboardList, Download, ExternalLink, Hourglass, LinkIcon, Lock, MapPin, Play, RotateCcw, Trophy, UserCheck } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { BrandMark, useBrand } from '../../components/brand'
 import { ThemeToggle } from '../../components/theme'
 import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components/ui'
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
@@ -19,6 +20,7 @@ const TYPE = { pre: 'Pre Test', post: 'Post Test', lainnya: 'Kuis' } as const
 
 export default function Portal() {
   const { token = '' } = useParams()
+  const { settings: brand } = useBrand()
   const toast = useToast()
   const [data, setData] = useState<PortalData | null>(null)
   const [error, setError] = useState('')
@@ -100,7 +102,7 @@ export default function Portal() {
     <>
       <div className="portal-hero">
         <div className="container narrow">
-          <div className="top"><span className="brand-mark"><CheckCheck size={16} strokeWidth={2.6} /></span>LAKSANA<span className="spacer" /><ThemeToggle onDark /></div>
+          <div className="top"><BrandMark size={16} />{brand.app_name}<span className="spacer" /><ThemeToggle onDark /></div>
           <h1>{a.name}</h1>
           <div className="meta">
             <span><Calendar size={15} /> {fmtDateRange(a.start_date, a.end_date)}</span>

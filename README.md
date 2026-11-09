@@ -135,6 +135,15 @@ di halaman depan (lihat di bawah).
 - 🔍 Analisis butir soal: tingkat kesukaran dan sebaran jawaban.
 - Peserta dapat melihat papan peringkat (top 10 + posisinya) bila diaktifkan panitia.
 
+## Pengaturan aplikasi (nama, logo, favicon)
+Menu **Pengaturan aplikasi** di sidebar panitia mengatur identitas yang tampil di halaman depan, login, halaman pribadi peserta, dan tab browser:
+nama aplikasi, slogan, nama instansi, judul dan teks pengantar halaman depan, footer, kontak (alamat, telepon, email, situs), **logo**, dan **favicon**
+(dengan pratinjau langsung). Logo bisa dipilih dari tiga rekomendasi bawaan (*Neraca Terlaksana*, *Perisai Centang*, *Monogram L*; berkas di `public/brand/`)
+atau diunggah sendiri (PNG/JPG/WEBP/SVG, otomatis diubah ke PNG dan dikecilkan; disimpan di bucket publik `branding` dengan nama acak). Favicon bawaannya mengikuti logo.
+
+Hanya **pemilik aplikasi** yang boleh mengubah (akun yang pertama terdaftar saat migrasi 013 dijalankan; bila belum ada pemilik, akun yang masuk bisa mengklaimnya
+lewat tombol *Jadikan saya pemilik*). Akun panitia lain hanya melihat. Pengaturan dibaca publik lewat fungsi `public_app_settings()` dan di-cache di browser agar tidak berkedip.
+
 ## Tema tampilan
 Tampilan bawaan **terang** dan cerah dengan palet **hijau–emas** ala peradilan agama (sidebar putih, kepala halaman hijau dengan aksen emas; warna utama `--primary`, aksen `--gold` di `src/styles.css`). Tabel ekspor Word/PDF memakai hijau yang sama. Tersedia juga mode **gelap** dan **otomatis** (mengikuti pengaturan perangkat). Tombol pemilih tema ada di sidebar
 panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan disimpan di browser masing-masing pengguna.
@@ -151,7 +160,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, lalu `012_jenis_rangkap.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, lalu `013_pengaturan_aplikasi.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
