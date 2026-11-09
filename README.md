@@ -143,6 +143,14 @@ Saat membuat kegiatan, pilih **Jenis** (bisa diubah di *Ringkasan → Pengaturan
 Aturan dijaga di server: peran narasumber/moderator/panitia ditolak pada Kegiatan, petugas ditolak pada Diklat, dan jenis tidak bisa diubah bila masih ada orang yang tidak cocok (pesan menjelaskan siapa yang harus diubah dulu).
 Kartu kegiatan di dasbor dan riwayat halaman depan menampilkan lencana jenisnya (migrasi 016).
 
+## Petugas/panitia menginput notula dan dokumentasi dari halaman pribadi
+Orang yang berkedudukan **Petugas** (jenis Kegiatan) atau **Panitia** (jenis Diklat) dan punya hak akses *Notula* / *Dokumentasi* bisa **menginput langsung dari link pribadinya**, tidak hanya melihat:
+- **Notula**: tombol *Tambah notula* membuka editor yang sama dengan halaman admin (judul, waktu, tempat, pimpinan, pencatat, status Draft/Final, peserta rapat yang bisa diisi dari semua orang di kegiatan atau yang hadir pada sebuah sesi,
+  agenda, pembahasan, keputusan, tindak lanjut + penanggung jawab + tenggat, **rekam rapat suara-ke-teks**, unduh Word, cetak). Mereka dapat **mengubah dan menghapus notula buatannya sendiri**; draf buatan mereka hanya terlihat oleh mereka dan admin
+  sampai ditandai Final. Notula buatan admin atau orang lain tidak bisa diubah.
+- **Dokumentasi**: tombol *Tambah foto* (dikompres otomatis, per album dan tanggal) dan *Tambah tautan*. Foto diunggah ke path yang dicadangkan server (sekali pakai, 30 menit) sehingga tidak bisa mengunggah sembarang berkas. Penghapusan foto tetap oleh admin.
+- Peserta, narasumber, dan moderator tetap hanya melihat. Admin melihat penanda **"Dari petugas"** pada notula dan foto yang dibuat lewat link pribadi dan tetap bisa mengelola semuanya (migrasi 017).
+
 ## Pengaturan aplikasi (nama, logo, favicon)
 Menu **Pengaturan aplikasi** di sidebar panitia mengatur identitas yang tampil di halaman depan, login, halaman pribadi peserta, dan tab browser:
 nama aplikasi, slogan, nama instansi, judul dan teks pengantar halaman depan, footer, kontak (alamat, telepon, email, situs), **logo**, dan **favicon**
@@ -185,7 +193,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, lalu `016_jenis_kegiatan.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, lalu `017_isi_notula_dokumentasi.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

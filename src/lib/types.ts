@@ -64,6 +64,8 @@ export interface MeetingNote {
   decisions: string | null
   follow_ups: FollowUp[]
   status: 'draft' | 'final'
+  /** peserta (petugas/panitia) yang membuatnya lewat link pribadi; null = dibuat admin */
+  added_by?: string | null
   created_at: string
   updated_at: string
 }
@@ -84,6 +86,7 @@ export interface DocItem {
   album: string | null
   taken_on: string | null
   uploaded_at: string
+  added_by?: string | null
 }
 
 export interface Certificate {
@@ -296,7 +299,7 @@ export interface PortalData {
     jenis?: ActivityJenis
   }
   /** menu yang boleh dipakai orang ini = menu aktif di kegiatan dan hak akses orang ini */
-  features: { attendance: boolean; quiz: boolean; certificate: boolean; notes: boolean; documentation: boolean }
+  features: { attendance: boolean; quiz: boolean; certificate: boolean; notes: boolean; documentation: boolean; notes_manage?: boolean; documentation_manage?: boolean }
   /** null bila unduhan ditutup dan orang ini belum punya sertifikat */
   certificate: { open: boolean; available: boolean; file_name: string | null; mime_type: string | null } | null
   sessions: PortalSession[]
@@ -383,6 +386,9 @@ export interface PortalNote {
   discussion: string | null
   decisions: string | null
   follow_ups: FollowUp[]
+  /** hanya terisi untuk petugas/panitia: status notula dan apakah buatan orang ini */
+  status?: 'draft' | 'final'
+  mine?: boolean
 }
 
 export interface PortalDoc {

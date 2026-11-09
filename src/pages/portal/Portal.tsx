@@ -22,6 +22,7 @@ const TYPE = { pre: 'Pre Test', post: 'Post Test', lainnya: 'Kuis' } as const
 export default function Portal() {
   const { token = '' } = useParams()
   const { settings: brand } = useBrand()
+  const [noteEditing, setNoteEditing] = useState(false)
   const toast = useToast()
   const [data, setData] = useState<PortalData | null>(null)
   const [error, setError] = useState('')
@@ -121,7 +122,7 @@ export default function Portal() {
         </div>
       </div>
 
-      <div className="container narrow portal-body stack" style={{ paddingBottom: 48 }}>
+      <div className={`container narrow portal-body stack${noteEditing ? ' is-editing' : ''}`} style={{ paddingBottom: 48 }}>
         <InstallInfo compact />
         {error && <div className="alert warn">Koneksi bermasalah, data mungkin tidak terbaru. {error}</div>}
         {closed && <div className="alert warn">Kegiatan ini belum dibuka oleh panitia. Absensi dan kuis belum tersedia.</div>}
@@ -166,8 +167,9 @@ export default function Portal() {
           {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={!f.attendance || data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
         </section>}
 
-        {f.notes && <NotesSection token={token} />}
-        {f.documentation && <DocsSection token={token} />}
+        {f.notes && <NotesSection token={token} canManage={!!f.notes_manage} activityId={a.id} activityName={a.name} location={a.location}
+          sessions={data.sessions.map((s) => ({ id: s.id, title: s.title }))} onEditing={setNoteEditing} />}
+        {f.documentation && <DocsSection token={token} canManage={!!f.documentation_manage} />}
 
         {f.certificate && data.certificate && <CertificateCard token={token} personName={p.name} cert={data.certificate} />}
 
