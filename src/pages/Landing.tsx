@@ -4,10 +4,12 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark, useBrand } from '../components/brand'
 import InstallInfo from '../components/InstallInfo'
+import Slider from '../components/Slider'
 import { ThemeToggle } from '../components/theme'
 import { contactLines, copyright, DEFAULT_HERO_TEXT, DEFAULT_HERO_TITLE, websiteHref } from '../lib/branding'
 import { fmtDateRange } from '../lib/format'
 import { fetchGalleryRecent, galleryPhotoUrl, type GalleryRecent } from '../lib/galleryApi'
+import { fetchHistory, historyStatusLabel, type HistoryItem } from '../lib/historyApi'
 import { fetchPublicActivities } from '../lib/publicApi'
 import { fmtCount, recordVisit, type SiteStats } from '../lib/siteApi'
 import { errMsg } from '../lib/supabase'
@@ -37,12 +39,14 @@ export default function Landing() {
   const [error, setError] = useState('')
   const [stats, setStats] = useState<SiteStats | null>(null)
   const [recent, setRecent] = useState<GalleryRecent[]>([])
+  const [history, setHistory] = useState<HistoryItem[]>([])
 
   useEffect(() => {
     let alive = true
     fetchPublicActivities().then((d) => alive && setItems(d)).catch((e) => alive && setError(errMsg(e)))
     recordVisit().then((s) => alive && setStats(s)).catch(() => { /* statistik tidak wajib */ })
-    fetchGalleryRecent(8).then((d) => alive && setRecent(d)).catch(() => { /* galeri belum aktif */ })
+    fetchGalleryRecent(12).then((d) => alive && setRecent(d)).catch(() => { /* galeri belum aktif */ })
+    fetchHistory().then((d) => alive && setHistory(d)).catch(() => { /* riwayat belum aktif */ })
     return () => { alive = false }
   }, [])
 
@@ -53,7 +57,8 @@ export default function Landing() {
           <nav className="landing-nav" aria-label="Navigasi utama">
             <Brand light />
             <span className="spacer" />
-            <Link className="landing-navlink" to="/galeri"><Images size={16} /> Galeri</Link>
+            {history.length > 0 && <a className="landing-navlink hide-sm" href="#riwayat"><CalendarDays size={16} /> <span className="lbl">Riwayat</span></a>}
+            <Link className="landing-navlink" to="/galeri"><Images size={16} /> <span className="lbl">Galeri</span></Link>
             <ThemeToggle onDark />
             <Link className="btn landing-login" to={session ? '/admin' : '/login'}><LogIn size={16} /> {session ? 'Buka dashboard' : 'Masuk'}</Link>
           </nav>
@@ -102,19 +107,55 @@ export default function Landing() {
           )}
         </section>
 
+        {history.length > 0 && (
+          <section id="riwayat" className="container landing-section" aria-labelledby="h-riwayat">
+            <div className="landing-head">
+              <h2 id="h-riwayat">Riwayat kegiatan</h2>
+              <p className="muted" style={{ margin: 0 }}>Kegiatan yang telah dan sedang dilaksanakan, dari yang terbaru.</p>
+            </div>
+            <Slider label="Riwayat kegiatan">
+              {history.map((h) => (
+                <article key={h.id} className="slider-item">
+                  <div className="history-card">
+                    <div className="history-cover">
+                      {h.cover ? <img src={galleryPhotoUrl(h.cover)} alt="" loading="lazy" /> : <CalendarDays size={40} strokeWidth={1.5} />}
+                      <span className={`badge dot ${h.status === 'aktif' ? 'success' : ''}`}>{historyStatusLabel(h.status)}</span>
+                    </div>
+                    <div className="history-body">
+                      <h3>{h.name}</h3>
+                      <div className="meta">
+                        {(h.start_date || h.end_date) && <span><CalendarDays size={15} /> {fmtDateRange(h.start_date, h.end_date)}</span>}
+                        {h.location && <span><MapPin size={15} /> {h.location}</span>}
+                      </div>
+                      {h.description && <p className="muted small landing-desc" style={{ margin: 0 }}>{h.description}</p>}
+                      <div className="history-actions">
+                        {h.status === 'aktif' && <Link className="btn sm primary" to={`/k/${h.id}`}>Masuk dengan NIP <ArrowRight size={14} /></Link>}
+                        {h.photo_count > 0 && <Link className="btn sm" to={`/galeri/${h.id}`}><Images size={14} /> Galeri ({h.photo_count})</Link>}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </Slider>
+          </section>
+        )}
+
         {recent.length > 0 && (
-          <section className="container landing-section" aria-labelledby="h-galeri">
+          <section id="galeri" className="container landing-section" aria-labelledby="h-galeri">
             <div className="landing-head row between">
               <div><h2 id="h-galeri">Galeri kegiatan</h2><p className="muted" style={{ margin: 0 }}>Potret terbaru dari kegiatan kami.</p></div>
               <Link to="/galeri" className="landing-go">Lihat semua galeri <ArrowRight size={16} /></Link>
             </div>
-            <div className="landing-recent">
+            <Slider label="Galeri kegiatan" autoplayMs={5000}>
               {recent.map((r) => (
-                <Link key={r.path} to={`/galeri/${r.activity_id}`} aria-label={`Galeri ${r.activity_name}`} title={r.caption || r.activity_name}>
-                  <img src={galleryPhotoUrl(r.path)} alt={r.caption || r.activity_name} loading="lazy" />
-                </Link>
+                <div key={r.path} className="slider-item">
+                  <Link to={`/galeri/${r.activity_id}`} className="photo-slide" aria-label={`Galeri ${r.activity_name}`}>
+                    <img src={galleryPhotoUrl(r.path)} alt={r.caption || r.activity_name} loading="lazy" />
+                    <span className="cap"><b>{r.activity_name}</b>{r.caption}</span>
+                  </Link>
+                </div>
               ))}
-            </div>
+            </Slider>
           </section>
         )}
 
