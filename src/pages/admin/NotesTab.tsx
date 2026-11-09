@@ -5,6 +5,8 @@ import { safeName } from '../../lib/csv'
 import { downloadBlob } from '../../lib/exportModel'
 import { fmtDate, fmtDateTime, fromLocalInput, toLocalInput } from '../../lib/format'
 import { attendeesText, cleanFollowUps, emptyNote, followUpProgress, newFollowUp, overdue } from '../../lib/notes'
+import { appendBlock, appendLines } from '../../lib/transcript'
+import NoteRecorder from './NoteRecorder'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { AttendanceSession, FollowUp, MeetingNote } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -189,6 +191,13 @@ function NoteEditor({ draft, activityId, activityName, attendanceOn, onBack }: {
             </div>
           </Field>
         </div>
+
+        <NoteRecorder refDate={f.held ? new Date(f.held) : new Date()}
+          onDiscussion={(t) => setF((c) => ({ ...c, discussion: appendBlock(c.discussion, t) }))}
+          onApply={(a) => {
+            setF((c) => ({ ...c, agenda: a.agenda.length ? appendLines(c.agenda, a.agenda) : c.agenda, decisions: a.decisions.length ? appendLines(c.decisions, a.decisions) : c.decisions }))
+            if (a.followUps.length) setFus((c) => [...c, ...a.followUps.map((x) => ({ ...newFollowUp(), ...x }))])
+          }} />
 
         <div className="card">
           <div className="card-head"><h2>Peserta rapat</h2><span className="spacer" />
