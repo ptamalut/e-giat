@@ -153,6 +153,10 @@ lewat tombol *Jadikan saya pemilik*). Akun panitia lain hanya melihat. Pengatura
   muat ulang tidak menambah hitungan. Browser dikenali dari id acak di perangkat (tanpa data pribadi).
 - **Galeri kegiatan** (`/galeri`): foto dokumentasi per kegiatan, dibuka ke umum **per kegiatan** lewat *Ringkasan → Tampilkan foto dokumentasi di galeri publik* (bawaan: tertutup).
   Daftar kegiatan, halaman foto per album dengan penampil layar penuh (panah/Esc), dan foto terbaru di halaman depan. Hanya foto (bukan tautan) dari kegiatan berstatus Berjalan/Selesai.
+- **Riwayat kegiatan & galeri di halaman depan (slider)**: *Riwayat kegiatan* menampilkan semua kegiatan yang tampil di halaman depan (`Tampilkan di halaman depan` aktif, bukan draf), terbaru dulu,
+  sebagai slider kartu (status Berjalan/Selesai, tanggal, lokasi, deskripsi, foto sampul bila galerinya dibuka; tombol *Masuk dengan NIP* untuk yang berjalan dan *Galeri* bila ada foto).
+  *Galeri kegiatan* berupa slider foto terbaru yang berputar otomatis tiap 5 detik (berhenti saat kursor di atasnya atau bila perangkat memilih gerak minimal). Keduanya bisa digeser dengan sentuhan,
+  tombol panah, atau titik halaman. Kegiatan yang disembunyikan dari halaman depan juga tidak muncul di riwayat (migrasi 015).
 - **PWA**: aplikasi bisa dipasang di layar utama HP atau komputer (manifest `public/manifest.webmanifest`, ikon di `public/icons/`, service worker `public/sw.js`).
   Bagian *Pasang di perangkat Anda* di halaman depan (dan ajakan singkat di halaman peserta) menampilkan tombol Pasang atau langkahnya per perangkat (Android, iPhone/Safari, Chrome/Edge).
   Service worker hanya menyimpan berkas aplikasi sendiri; permintaan ke Supabase tidak disimpan, sehingga data selalu terbaru dan tampilan dasar tetap terbuka saat offline.
@@ -173,7 +177,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, lalu `014_username_kunjungan_galeri.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, lalu `015_riwayat_kegiatan.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
