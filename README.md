@@ -135,6 +135,14 @@ di halaman depan (lihat di bawah).
 - 🔍 Analisis butir soal: tingkat kesukaran dan sebaran jawaban.
 - Peserta dapat melihat papan peringkat (top 10 + posisinya) bila diaktifkan panitia.
 
+## Jenis kegiatan: Diklat dan Kegiatan
+Saat membuat kegiatan, pilih **Jenis** (bisa diubah di *Ringkasan → Pengaturan kegiatan* selama orang-orangnya masih cocok):
+- **Diklat** (bawaan, sama seperti sebelumnya): ada nilai akhir, peringkat keseluruhan, papan peringkat peserta, kuis pre/post test, dan jenis orang *Peserta, Narasumber, Moderator, Panitia*.
+- **Kegiatan** (rapat, sosialisasi, dll.): **tanpa perhitungan peringkat** (tidak ada kartu/bagian Peringkat, bobot nilai akhir, papan peringkat peserta, nomor peringkat di laporan; rekap per satker hanya
+  kehadiran) dan jenis orang hanya **Peserta** dan **Petugas**. Petugas bisa memakai semua menu kecuali kuis (bawaan). Menu Kuis tidak tercentang bawaan pada kegiatan baru (bisa diaktifkan).
+Aturan dijaga di server: peran narasumber/moderator/panitia ditolak pada Kegiatan, petugas ditolak pada Diklat, dan jenis tidak bisa diubah bila masih ada orang yang tidak cocok (pesan menjelaskan siapa yang harus diubah dulu).
+Kartu kegiatan di dasbor dan riwayat halaman depan menampilkan lencana jenisnya (migrasi 016).
+
 ## Pengaturan aplikasi (nama, logo, favicon)
 Menu **Pengaturan aplikasi** di sidebar panitia mengatur identitas yang tampil di halaman depan, login, halaman pribadi peserta, dan tab browser:
 nama aplikasi, slogan, nama instansi, judul dan teks pengantar halaman depan, footer, kontak (alamat, telepon, email, situs), **logo**, dan **favicon**
@@ -177,7 +185,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, lalu `015_riwayat_kegiatan.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, lalu `016_jenis_kegiatan.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

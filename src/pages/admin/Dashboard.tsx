@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useToast } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
 import { MENUS } from '../../lib/menus'
+import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
 import { errMsg, supabase } from '../../lib/supabase'
-import type { Activity, ActivityStatus } from '../../lib/types'
+import type { Activity, ActivityJenis, ActivityStatus } from '../../lib/types'
 
 type Row = Activity & {
   participants: { count: number }[]
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const toast = useToast()
   const nav = useNavigate()
   const [adding, setAdding] = useState(false)
+  const [newJenis, setNewJenis] = useState<ActivityJenis>('diklat')
   const [filter, setFilter] = useState<'semua' | ActivityStatus>('semua')
   const { data, error, loading, reload } = useAsync(async () => {
     const { data, error } = await supabase
@@ -38,6 +40,7 @@ export default function Dashboard() {
     const f = new FormData(e.currentTarget)
     const { data, error } = await supabase.from('activities').insert({
       name: String(f.get('name')).trim(),
+      jenis: newJenis,
       location: String(f.get('location') || '').trim() || null,
       start_date: String(f.get('start_date') || '') || null,
       end_date: String(f.get('end_date') || '') || null,
@@ -88,7 +91,7 @@ export default function Dashboard() {
         {list.map((a) => (
           <Link key={a.id} to={`/admin/kegiatan/${a.id}`} className="card link">
             <div className="row between" style={{ marginBottom: 12 }}>
-              <span className={`badge dot ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span>
+              <span className="row tight"><span className={`badge dot ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span><span className="badge primary">{JENIS_LABEL[a.jenis ?? 'diklat']}</span></span>
               <span className="muted small">{fmtDateRange(a.start_date, a.end_date)}</span>
             </div>
             <h3 style={{ fontSize: '1.08rem', marginBottom: 4 }}>{a.name}</h3>
@@ -108,6 +111,13 @@ export default function Dashboard() {
         <Modal title="Kegiatan baru" onClose={() => setAdding(false)}
           footer={<><button className="btn" onClick={() => setAdding(false)}>Batal</button><button className="btn primary" form="new-act">Simpan &amp; lanjut</button></>}>
           <form id="new-act" onSubmit={create}>
+            <Field label="Jenis *" hint={JENIS_HINT[newJenis]}>
+              <div className="pills" role="radiogroup" aria-label="Jenis kegiatan">
+                {(['diklat', 'kegiatan'] as const).map((j) => (
+                  <button type="button" key={j} role="radio" aria-checked={newJenis === j} className={`pill ${newJenis === j ? 'active' : ''}`} onClick={() => setNewJenis(j)}>{JENIS_LABEL[j]}</button>
+                ))}
+              </div>
+            </Field>
             <Field label="Nama kegiatan *"><input className="input" name="name" required autoFocus placeholder="mis. Pelatihan Manajemen Proyek Angkatan 3" /></Field>
             <Field label="Lokasi"><input className="input" name="location" placeholder="mis. Aula Kantor Pusat / Zoom" /></Field>
             <div className="form-grid">
@@ -117,7 +127,7 @@ export default function Dashboard() {
             <Field label="Menu yang dipakai" hint="Bisa diubah kapan saja di Ringkasan kegiatan. Menu nonaktif tidak tampil bagi panitia maupun peserta.">
               <div className="menu-grid">
                 {MENUS.map((m) => (
-                  <label key={m.key} className="menu-opt on"><input type="checkbox" name={m.flag} defaultChecked /><span><b>{m.label}</b></span></label>
+                  <label key={`${newJenis}-${m.key}`} className="menu-opt on"><input type="checkbox" name={m.flag} defaultChecked={!(newJenis === 'kegiatan' && m.key === 'quiz')} /><span><b>{m.label}</b></span></label>
                 ))}
               </div>
             </Field>

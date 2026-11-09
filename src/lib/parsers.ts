@@ -141,12 +141,13 @@ export function normalizeNip(v: string): string {
 
 const SPEAKER = /nara\s*sumber|pembicara|pemateri|instruktur|widyaiswara|fasilitator/i
 const MODERATOR = /moderator|pemandu\s*acara|\bmc\b|pembawa\s*acara/i
-const COMMITTEE = /panitia|committee|sekretariat|penyelenggara|petugas/i
+const COMMITTEE = /panitia|committee|sekretariat|penyelenggara/i
+const OFFICER = /petugas|officer|staf pelaksana/i
 
 /** Nilai kolom Peran -> peran; tidak dikenali dianggap bawaan. */
 export function parseRole(v: string | undefined, fallback: PersonRole): PersonRole {
   if (!v) return fallback
-  return MODERATOR.test(v) ? 'moderator' : SPEAKER.test(v) ? 'narasumber' : COMMITTEE.test(v) ? 'panitia' : /peserta|participant/i.test(v) ? 'peserta' : fallback
+  return OFFICER.test(v) ? 'petugas' : MODERATOR.test(v) ? 'moderator' : SPEAKER.test(v) ? 'narasumber' : COMMITTEE.test(v) ? 'panitia' : /peserta|participant/i.test(v) ? 'peserta' : fallback
 }
 
 export function parseParticipants(input: string, defaultRole: PersonRole = 'peserta'): ParseResult<ParsedParticipant> {

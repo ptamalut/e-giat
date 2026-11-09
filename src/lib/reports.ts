@@ -257,6 +257,7 @@ export interface SatkerRow {
   narasumber: number
   moderator: number
   panitia: number
+  petugas: number
   /** rata-rata kehadiran seluruh orang di satker (semua peran), null bila belum ada sesi */
   attendancePct: number | null
   /** rata-rata skor kuis & nilai akhir hanya dari peserta */
@@ -283,6 +284,7 @@ export function satkerSummary(
       narasumber: g.items.filter((p) => hasRole(p, 'narasumber')).length,
       moderator: g.items.filter((p) => hasRole(p, 'moderator')).length,
       panitia: g.items.filter((p) => hasRole(p, 'panitia')).length,
+      petugas: g.items.filter((p) => hasRole(p, 'petugas')).length,
       attendancePct: mean(pcts),
       avgQuiz: mean(rk.map((r) => r.quiz_avg).filter((v): v is number => v != null).map(Number)),
       avgFinal: mean(rk.map((r) => Number(r.final_score))),

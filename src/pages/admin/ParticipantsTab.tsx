@@ -6,7 +6,7 @@ import { Empty, ErrorBox, Loading, Modal, useAsync, useConfirm, useToast } from 
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadges } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
-import { hasRole, ROLE_LABEL, ROLES, roleLine, rolesLabel, rolesOf } from '../../lib/people'
+import { hasRole, ROLE_LABEL, rolesForJenis, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import { activeMenus } from '../../lib/menus'
 import { participantLink } from '../../lib/format'
 import { groupBySatker, matchesUnit, mergeSlots, roleSummary, sortPeople } from '../../lib/satker'
@@ -54,8 +54,8 @@ export default function ParticipantsTab() {
 
   const counts = useMemo(() => {
     const all = data ?? []
-    return Object.fromEntries([['semua', all.length], ...ROLES.map((r) => [r, all.filter((p) => hasRole(p, r)).length])]) as Record<'semua' | PersonRole, number>
-  }, [data])
+    return Object.fromEntries([['semua', all.length], ...rolesForJenis(activity.jenis).map((r) => [r, all.filter((p) => hasRole(p, r)).length])]) as Record<'semua' | PersonRole, number>
+  }, [data, activity.jenis])
 
   // semua kelompok (tanpa filter) berurutan sesuai pengaturan; dipakai untuk pilihan satker, ubah nama, ekspor, dan cetak
   const allGroups = useMemo(() => groupBySatker(data ?? [], (p) => p.institution, activity.satker_order), [data, activity.satker_order])
@@ -174,7 +174,7 @@ export default function ParticipantsTab() {
           <div className="row">
             <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, jabatan, atau satuan kerja" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
             <div className="pills" role="group" aria-label="Filter jenis">
-              {(['semua', ...ROLES] as const).map((r) => (
+              {(['semua', ...rolesForJenis(activity.jenis)] as const).map((r) => (
                 <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                   {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{counts[r]}</span>
                 </button>

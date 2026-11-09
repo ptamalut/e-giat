@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultAccess, defaultAccessFor, hasRole, rolesLabel, rolesOf, sortRoles } from './people'
+import { defaultAccess, defaultAccessFor, hasRole, rolesForJenis, rolesLabel, rolesOf, sortRoles } from './people'
 
 describe('jenis merangkap', () => {
   it('rolesOf memakai roles bila ada, selain itu role tunggal, urut menurut urutan baku', () => {
@@ -25,5 +25,18 @@ describe('jenis merangkap', () => {
     expect(both.access_documentation).toBe(true) // dari panitia
     expect(defaultAccessFor(['narasumber', 'moderator']).access_quiz).toBe(false)
     expect(defaultAccessFor([])).toEqual(defaultAccess('peserta'))
+  })
+})
+
+describe('jenis kegiatan', () => {
+  it('rolesForJenis: diklat 4 jenis, kegiatan hanya peserta dan petugas, bawaan diklat', () => {
+    expect(rolesForJenis('diklat')).toEqual(['peserta', 'narasumber', 'moderator', 'panitia'])
+    expect(rolesForJenis('kegiatan')).toEqual(['peserta', 'petugas'])
+    expect(rolesForJenis(undefined)).toEqual(['peserta', 'narasumber', 'moderator', 'panitia'])
+  })
+  it('petugas: urutan baku setelah panitia, hak akses awal = semua menu kecuali kuis', () => {
+    expect(sortRoles(['petugas', 'peserta'])).toEqual(['peserta', 'petugas'])
+    expect(defaultAccess('petugas')).toEqual({ access_attendance: true, access_notes: true, access_quiz: false, access_certificate: true, access_documentation: true })
+    expect(rolesLabel({ role: 'peserta', roles: ['peserta', 'petugas'] })).toBe('Peserta / Petugas')
   })
 })

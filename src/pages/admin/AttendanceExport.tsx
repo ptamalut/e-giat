@@ -4,7 +4,7 @@ import { Check, Field, Modal, useToast } from '../../components/ui'
 import { buildAttendanceModels, sessionRoster, type AttColumn, type AttExportOptions, type AttGroup } from '../../lib/exportAttendance'
 import { downloadBlob, exportFilename } from '../../lib/exportModel'
 import { fmtDateTime } from '../../lib/format'
-import { ROLE_LABEL, ROLES } from '../../lib/people'
+import { ROLE_LABEL, ROLES, rolesForJenis } from '../../lib/people'
 import { groupBySatker, NONE_KEY } from '../../lib/satker'
 import { errMsg } from '../../lib/supabase'
 import type { Activity, Attendance, AttendanceSession, Participant, PersonRole, SessionMember } from '../../lib/types'
@@ -26,7 +26,7 @@ const GROUPS: { id: AttGroup; label: string }[] = [
 
 /** Ekspor absensi ke Word (.docx) atau PDF: pilih sesi, jenis (kedudukan di sesi), satuan kerja, dan pengelompokan tabel. */
 export default function AttendanceExport({ activity, people, sessions, attendances, members, currentId, onClose }: {
-  activity: Pick<Activity, 'name' | 'satker_order'>
+  activity: Pick<Activity, 'name' | 'satker_order' | 'jenis'>
   people: Participant[]          // sudah berurutan, hanya yang berhak absen
   sessions: AttendanceSession[]
   attendances: Attendance[]
@@ -37,7 +37,8 @@ export default function AttendanceExport({ activity, people, sessions, attendanc
   const toast = useToast()
   const [title, setTitle] = useState('Daftar Hadir')
   const [sessionIds, setSessionIds] = useState<string[]>(currentId ? [currentId] : sessions.slice(0, 1).map((s) => s.id))
-  const [roles, setRoles] = useState<PersonRole[]>([...ROLES])
+  const avail = rolesForJenis(activity.jenis)
+  const [roles, setRoles] = useState<PersonRole[]>([...avail])
   const [unit, setUnit] = useState('')
   const [group, setGroup] = useState<AttGroup>('satker')
   const [columns, setColumns] = useState<AttColumn[]>(['identifier', 'job_title', 'role', 'status', 'time'])
@@ -48,7 +49,7 @@ export default function AttendanceExport({ activity, people, sessions, attendanc
   const unitGroups = useMemo(() => groupBySatker(people, (p) => p.institution, activity.satker_order), [people, activity.satker_order])
   // jumlah orang per kedudukan pada sesi terpilih (tanpa filter jenis/satker)
   const roleCounts = useMemo(() => {
-    const n: Record<PersonRole, number> = { peserta: 0, narasumber: 0, moderator: 0, panitia: 0 }
+    const n: Record<PersonRole, number> = { peserta: 0, narasumber: 0, moderator: 0, panitia: 0, petugas: 0 }
     const everyone = { roles: [...ROLES], unit: '' }
     for (const s of chosen) for (const r of sessionRoster(s, people, members, everyone)) n[r.role]++
     return n
@@ -106,7 +107,7 @@ export default function AttendanceExport({ activity, people, sessions, attendanc
         </div>
         <div>
           <div className="label" style={{ marginBottom: 8 }}>Jenis (kedudukan pada sesi)</div>
-          {ROLES.map((r) => <Check key={r} label={`${ROLE_LABEL[r]} (${roleCounts[r]})`} checked={roles.includes(r)} onChange={() => setRoles(toggle(roles, r))} />)}
+          {avail.map((r) => <Check key={r} label={`${ROLE_LABEL[r]} (${roleCounts[r]})`} checked={roles.includes(r)} onChange={() => setRoles(toggle(roles, r))} />)}
           <Field label="Satuan kerja">
             <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Satuan kerja">
               <option value="">Semua satuan kerja ({people.length})</option>

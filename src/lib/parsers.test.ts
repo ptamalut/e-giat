@@ -88,6 +88,8 @@ describe('peran narasumber saat impor', () => {
     expect(parseRole('Pembawa Acara', 'peserta')).toBe('moderator')
     expect(parseRole('MC', 'peserta')).toBe('moderator')
     expect(parseRole('Panitia', 'peserta')).toBe('panitia')
+    expect(parseRole('Petugas', 'peserta')).toBe('petugas')
+    expect(parseRole('Petugas Pelaksana', 'peserta')).toBe('petugas')
   })
   it('mengenali peran panitia', () => {
     expect(parseRole('Panitia', 'peserta')).toBe('panitia')

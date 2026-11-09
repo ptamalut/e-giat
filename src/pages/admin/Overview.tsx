@@ -8,7 +8,8 @@ import { removeActivityCertificateFiles } from '../../lib/certificateApi'
 import { removeSelfiesOf } from '../../lib/selfieApi'
 import { removeActivityDocFiles } from '../../lib/docsApi'
 import { errMsg, supabase } from '../../lib/supabase'
-import type { ActivityStatus, RankingRow } from '../../lib/types'
+import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
+import type { ActivityJenis, ActivityStatus, RankingRow } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 
 export default function Overview() {
@@ -19,7 +20,7 @@ export default function Overview() {
   const [form, setForm] = useState({
     name: a.name, description: a.description ?? '', location: a.location ?? '',
     start_date: a.start_date ?? '', end_date: a.end_date ?? '', status: a.status,
-    weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard, public_access: a.public_access, gallery_public: a.gallery_public,
+    weight_attendance: a.weight_attendance, show_leaderboard: a.show_leaderboard, public_access: a.public_access, gallery_public: a.gallery_public, jenis: a.jenis,
   })
   const [saving, setSaving] = useState(false)
   const [savingMenu, setSavingMenu] = useState<string | null>(null)
@@ -48,6 +49,7 @@ export default function Overview() {
     }
   }, [a.id])
 
+  const savedJenis = a.jenis
   async function save(e: FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -62,9 +64,10 @@ export default function Overview() {
       show_leaderboard: form.show_leaderboard,
       public_access: form.public_access,
       gallery_public: form.gallery_public,
+      jenis: form.jenis,
     }).eq('id', a.id)
     setSaving(false)
-    if (error) return toast(errMsg(error), 'error')
+    if (error) { setForm((f) => ({ ...f, jenis: savedJenis })); return toast(errMsg(error), 'error') } // gagal (mis. masih ada petugas): jenis kembali ke yang tersimpan
     toast('Perubahan disimpan.', 'success')
     await reload()
     void refresh(true)
@@ -101,25 +104,26 @@ export default function Overview() {
   const avgAtt = data.ranking.length && data.sessions
     ? data.ranking.reduce((s, r) => s + Number(r.attendance_pct ?? 0), 0) / data.ranking.length : null
   const hasPeople = data.participants + data.speakers > 0
+  const diklat = a.jenis === 'diklat'
   const steps = [
     { done: hasPeople, text: 'Pilih peserta kegiatan dari data pegawai (tentukan jenis dan hak akses menunya)', to: 'peserta', cta: 'Tambah peserta' },
     menuOn(a, 'attendance') && { done: data.sessions > 0, text: 'Buat sesi absensi (hari/sesi + jam buka & tutup)', to: 'absensi', cta: 'Buat sesi' },
     { done: hasPeople && (!menuOn(a, 'attendance') || data.sessions > 0), text: 'Bagikan link / QR unik ke setiap orang', to: 'peserta', cta: 'Lihat link' },
     menuOn(a, 'quiz') && { done: data.readyQuizzes > 0, text: 'Buat kuis pre test / post test lalu terbitkan', to: 'kuis', cta: 'Buat kuis' },
-    menuOn(a, 'quiz') && { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
+    menuOn(a, 'quiz') && diklat && { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
     menuOn(a, 'certificate') && { done: a.certificates_open, text: 'Unggah sertifikat lalu buka unduhan untuk peserta', to: 'sertifikat', cta: 'Kelola sertifikat' },
   ].filter((x): x is { done: boolean; text: string; to: string; cta: string } => !!x)
 
   return (
     <div className="stack">
       <div className="grid cols-4">
-        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} narasumber/moderator/panitia` : undefined} />
+        <Stat icon={<Users size={20} />} value={data.participants} label="Peserta" sub={data.speakers ? `+ ${data.speakers} ${diklat ? 'narasumber/moderator/panitia' : 'petugas'}` : undefined} />
         {menuOn(a, 'attendance') && <Stat icon={<CalendarCheck size={20} />} tone="success" value={data.sessions} label="Sesi absensi" sub={avgAtt != null ? `rata-rata hadir ${fmtPct(avgAtt)}` : undefined} />}
         {menuOn(a, 'quiz') && <Stat icon={<ClipboardList size={20} />} tone="warn" value={data.quizzes} label="Kuis" sub={`${data.readyQuizzes} terbit`} />}
         {menuOn(a, 'quiz') && <Stat icon={<CheckCheck size={20} />} tone="info" value={data.attempts} label="Kuis terkumpul" />}
       </div>
 
-      <div className="grid cols-2">
+      <div className="grid cols-2" style={diklat ? undefined : { gridTemplateColumns: '1fr' }}>
         <div className="card">
           <div className="card-head"><CardTitle icon={<Award size={18} />}>Langkah-langkah</CardTitle></div>
           <ul className="checklist">
@@ -133,7 +137,7 @@ export default function Overview() {
           </ul>
         </div>
 
-        <div className="card">
+        {diklat && <div className="card">
           <div className="card-head"><CardTitle icon={<Trophy size={18} />} tone="warn">Peringkat sementara</CardTitle><span className="spacer" /><Link to="laporan" className="small">Selengkapnya</Link></div>
           {data.ranking.filter((r) => r.final_score > 0).slice(0, 5).map((r) => (
             <div key={r.participant_id} className="item" style={{ padding: '8px 0' }}>
@@ -143,7 +147,7 @@ export default function Overview() {
             </div>
           ))}
           {!data.ranking.some((r) => r.final_score > 0) && <p className="muted">Peringkat akan muncul setelah ada peserta yang absen atau mengerjakan kuis.</p>}
-        </div>
+        </div>}
       </div>
 
       <div className="card">
@@ -165,6 +169,11 @@ export default function Overview() {
 
       <form className="card" onSubmit={save}>
         <div className="card-head"><h2>Pengaturan kegiatan</h2></div>
+        <Field label="Jenis" hint={JENIS_HINT[form.jenis]}>
+          <select className="input" value={form.jenis} onChange={(e) => setForm({ ...form, jenis: e.target.value as ActivityJenis })} aria-label="Jenis kegiatan">
+            <option value="diklat">{JENIS_LABEL.diklat}</option><option value="kegiatan">{JENIS_LABEL.kegiatan}</option>
+          </select>
+        </Field>
         <Field label="Nama kegiatan *"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Deskripsi"><textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Tampil di halaman peserta" /></Field>
         <div className="form-grid">
@@ -177,11 +186,13 @@ export default function Overview() {
             </select>
           </Field>
         </div>
+        {form.jenis === 'diklat' && <>
         <Field label={`Bobot nilai akhir: kehadiran ${form.weight_attendance}% · kuis ${100 - form.weight_attendance}%`}
           hint="Dipakai untuk peringkat keseluruhan. Kuis yang dihitung diatur di pengaturan masing-masing kuis.">
           <input type="range" min={0} max={100} step={5} value={form.weight_attendance} onChange={(e) => setForm({ ...form, weight_attendance: Number(e.target.value) })} />
         </Field>
         <Check label="Tampilkan papan peringkat ke peserta" hint="Peserta melihat top 10 dan posisinya sendiri (nama peserta lain terlihat)." checked={form.show_leaderboard} onChange={(v) => setForm({ ...form, show_leaderboard: v })} />
+        </>}
         <Check label="Tampilkan di halaman depan (masuk dengan NIP)"
           hint={`Saat status Berjalan, kegiatan ini muncul di halaman depan aplikasi dan peserta bisa membuka halaman pribadinya dengan memasukkan NIP. Matikan bila peserta hanya boleh masuk lewat link/QR. Alamat langsung: ${location.origin}/k/${a.id}`}
           checked={form.public_access} onChange={(v) => setForm({ ...form, public_access: v })} />

@@ -14,7 +14,7 @@ export const defaultAssign = (people: readonly Pick<Participant, 'id' | 'role'>[
 
 /** Hitungan per jenis (dan yang tidak ikut) untuk ringkasan. */
 export function assignSummary(people: readonly Pick<Participant, 'id'>[], a: Assign): { counts: Record<PersonRole, number>; out: number } {
-  const counts: Record<PersonRole, number> = { peserta: 0, narasumber: 0, moderator: 0, panitia: 0 }
+  const counts: Record<PersonRole, number> = { peserta: 0, narasumber: 0, moderator: 0, panitia: 0, petugas: 0 }
   let out = 0
   for (const p of people) { const r = a[p.id]; if (r) counts[r]++; else out++ }
   return { counts, out }
@@ -23,17 +23,17 @@ export function assignSummary(people: readonly Pick<Participant, 'id'>[], a: Ass
 export const summaryText = (counts: Record<PersonRole, number>) =>
   ROLES.filter((r) => counts[r] > 0).map((r) => `${counts[r]} ${ROLE_LABEL[r].toLowerCase()}`).join(' · ')
 
-const OPTIONS: { value: PersonRole | ''; label: string }[] = [...ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] })), { value: '', label: 'Tidak ikut' }]
+const optionsFor = (roles: readonly PersonRole[]): { value: PersonRole | ''; label: string }[] => [...roles.map((r) => ({ value: r, label: ROLE_LABEL[r] })), { value: '', label: 'Tidak ikut' }]
 
 /** Pilihan kedudukan satu orang: bila merangkap, jenis yang dipegangnya ditampilkan lebih dulu. */
-function PersonOptions({ p }: { p: Participant }) {
+function PersonOptions({ p, roles }: { p: Participant; roles: readonly PersonRole[] }) {
   const own = rolesOf(p)
-  if (own.length < 2) return <>{OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}</>
+  if (own.length < 2) return <>{optionsFor(roles).map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}</>
   return (
     <>
       <optgroup label="Merangkap sebagai">{own.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</optgroup>
       <optgroup label="Lainnya">
-        {ROLES.filter((r) => !own.includes(r)).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+        {roles.filter((r) => !own.includes(r)).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
         <option value="">Tidak ikut</option>
       </optgroup>
     </>
@@ -41,8 +41,8 @@ function PersonOptions({ p }: { p: Participant }) {
 }
 
 /** Tentukan siapa yang ikut sebuah sesi dan sebagai apa (peserta, narasumber, moderator, panitia). */
-export default function MembersEditor({ people, assign, onChange, satkerOrder }: {
-  people: Participant[]; assign: Assign; onChange: (a: Assign) => void; satkerOrder: readonly string[] | null
+export default function MembersEditor({ people, assign, onChange, satkerOrder, roles }: {
+  roles: readonly PersonRole[]; people: Participant[]; assign: Assign; onChange: (a: Assign) => void; satkerOrder: readonly string[] | null
 }) {
   const [q, setQ] = useState('')
   const [unit, setUnit] = useState('')
@@ -63,7 +63,7 @@ export default function MembersEditor({ people, assign, onChange, satkerOrder }:
   return (
     <div className="members-editor">
       <div className="row tight" style={{ marginBottom: 8 }}>
-        {ROLES.map((r) => <span key={r} className="badge">{ROLE_LABEL[r]} {counts[r]}</span>)}
+        {roles.map((r) => <span key={r} className="badge">{ROLE_LABEL[r]} {counts[r]}</span>)}
         <span className="badge">Tidak ikut {out}</span>
         <span className="spacer" />
         <button type="button" className="btn ghost sm" onClick={() => onChange(Object.fromEntries(people.map((p) => [p.id, p.role])))}>Samakan dengan jenis di kegiatan</button>
@@ -85,7 +85,7 @@ export default function MembersEditor({ people, assign, onChange, satkerOrder }:
               <select className="input" style={{ width: 150, minHeight: 30, padding: '2px 8px' }} value="" aria-label={`Atur semua di ${g.label}`}
                 onChange={(e) => { if (e.target.value !== '') setMany(g.items, e.target.value === '__out' ? '' : (e.target.value as PersonRole)) }}>
                 <option value="">Atur semua…</option>
-                {OPTIONS.map((o) => <option key={o.label} value={o.value === '' ? '__out' : o.value}>{o.label}</option>)}
+                {optionsFor(roles).map((o) => <option key={o.label} value={o.value === '' ? '__out' : o.value}>{o.label}</option>)}
               </select>
             </div>
             {g.items.map((p) => (
@@ -96,7 +96,7 @@ export default function MembersEditor({ people, assign, onChange, satkerOrder }:
                 </span>
                 <select className="input" style={{ width: 140, minHeight: 32, padding: '4px 8px' }} value={assign[p.id] ?? ''} aria-label={`Jenis ${p.name} pada sesi ini`}
                   onChange={(e) => onChange({ ...assign, [p.id]: e.target.value as PersonRole | '' })}>
-                  <PersonOptions p={p} />
+                  <PersonOptions p={p} roles={roles} />
                 </select>
               </div>
             ))}

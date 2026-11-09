@@ -1,13 +1,27 @@
-import type { PersonRole } from './types'
+import type { ActivityJenis, PersonRole } from './types'
 
-export const ROLES: PersonRole[] = ['peserta', 'narasumber', 'moderator', 'panitia']
-export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber', moderator: 'Moderator', panitia: 'Panitia' }
-export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 'info', moderator: 'primary', panitia: 'warn' }
+/** Semua jenis orang, dalam urutan baku (dipakai untuk mengurutkan peran yang merangkap). */
+export const ROLES: PersonRole[] = ['peserta', 'narasumber', 'moderator', 'panitia', 'petugas']
+export const ROLE_LABEL: Record<PersonRole, string> = { peserta: 'Peserta', narasumber: 'Narasumber', moderator: 'Moderator', panitia: 'Panitia', petugas: 'Petugas' }
+export const ROLE_TONE: Record<PersonRole, string> = { peserta: '', narasumber: 'info', moderator: 'primary', panitia: 'warn', petugas: 'warn' }
+
+/** Jenis orang yang tersedia pada tiap jenis kegiatan. */
+export const JENIS_ROLES: Record<ActivityJenis, PersonRole[]> = {
+  diklat: ['peserta', 'narasumber', 'moderator', 'panitia'],
+  kegiatan: ['peserta', 'petugas'],
+}
+export const rolesForJenis = (j: ActivityJenis | undefined): PersonRole[] => JENIS_ROLES[j ?? 'diklat']
+export const JENIS_LABEL: Record<ActivityJenis, string> = { diklat: 'Diklat', kegiatan: 'Kegiatan' }
+export const JENIS_HINT: Record<ActivityJenis, string> = {
+  diklat: 'Pendidikan dan pelatihan: ada nilai akhir dan peringkat, kuis pre/post test, serta peserta, narasumber, moderator, dan panitia.',
+  kegiatan: 'Kegiatan biasa (rapat, sosialisasi, dll.): tanpa perhitungan peringkat; hanya peserta dan petugas.',
+}
 export const ROLE_HINT: Record<PersonRole, string> = {
   peserta: 'Bawaan: absensi, kuis, dan sertifikat; masuk peringkat.',
   narasumber: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
   moderator: 'Bawaan: absensi dan sertifikat, tanpa kuis dan tidak masuk peringkat.',
   panitia: 'Bawaan: semua menu kecuali kuis, tidak masuk peringkat.',
+  petugas: 'Bawaan: semua menu kecuali kuis.',
 }
 
 /** Semua jenis yang dipegang seseorang (merangkap), urut menurut urutan baku. */
@@ -28,7 +42,7 @@ export const ACCESS_LABEL: Record<keyof Access, string> = {
 }
 /** Isian awal hak akses mengikuti jenis (bisa diubah per orang): peserta = absensi, kuis, sertifikat; narasumber dan moderator = absensi, sertifikat; panitia = semua kecuali kuis. */
 export const defaultAccess = (r: PersonRole): Access => ({
-  access_attendance: true, access_notes: r === 'panitia', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia',
+  access_attendance: true, access_notes: r === 'panitia' || r === 'petugas', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia' || r === 'petugas',
 })
 
 /** Isian awal hak akses untuk beberapa jenis sekaligus: gabungan (atau) dari isian awal tiap jenis. */

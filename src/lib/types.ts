@@ -2,7 +2,9 @@ export type ActivityStatus = 'draft' | 'aktif' | 'selesai'
 export type AttendanceStatus = 'hadir' | 'terlambat' | 'izin' | 'sakit' | 'alpa'
 export type QuizType = 'pre' | 'post' | 'lainnya'
 /** jenis seseorang pada kegiatan (atau pada satu sesi absensi); hak akses menu diatur terpisah per orang. */
-export type PersonRole = 'peserta' | 'narasumber' | 'moderator' | 'panitia'
+export type PersonRole = 'peserta' | 'narasumber' | 'moderator' | 'panitia' | 'petugas'
+/** jenis kegiatan: diklat (nilai akhir, peringkat; peserta/narasumber/moderator/panitia) atau kegiatan (tanpa peringkat; peserta dan petugas) */
+export type ActivityJenis = 'kegiatan' | 'diklat'
 
 export interface Activity {
   id: string
@@ -13,6 +15,7 @@ export interface Activity {
   start_date: string | null
   end_date: string | null
   status: ActivityStatus
+  jenis: ActivityJenis
   weight_attendance: number
   show_leaderboard: boolean
   /** urutan tampil satuan kerja (kunci huruf kecil); null = abjad */
@@ -290,6 +293,7 @@ export interface PortalData {
     end_date: string | null
     status: ActivityStatus
     show_leaderboard: boolean
+    jenis?: ActivityJenis
   }
   /** menu yang boleh dipakai orang ini = menu aktif di kegiatan dan hak akses orang ini */
   features: { attendance: boolean; quiz: boolean; certificate: boolean; notes: boolean; documentation: boolean }
@@ -400,4 +404,5 @@ export interface PublicActivity {
   location: string | null
   start_date: string | null
   end_date: string | null
+  jenis?: ActivityJenis
 }

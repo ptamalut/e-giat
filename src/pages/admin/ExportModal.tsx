@@ -2,7 +2,7 @@ import { ArrowUpDown, FileText, FileType2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Check, Field, Modal, useToast } from '../../components/ui'
 import { buildExportModel, downloadBlob, exportFilename, type ExportColumn, type ExportOptions } from '../../lib/exportModel'
-import { hasRole, ROLE_LABEL, ROLES } from '../../lib/people'
+import { hasRole, ROLE_LABEL, rolesForJenis } from '../../lib/people'
 import { errMsg } from '../../lib/supabase'
 import type { Activity, Participant, PersonRole } from '../../lib/types'
 
@@ -18,13 +18,14 @@ const PRESETS = ['Daftar Peserta', 'Daftar Hadir', 'Daftar Narasumber', 'Daftar 
 
 /** Ekspor daftar peserta/narasumber/panitia ke Word (.docx) atau PDF, mengikuti urutan satker dan urutan orang. */
 export default function ExportModal({ activity, people, onClose, onOrder }: {
-  activity: Pick<Activity, 'name' | 'start_date' | 'end_date' | 'location' | 'satker_order'>
+  activity: Pick<Activity, 'name' | 'start_date' | 'end_date' | 'location' | 'satker_order' | 'jenis'>
   people: Participant[]   // sudah berurutan
   onClose: () => void
   onOrder: () => void
 }) {
   const toast = useToast()
-  const present = ROLES.filter((r) => people.some((p) => hasRole(p, r)))
+  const avail = rolesForJenis(activity.jenis)
+  const present = avail.filter((r) => people.some((p) => hasRole(p, r)))
   const [title, setTitle] = useState('Daftar Peserta')
   const [roles, setRoles] = useState<PersonRole[]>(present.length ? present : ['peserta'])
   // bila ada lebih dari satu peran, kolom Peran diaktifkan agar pembaca dokumen tahu siapa narasumber/panitia
@@ -72,7 +73,7 @@ export default function ExportModal({ activity, people, onClose, onOrder }: {
       <div className="form-grid">
         <div>
           <div className="label" style={{ marginBottom: 8 }}>Siapa saja yang dimasukkan</div>
-          {ROLES.map((r) => {
+          {avail.map((r) => {
             const n = people.filter((p) => hasRole(p, r)).length
             return <Check key={r} label={`${ROLE_LABEL[r]} (${n})`} checked={roles.includes(r)} onChange={() => setRoles(toggle(roles, r))} />
           })}
