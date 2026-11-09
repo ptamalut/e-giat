@@ -6,7 +6,7 @@ import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadges } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
-import { hasRole, ROLE_LABEL, ROLES, roleLine, rolesLabel, rolesOf } from '../../lib/people'
+import { hasRole, ROLE_LABEL, rolesForJenis, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import { fmtDateTime, fmtDuration, fmtPct, fmtScore } from '../../lib/format'
 import {
   attendanceMatrix, gainTable, itemAnalysis, memberMapOf, nGainCategory, quizResults, satkerSummary, sessionRole,
@@ -48,8 +48,9 @@ export default function ReportsTab() {
   const [sp, setSp] = useSearchParams()
   // bagian laporan mengikuti menu yang aktif pada kegiatan
   const quizSections: Section[] = ['kuis', 'prepost', 'soal']
-  const sections = SECTIONS.filter((s) => (s.id === 'kehadiran' ? activity.enable_attendance : quizSections.includes(s.id) ? activity.enable_quiz : true))
-  const section = (sections.find((s) => s.id === sp.get('bagian'))?.id ?? 'peringkat') as Section
+  // jenis Kegiatan tidak punya peringkat
+  const sections = SECTIONS.filter((s) => (s.id === 'peringkat' ? activity.jenis === 'diklat' : s.id === 'kehadiran' ? activity.enable_attendance : quizSections.includes(s.id) ? activity.enable_quiz : true))
+  const section = (sections.find((s) => s.id === sp.get('bagian'))?.id ?? sections[0]?.id ?? 'satker') as Section
 
   const { data, error, loading, reload } = useAsync<Data>(async () => {
     const [participants, sessions, attendances, members, quizzes, questions, attempts, rank] = await Promise.all([
@@ -158,6 +159,7 @@ function RankingSection({ data, name, weight }: { data: Data; name: string; weig
 
 /* ---------- Kehadiran ---------- */
 function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: string; satkerOrder: string[] | null }) {
+  const { activity } = useActivity()
   const [roleFilter, setRoleFilter] = useState<'semua' | PersonRole>('semua')
   const [grouped, setGrouped] = useState(true)
   const [unit, setUnit] = useState('')
@@ -182,7 +184,7 @@ function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: stri
       <div className="row no-print">
         {data.participants.some((p) => rolesOf(p).some((r) => r !== 'peserta')) && (
           <div className="pills" role="group" aria-label="Filter peran">
-            {(['semua', ...ROLES] as const).map((r) => (
+            {(['semua', ...rolesForJenis(activity.jenis)] as const).map((r) => (
               <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                 {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
               </button>
@@ -251,45 +253,56 @@ function AttendanceSection({ data, name, satkerOrder }: { data: Data; name: stri
 
 /* ---------- Rekap per satuan kerja ---------- */
 function SatkerSection({ data, name }: { data: Data; name: string }) {
+  const { activity } = useActivity()
+  const diklat = activity.jenis === 'diklat'
   const rows = useMemo(() => satkerSummary(data.participants, data.sessions, data.attendances, data.ranking, data.members), [data])
   const top = rows.filter((r) => r.rank === 1)
   const bestAtt = [...rows].filter((r) => r.attendancePct != null).sort((a, b) => b.attendancePct! - a.attendancePct!)[0]
-  const order = [...rows].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || a.label.localeCompare(b.label, 'id'))
+  const order = [...rows].sort((a, b) => (diklat ? (a.rank ?? 9999) - (b.rank ?? 9999) : 0) || a.label.localeCompare(b.label, 'id'))
 
   return (
     <>
       <div className="grid cols-4">
         <Stat icon={<Building2 size={20} />} value={rows.length} label="Satuan kerja" />
         <Stat icon={<Users size={20} />} tone="info" value={data.participants.length} label="Total orang" sub={`${rows.reduce((n, r) => n + r.peserta, 0)} peserta`} />
-        <Stat icon={<Trophy size={20} />} tone="warn" value={top[0] ? fmtScore(top[0].avgFinal) : '—'} label="Rata-rata nilai tertinggi" sub={top.map((r) => r.label).join(', ') || undefined} />
+        {diklat
+          ? <Stat icon={<Trophy size={20} />} tone="warn" value={top[0] ? fmtScore(top[0].avgFinal) : '—'} label="Rata-rata nilai tertinggi" sub={top.map((r) => r.label).join(', ') || undefined} />
+          : <Stat icon={<Users size={20} />} tone="warn" value={rows.reduce((n, r) => n + r.petugas, 0)} label="Petugas" />}
         <Stat icon={<Percent size={20} />} tone="success" value={bestAtt ? fmtPct(bestAtt.attendancePct) : '—'} label="Kehadiran tertinggi" sub={bestAtt?.label} />
       </div>
       <div className="card flush">
         <div className="card-head">
           <h2>Rekap per satuan kerja</h2><span className="spacer" />
-          <button className="btn sm no-print" onClick={() => downloadCsv(`per-satker-${safeName(name)}`, [
+          <button className="btn sm no-print" onClick={() => downloadCsv(`per-satker-${safeName(name)}`, diklat ? [
             ['Peringkat', 'Satuan Kerja', 'Peserta', 'Narasumber', 'Moderator', 'Panitia', 'Kehadiran %', 'Rata-rata kuis', 'Rata-rata nilai akhir'],
             ...order.map((r) => [r.rank, r.label, r.peserta, r.narasumber, r.moderator, r.panitia, r.attendancePct == null ? '' : Math.round(r.attendancePct), r.avgQuiz == null ? '' : Number(r.avgQuiz.toFixed(1)), r.avgFinal == null ? '' : Number(r.avgFinal.toFixed(1))]),
+          ] : [
+            ['Satuan Kerja', 'Peserta', 'Petugas', 'Kehadiran %'],
+            ...order.map((r) => [r.label, r.peserta, r.petugas, r.attendancePct == null ? '' : Math.round(r.attendancePct)]),
           ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>#</th><th>Satuan kerja</th><th className="num">Peserta</th><th className="num">Narasumber</th><th className="num">Moderator</th><th className="num">Panitia</th><th style={{ minWidth: 150 }}>Kehadiran</th><th className="num">Rata-rata kuis</th><th style={{ minWidth: 160 }}>Rata-rata nilai akhir</th></tr></thead>
+          <thead><tr>{diklat && <th>#</th>}<th>Satuan kerja</th><th className="num">Peserta</th>{diklat ? <><th className="num">Narasumber</th><th className="num">Moderator</th><th className="num">Panitia</th></> : <th className="num">Petugas</th>}<th style={{ minWidth: 150 }}>Kehadiran</th>{diklat && <><th className="num">Rata-rata kuis</th><th style={{ minWidth: 160 }}>Rata-rata nilai akhir</th></>}</tr></thead>
           <tbody>{order.map((r) => (
             <tr key={r.key || '__none__'}>
-              <td><RankMedal rank={r.rank} /></td>
+              {diklat && <td><RankMedal rank={r.rank} /></td>}
               <td><b>{r.label}</b></td>
               <td className="num">{r.peserta}</td>
-              <td className="num">{r.narasumber || <span className="muted">—</span>}</td>
-              <td className="num">{r.moderator || <span className="muted">—</span>}</td>
-              <td className="num">{r.panitia || <span className="muted">—</span>}</td>
+              {diklat ? <>
+                <td className="num">{r.narasumber || <span className="muted">—</span>}</td>
+                <td className="num">{r.moderator || <span className="muted">—</span>}</td>
+                <td className="num">{r.panitia || <span className="muted">—</span>}</td>
+              </> : <td className="num">{r.petugas || <span className="muted">—</span>}</td>}
               <td>{r.attendancePct == null ? <span className="muted">—</span> : <HBar value={r.attendancePct} tone={r.attendancePct >= 75 ? 'good' : r.attendancePct >= 50 ? 'mid' : 'bad'} label={fmtPct(r.attendancePct)} />}</td>
-              <td className="num">{fmtScore(r.avgQuiz)}</td>
-              <td>{r.avgFinal == null ? <span className="muted">Belum ada peserta bernilai</span> : <HBar value={r.avgFinal} tone={scoreTone(r.avgFinal, null)} label={fmtScore(r.avgFinal)} />}</td>
+              {diklat && <>
+                <td className="num">{fmtScore(r.avgQuiz)}</td>
+                <td>{r.avgFinal == null ? <span className="muted">Belum ada peserta bernilai</span> : <HBar value={r.avgFinal} tone={scoreTone(r.avgFinal, null)} label={fmtScore(r.avgFinal)} />}</td>
+              </>}
             </tr>
           ))}</tbody>
         </table></div>
       </div>
-      <p className="muted small">Kehadiran dihitung dari seluruh orang di satker (semua peran). Rata-rata kuis dan nilai akhir hanya dari peserta; peringkat satker menurut rata-rata nilai akhir.</p>
+      <p className="muted small">{diklat ? 'Kehadiran dihitung dari seluruh orang di satker (semua peran). Rata-rata kuis dan nilai akhir hanya dari peserta; peringkat satker menurut rata-rata nilai akhir.' : 'Kehadiran dihitung dari seluruh orang di satker (peserta dan petugas).'}</p>
     </>
   )
 }
@@ -309,6 +322,8 @@ function QuizPicker({ quizzes, value, onChange }: { quizzes: Quiz[]; value: stri
 
 /* ---------- Hasil kuis ---------- */
 function QuizSection({ data, name, onChanged }: { data: Data; name: string; onChanged: () => void }) {
+  const { activity } = useActivity()
+  const diklat = activity.jenis === 'diklat'
   const toast = useToast()
   const confirm = useConfirm()
   const [selId, setSelId] = useState('')
@@ -316,7 +331,7 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
   const res = useMemo(() => (quiz ? quizResults(quiz, data.participants, data.attempts) : null), [quiz, data])
   if (!quiz || !res) return <div className="card"><Empty icon={<ClipboardList size={26} />} title="Belum ada kuis" /></div>
   const inProgress = (pid: string) => data.attempts.some((t) => t.quiz_id === quiz.id && t.participant_id === pid && !t.submitted_at)
-  const order = [...res.rows].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || a.participant.name.localeCompare(b.participant.name))
+  const order = [...res.rows].sort((a, b) => (diklat ? (a.rank ?? 9999) - (b.rank ?? 9999) : 0) || a.participant.name.localeCompare(b.participant.name))
 
   async function reset(pid: string, pname: string) {
     const ok = await confirm({ title: `Reset percobaan ${pname}?`, danger: true, confirmText: 'Reset',
@@ -335,7 +350,9 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
         <Stat icon={<Users size={20} />} value={`${stats.taken}/${stats.total}`} label="Sudah mengerjakan" />
         <Stat icon={<Percent size={20} />} tone="info" value={fmtScore(stats.avg)} label="Rata-rata" sub={stats.min != null ? `terendah ${fmtScore(stats.min)} · tertinggi ${fmtScore(stats.max)}` : undefined} />
         <Stat icon={<CheckCircle2 size={20} />} tone="success" value={stats.passRate == null ? '—' : fmtPct(stats.passRate)} label="Tingkat kelulusan" sub={quiz.passing_score != null ? `nilai lulus ${quiz.passing_score}` : 'tanpa nilai lulus'} />
-        <Stat icon={<Award size={20} />} tone="warn" value={res.ranked[0] ? fmtScore(res.ranked[0].score) : '—'} label="Skor tertinggi" sub={res.ranked[0]?.participant.name} />
+        {diklat
+          ? <Stat icon={<Award size={20} />} tone="warn" value={res.ranked[0] ? fmtScore(res.ranked[0].score) : '—'} label="Skor tertinggi" sub={res.ranked[0]?.participant.name} />
+          : <Stat icon={<Award size={20} />} tone="warn" value={stats.total - stats.taken} label="Belum mengerjakan" />}
       </div>
       <div className="card">
         <h3>Sebaran nilai</h3>
@@ -345,17 +362,17 @@ function QuizSection({ data, name, onChanged }: { data: Data; name: string; onCh
         <div className="card-head">
           <h2>{quiz.title} <span className={`badge ${TYPE_TONE[quiz.type]}`}>{TYPE_LABEL[quiz.type]}</span></h2><span className="spacer" />
           <button className="btn sm no-print" onClick={() => downloadCsv(`hasil-${safeName(quiz.title)}-${safeName(name)}`, [
-            ['Peringkat', 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Percobaan', 'Skor terbaik', 'Benar', 'Durasi', 'Status'],
-            ...order.map((r) => [r.rank, r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution, r.attempts, r.score,
+            [...(diklat ? ['Peringkat'] : []), 'Nama Lengkap & Gelar', 'NIP', 'Pangkat/Gol. Ruang', 'Jabatan', 'Satuan Kerja', 'Percobaan', 'Skor terbaik', 'Benar', 'Durasi', 'Status'],
+            ...order.map((r) => [...(diklat ? [r.rank] : []), r.participant.name, r.participant.identifier, r.participant.grade, r.participant.job_title, r.participant.institution, r.attempts, r.score,
               r.best ? `${r.best.correct_count}/${r.best.total_questions}` : '', r.duration != null ? fmtDuration(r.duration) : '',
               r.passed == null ? (r.score == null ? 'Belum mengerjakan' : '') : r.passed ? 'Lulus' : 'Tidak lulus']),
           ])}><Download size={14} /> CSV</button>
         </div>
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>#</th><th>Nama</th><th className="num">Percobaan</th><th style={{ minWidth: 150 }}>Skor terbaik</th><th className="num">Benar</th><th className="num">Durasi</th><th>Status</th><th className="no-print"></th></tr></thead>
+          <thead><tr>{diklat && <th>#</th>}<th>Nama</th><th className="num">Percobaan</th><th style={{ minWidth: 150 }}>Skor terbaik</th><th className="num">Benar</th><th className="num">Durasi</th><th>Status</th><th className="no-print"></th></tr></thead>
           <tbody>{order.map((r) => (
             <tr key={r.participant.id}>
-              <td><RankMedal rank={r.rank} /></td>
+              {diklat && <td><RankMedal rank={r.rank} /></td>}
               <td><b>{r.participant.name}</b><div className="muted small">{roleLine(r.participant)}</div></td>
               <td className="num">{r.attempts}{inProgress(r.participant.id) && <span className="badge warn" style={{ marginLeft: 6 }}>berjalan</span>}</td>
               <td>{r.score == null ? <span className="muted">Belum mengerjakan</span> : <HBar value={r.score} tone={scoreTone(r.score, quiz.passing_score)} label={fmtScore(r.score)} />}</td>

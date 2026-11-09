@@ -3,19 +3,19 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
 import { activeMenus, type MenuDef } from '../../lib/menus'
-import { ACCESS_KEYS, defaultAccessFor, rolesOf, ROLE_HINT, ROLE_LABEL, ROLES, sortRoles, type Access } from '../../lib/people'
+import { ACCESS_KEYS, defaultAccessFor, rolesForJenis, rolesOf, ROLE_HINT, ROLE_LABEL, sortRoles, type Access } from '../../lib/people'
 import { groupBySatker, matchesUnit, NONE_KEY, sortPeople } from '../../lib/satker'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Activity, Employee, Participant, PersonRole } from '../../lib/types'
 
-/** Pilihan jenis (peserta/narasumber/moderator/panitia). Boleh lebih dari satu (merangkap); minimal satu. */
-function RolePills({ value, onChange }: { value: PersonRole[]; onChange: (r: PersonRole[]) => void }) {
+/** Pilihan jenis menurut jenis kegiatan. Boleh lebih dari satu (merangkap); minimal satu. */
+function RolePills({ roles, value, onChange }: { roles: readonly PersonRole[]; value: PersonRole[]; onChange: (r: PersonRole[]) => void }) {
   const toggle = (r: PersonRole) => {
     if (value.includes(r)) { if (value.length > 1) onChange(sortRoles(value.filter((x) => x !== r))) } else onChange(sortRoles([...value, r]))
   }
   return (
     <div className="pills" role="group" aria-label="Jenis">
-      {ROLES.map((r) => (
+      {roles.map((r) => (
         <button type="button" key={r} aria-pressed={value.includes(r)} className={`pill ${value.includes(r) ? 'active' : ''}`} onClick={() => toggle(r)}>{ROLE_LABEL[r]}</button>
       ))}
     </div>
@@ -142,7 +142,7 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
 
           <div className="picker-settings">
             <Field label={`Jenis untuk ${n || 'yang dipilih'} orang`} hint={roleHint(roles)}>
-              <RolePills value={roles} onChange={(r) => { setRoles(r); setAccess(defaultAccessFor(r)) }} />
+              <RolePills roles={rolesForJenis(activity.jenis)} value={roles} onChange={(r) => { setRoles(r); setAccess(defaultAccessFor(r)) }} />
             </Field>
             <Field label="Hak akses menu" hint="Menu yang boleh dipakai orang-orang ini lewat link pribadinya. Bisa diubah lagi per orang.">
               <AccessChecks activity={activity} value={access} onChange={setAccess} />
@@ -196,7 +196,7 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
             <button type="button" aria-pressed={roles === 'keep'} className={`pill ${roles === 'keep' ? 'active' : ''}`} onClick={() => setRoles('keep')}>Tidak diubah</button>
           </div>
         )}
-        <RolePills value={roles === 'keep' ? [] : roles} onChange={(r) => {
+        <RolePills roles={rolesForJenis(activity.jenis)} value={roles === 'keep' ? [] : roles} onChange={(r) => {
           setRoles(r)
           if (!bulk) setAccess((cur) => ({ ...cur, ...Object.fromEntries(menus.map((m) => [m.access, defaultAccessFor(r)[m.access]])) })) // jenis baru = isian awal baru untuk menu aktif (boleh diubah lagi)
         }} />

@@ -46,6 +46,10 @@ alter table public.activities add column if not exists enable_certificate   bool
 alter table public.activities add column if not exists enable_documentation boolean not null default true;
 -- tampil di halaman depan (kegiatan berjalan) sehingga peserta bisa masuk dengan NIP
 alter table public.activities add column if not exists public_access boolean not null default true;
+-- jenis kegiatan: diklat (nilai akhir, peringkat, kuis; peserta/narasumber/moderator/panitia) atau kegiatan (tanpa peringkat; peserta dan petugas)
+alter table public.activities add column if not exists jenis text not null default 'diklat';
+alter table public.activities drop constraint if exists activities_jenis_check;
+alter table public.activities add constraint activities_jenis_check check (jenis in ('kegiatan', 'diklat'));
 create index if not exists activities_owner_idx on public.activities (owner_id, created_at desc);
 
 -- Data pegawai (induk data orang, milik satu akun panitia). Peserta kegiatan dipilih dari sini.
@@ -85,7 +89,7 @@ create table if not exists public.participants (
   email        text,                -- tidak lagi diisi dari aplikasi (dipertahankan untuk data lama)
   phone        text,                -- nomor WhatsApp
   -- jenis: peserta (masuk peringkat), narasumber, moderator, panitia; hak akses menu diatur terpisah per orang
-  role         text not null default 'peserta' check (role in ('peserta', 'narasumber', 'moderator', 'panitia')),
+  role         text not null default 'peserta' check (role in ('peserta', 'narasumber', 'moderator', 'panitia', 'petugas')),
   -- urutan tampil di dalam satuan kerja (kecil = lebih atas); null = setelah yang berurutan, lalu abjad
   sort_order   int,
   -- token rahasia untuk link unik peserta (122 bit acak)
@@ -164,7 +168,7 @@ alter table public.participants alter column roles set default '{}';
 alter table public.participants alter column roles set not null;
 alter table public.participants drop constraint if exists participants_roles_check;
 alter table public.participants add constraint participants_roles_check
-  check (cardinality(roles) >= 1 and roles <@ array['peserta', 'narasumber', 'moderator', 'panitia']);
+  check (cardinality(roles) >= 1 and roles <@ array['peserta', 'narasumber', 'moderator', 'panitia', 'petugas']);
 
 create or replace function public._sync_roles()
 returns trigger
@@ -187,7 +191,7 @@ create trigger participants_sync_roles before insert or update on public.partici
 create unique index if not exists participants_employee_uq on public.participants (activity_id, employee_id) where employee_id is not null;
 -- batas diganti agar ikut memperbarui database yang sebelumnya hanya mengenal peserta/narasumber
 alter table public.participants drop constraint if exists participants_role_check;
-alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'moderator', 'panitia'));
+alter table public.participants add constraint participants_role_check check (role in ('peserta', 'narasumber', 'moderator', 'panitia', 'petugas'));
 
 -- Sesi absensi (mis. Hari 1, Hari 2, Sesi Pagi, ...)
 create table if not exists public.attendance_sessions (
@@ -215,7 +219,7 @@ create table if not exists public.session_members (
   session_id      uuid not null,
   activity_id     uuid not null,
   participant_id  uuid not null,
-  role            text not null check (role in ('peserta', 'narasumber', 'moderator', 'panitia')),
+  role            text not null check (role in ('peserta', 'narasumber', 'moderator', 'panitia', 'petugas')),
   primary key (session_id, participant_id),
   foreign key (session_id, activity_id) references public.attendance_sessions (id, activity_id) on delete cascade,
   foreign key (participant_id, activity_id) references public.participants (id, activity_id) on delete cascade
@@ -793,7 +797,7 @@ begin
     'activity', jsonb_build_object(
       'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
       'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
-      'show_leaderboard', a.show_leaderboard),
+      'show_leaderboard', a.show_leaderboard and a.jenis = 'diklat', 'jenis', a.jenis),
     -- ringkasan sertifikat (tanpa alamat berkas; alamat baru dibuka oleh portal_certificate)
     'certificate', case when a.enable_certificate and p.access_certificate and (a.certificates_open or c.id is not null) then jsonb_build_object(
       'open', a.certificates_open,
@@ -1143,7 +1147,7 @@ declare
 begin
   p := public._participant_by_token(p_token);
   select * into a from public.activities where id = p.activity_id;
-  if not a.show_leaderboard or not ('peserta' = any(p.roles)) or not (a.enable_attendance or a.enable_quiz) then
+  if a.jenis <> 'diklat' or not a.show_leaderboard or not ('peserta' = any(p.roles)) or not (a.enable_attendance or a.enable_quiz) then
     return jsonb_build_object('enabled', false, 'rows', '[]'::jsonb);
   end if;
   return jsonb_build_object(
@@ -1171,7 +1175,7 @@ returns jsonb
 language sql stable security definer set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
-           'start_date', a.start_date, 'end_date', a.end_date)
+           'start_date', a.start_date, 'end_date', a.end_date, 'jenis', a.jenis)
          order by a.start_date nulls last, a.created_at desc), '[]'::jsonb)
     from public.activities a
    where a.status = 'aktif' and a.public_access;
@@ -1182,7 +1186,7 @@ create or replace function public.public_activity(p_id uuid)
 returns jsonb
 language sql stable security definer set search_path = public as $$
   select jsonb_build_object('id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
-                            'start_date', a.start_date, 'end_date', a.end_date)
+                            'start_date', a.start_date, 'end_date', a.end_date, 'jenis', a.jenis)
     from public.activities a
    where a.id = p_id and a.status = 'aktif' and a.public_access;
 $$;
@@ -1890,7 +1894,7 @@ language sql stable security definer set search_path = public as $$
     from (
       select jsonb_build_object(
                'id', a.id, 'name', a.name, 'description', a.description, 'location', a.location,
-               'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status,
+               'start_date', a.start_date, 'end_date', a.end_date, 'status', a.status, 'jenis', a.jenis,
                'sort_date', coalesce(a.start_date, a.created_at::date),
                'photo_count', coalesce(g.n, 0), 'cover', g.cover) as x
         from public.activities a
@@ -1907,3 +1911,95 @@ $$;
 
 revoke all on function public.public_history() from public, anon;
 grant execute on function public.public_history() to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- JENIS KEGIATAN: "diklat" (perilaku lama: nilai akhir, peringkat, kuis; peserta/narasumber/moderator/panitia)
+-- atau "kegiatan" (tanpa peringkat; hanya peserta dan petugas). Peran baru: petugas.
+-- ---------------------------------------------------------------------------
+
+-- batasan peran: tambah 'petugas' (dibuang berdasarkan isi, agar tidak bergantung pada nama batasan)
+do $$
+declare c record;
+begin
+  for c in select conname from pg_constraint
+            where conrelid = 'public.participants'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%role%' loop
+    execute format('alter table public.participants drop constraint %I', c.conname);
+  end loop;
+  for c in select conname from pg_constraint
+            where conrelid = 'public.session_members'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%role%' loop
+    execute format('alter table public.session_members drop constraint %I', c.conname);
+  end loop;
+end $$;
+alter table public.participants add constraint participants_role_check
+  check (role in ('peserta', 'narasumber', 'moderator', 'panitia', 'petugas'));
+alter table public.participants add constraint participants_roles_check
+  check (cardinality(roles) >= 1 and roles <@ array['peserta', 'narasumber', 'moderator', 'panitia', 'petugas']);
+alter table public.session_members add constraint session_members_role_check
+  check (role in ('peserta', 'narasumber', 'moderator', 'panitia', 'petugas'));
+
+-- jenis harus cocok dengan peran: kegiatan = peserta/petugas; diklat = tanpa petugas
+create or replace function public._check_participant_jenis()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  j text;
+begin
+  select jenis into j from public.activities where id = new.activity_id;
+  if j = 'kegiatan' and not (new.roles <@ array['peserta', 'petugas']) then
+    raise exception 'Pada jenis Kegiatan hanya ada peserta dan petugas.' using errcode = '23514';
+  end if;
+  if j = 'diklat' and 'petugas' = any(new.roles) then
+    raise exception 'Petugas hanya untuk jenis Kegiatan; pada Diklat gunakan narasumber, moderator, atau panitia.' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists participants_z_check_jenis on public.participants;
+create trigger participants_z_check_jenis before insert or update of role, roles, activity_id on public.participants
+  for each row execute function public._check_participant_jenis();
+
+create or replace function public._check_member_jenis()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  j text;
+begin
+  select jenis into j from public.activities where id = new.activity_id;
+  if j = 'kegiatan' and new.role not in ('peserta', 'petugas') then
+    raise exception 'Pada jenis Kegiatan hanya ada peserta dan petugas.' using errcode = '23514';
+  end if;
+  if j = 'diklat' and new.role = 'petugas' then
+    raise exception 'Petugas hanya untuk jenis Kegiatan.' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists session_members_check_jenis on public.session_members;
+create trigger session_members_check_jenis before insert or update of role, activity_id on public.session_members
+  for each row execute function public._check_member_jenis();
+
+-- mengubah jenis kegiatan hanya boleh bila orang-orangnya (dan kedudukan di sesi) sudah cocok dengan jenis baru
+create or replace function public._check_activity_jenis_change()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.jenis is distinct from old.jenis then
+    if new.jenis = 'kegiatan' and (
+         exists (select 1 from public.participants where activity_id = new.id and not (roles <@ array['peserta', 'petugas']))
+      or exists (select 1 from public.session_members where activity_id = new.id and role not in ('peserta', 'petugas'))) then
+      raise exception 'Tidak bisa diubah ke jenis Kegiatan: masih ada narasumber, moderator, atau panitia. Ubah atau keluarkan mereka dulu.' using errcode = '23514';
+    end if;
+    if new.jenis = 'diklat' and (
+         exists (select 1 from public.participants where activity_id = new.id and 'petugas' = any(roles))
+      or exists (select 1 from public.session_members where activity_id = new.id and role = 'petugas')) then
+      raise exception 'Tidak bisa diubah ke jenis Diklat: masih ada petugas. Ubah jenis mereka dulu (mis. menjadi panitia).' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists activities_check_jenis_change on public.activities;
+create trigger activities_check_jenis_change before update of jenis on public.activities
+  for each row execute function public._check_activity_jenis_change();
+
+revoke all on function public._check_participant_jenis(), public._check_member_jenis(), public._check_activity_jenis_change() from public, anon, authenticated;

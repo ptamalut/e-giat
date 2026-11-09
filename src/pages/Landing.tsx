@@ -9,6 +9,7 @@ import { ThemeToggle } from '../components/theme'
 import { contactLines, copyright, DEFAULT_HERO_TEXT, DEFAULT_HERO_TITLE, websiteHref } from '../lib/branding'
 import { fmtDateRange } from '../lib/format'
 import { fetchGalleryRecent, galleryPhotoUrl, type GalleryRecent } from '../lib/galleryApi'
+import { JENIS_LABEL } from '../lib/people'
 import { fetchHistory, historyStatusLabel, type HistoryItem } from '../lib/historyApi'
 import { fetchPublicActivities } from '../lib/publicApi'
 import { fmtCount, recordVisit, type SiteStats } from '../lib/siteApi'
@@ -119,7 +120,7 @@ export default function Landing() {
                   <div className="history-card">
                     <div className="history-cover">
                       {h.cover ? <img src={galleryPhotoUrl(h.cover)} alt="" loading="lazy" /> : <CalendarDays size={40} strokeWidth={1.5} />}
-                      <span className={`badge dot ${h.status === 'aktif' ? 'success' : ''}`}>{historyStatusLabel(h.status)}</span>
+                      <span className={`badge dot ${h.status === 'aktif' ? 'success' : ''}`}>{historyStatusLabel(h.status)}{h.jenis ? ` · ${JENIS_LABEL[h.jenis]}` : ''}</span>
                     </div>
                     <div className="history-body">
                       <h3>{h.name}</h3>

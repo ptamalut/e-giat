@@ -8,7 +8,7 @@ import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import { RoleBadge } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
 import { groupBySatker, matchesUnit, roleSummary, sortPeople } from '../../lib/satker'
-import { ROLE_LABEL, ROLES } from '../../lib/people'
+import { ROLE_LABEL, rolesForJenis } from '../../lib/people'
 import type { Attendance, AttendanceSession, AttendanceStatus, Participant, PersonRole, SessionMember } from '../../lib/types'
 import { fmtAccuracy, fmtCoord, mapsUrl } from '../../lib/capture'
 import { deleteSessionPhotos, removeSelfiesOf, signedSelfieUrls } from '../../lib/selfieApi'
@@ -213,7 +213,7 @@ export default function AttendanceTab() {
               <div className="row">
               <label className="search"><Search size={16} /><input className="input" placeholder="Cari peserta" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari peserta" /></label>
               <div className="pills" role="group" aria-label="Filter peran">
-                {(['semua', ...ROLES] as const).map((r) => (
+                {(['semua', ...rolesForJenis(activity.jenis)] as const).map((r) => (
                   <button key={r} className={`pill ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                     {r === 'semua' ? 'Semua' : ROLE_LABEL[r]} <span className="muted">{roleCount(r)}</span>
                   </button>
@@ -295,7 +295,7 @@ export default function AttendanceTab() {
 
       {exporting && <AttendanceExport activity={activity} people={data.participants.filter((p) => p.access_attendance)} sessions={data.sessions} attendances={data.attendances} members={data.members}
         currentId={current?.id} onClose={() => setExporting(false)} />}
-      {editing && <SessionForm value={editing.value} members={editing.members} activityId={activity.id}
+      {editing && <SessionForm value={editing.value} members={editing.members} activityId={activity.id} roles={rolesForJenis(activity.jenis)}
         people={data.participants.filter((p) => p.access_attendance)} satkerOrder={activity.satker_order}
         attendedIds={new Set(data.attendances.filter((a) => editing.value.id && a.session_id === editing.value.id).map((a) => a.participant_id))}
         onClose={() => setEditing(null)}
@@ -304,7 +304,8 @@ export default function AttendanceTab() {
   )
 }
 
-function SessionForm({ value, members, activityId, people, satkerOrder, attendedIds, onClose, onSaved }: {
+function SessionForm({ value, members, activityId, roles, people, satkerOrder, attendedIds, onClose, onSaved }: {
+  roles: PersonRole[]
   value: Partial<AttendanceSession>; members: SessionMember[] | null; activityId: string; people: Participant[]
   satkerOrder: readonly string[] | null; attendedIds: Set<string>; onClose: () => void; onSaved: (id: string) => void
 }) {
@@ -372,7 +373,7 @@ function SessionForm({ value, members, activityId, people, satkerOrder, attended
         <p className="hint">Foto dan lokasi hanya dapat dilihat admin kegiatan ini. Jika keduanya dimatikan, peserta langsung absen satu ketukan.</p>
 
         <Field label="Siapa yang ikut sesi ini" hint={custom
-          ? 'Tentukan kedudukan tiap orang pada sesi ini: peserta, narasumber, moderator, atau panitia. Orang yang merangkap tinggal dipilihkan salah satu kedudukannya. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.'
+          ? `Tentukan kedudukan tiap orang pada sesi ini: ${roles.map((r) => ROLE_LABEL[r].toLowerCase()).join(', ')}. Orang yang merangkap tinggal dipilihkan salah satu kedudukannya. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.`
           : 'Semua orang yang berhak absen di kegiatan ini ikut sesi ini, dengan jenis masing-masing. Yang merangkap mengikuti jenis utamanya (jenis pertama); pilih "Atur per sesi" bila ingin menentukan kedudukannya pada sesi ini.'}>
           <div className="pills" role="radiogroup" aria-label="Siapa yang ikut sesi ini">
             <button type="button" role="radio" aria-checked={!custom} className={`pill ${!custom ? 'active' : ''}`} onClick={() => setCustom(false)}>Semua orang di kegiatan</button>
@@ -381,7 +382,7 @@ function SessionForm({ value, members, activityId, people, satkerOrder, attended
         </Field>
         {custom && (
           <>
-            <MembersEditor people={people} assign={assign} onChange={setAssign} satkerOrder={satkerOrder} />
+            <MembersEditor roles={roles} people={people} assign={assign} onChange={setAssign} satkerOrder={satkerOrder} />
             <p className="hint" style={{ marginTop: 8 }}>
               Ringkasan sesi ini: {summaryText(counts) || 'belum ada yang dipilih'}. Orang yang ditambahkan ke kegiatan setelah sesi ini dibuat perlu ditambahkan lewat <b>Ubah</b> sesi.
             </p>
