@@ -66,6 +66,11 @@ di halaman depan (lihat di bawah).
   melihat **notula Final** dan **dokumentasi** di halaman pribadinya.
 - **Notula**: catatan rapat/sesi (waktu, tempat, pimpinan, pencatat, peserta rapat — bisa diisi dari absensi —, agenda,
   pembahasan, keputusan, dan **tindak lanjut** dengan penanggung jawab, tenggat, status selesai). Cetak/PDF dan unduh Word.
+- **Rekam rapat (suara → teks)** di editor notula: tombol *Mulai merekam* mengubah ucapan menjadi teks bahasa Indonesia secara langsung, **gratis dan tanpa API key**,
+  memakai pengenalan suara bawaan **Google Chrome / Microsoft Edge** (suara diproses oleh layanan browser tersebut, jadi perlu internet; Firefox/Safari belum didukung).
+  Perekaman lanjut otomatis saat Chrome berhenti karena hening, bisa dijeda/dilanjutkan, dan layar dijaga tetap menyala. Transkrip bisa disunting, dimasukkan ke
+  *Pembahasan*, atau diunduh `.txt`. *Cari keputusan & tindak lanjut* menyarankan isian berdasarkan **kata kunci** (bukan AI): kalimat "diputuskan/disepakati…" menjadi
+  keputusan, "ditugaskan kepada…/paling lambat 15 November/PIC…" menjadi tindak lanjut lengkap dengan penanggung jawab dan tenggat. Semua saran dicentang dan ditinjau dulu.
 - **Dokumentasi**: unggah foto (dikompres otomatis, disimpan di Storage dengan nama acak) atau tambah tautan video/folder, dikelompokkan
   per **album**, dengan galeri, keterangan, dan penampil foto. Peserta yang diberi hak akses melihatnya di halaman pribadinya.
 
