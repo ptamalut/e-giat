@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight, Download, ExternalLink, ImagePlus, Images, Link2, Pencil, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
-import { compressImage, DEFAULT_ALBUM, groupByAlbum, normalizeUrl, randomDocPath } from '../../lib/docs'
+import { LinkModal, UploadModal } from '../../components/DocForms'
+import { DEFAULT_ALBUM, groupByAlbum, randomDocPath } from '../../lib/docs'
 import { removeDocFiles, signedDocUrls, uploadDoc } from '../../lib/docsApi'
 import { fmtDate } from '../../lib/format'
 import { safeName } from '../../lib/csv'
@@ -100,6 +101,7 @@ export default function DocsTab() {
                   <button key={d.id} type="button" className="gallery-item" onClick={() => setViewing(d.id)} aria-label={`Lihat ${d.caption || d.file_name || 'foto'}`}>
                     {d.storage_path && urls[d.storage_path] ? <img src={urls[d.storage_path]} alt={d.caption || d.file_name || 'Foto kegiatan'} loading="lazy" /> : <span className="muted small">Memuat…</span>}
                     {d.caption && <span className="gallery-cap">{d.caption}</span>}
+                    {d.added_by && <span className="gallery-by" title="Ditambahkan lewat link pribadi petugas/panitia">Dari petugas</span>}
                   </button>
                 ) : (
                   <div key={d.id} className="gallery-link">
@@ -119,9 +121,16 @@ export default function DocsTab() {
         </>
       )}
 
-      {files && <UploadModal activityId={activity.id} files={files} albums={albums.map((g) => g.album)} defaultAlbum={album}
+      {files && <UploadModal files={files} albums={albums.map((g) => g.album)} defaultAlbum={album}
+        upload={(blob, m) => uploadDoc({ activityId: activity.id, path: randomDocPath(activity.id), blob, fileName: m.fileName, album: m.album, takenOn: m.takenOn })}
         onClose={() => setFiles(null)} onDone={() => { setFiles(null); void reload(true) }} />}
-      {linking && <LinkModal value={linking} activityId={activity.id} albums={albums.map((g) => g.album)} onClose={() => setLinking(null)} onSaved={() => { setLinking(null); void reload(true) }} />}
+      {linking && <LinkModal value={linking} albums={albums.map((g) => g.album)}
+        save={async (v) => {
+          const payload = { title: v.title, url: v.url, album: v.album, caption: v.caption, taken_on: v.takenOn }
+          const { error } = linking.id ? await supabase.from('documentation').update(payload).eq('id', linking.id) : await supabase.from('documentation').insert({ ...payload, activity_id: activity.id, kind: 'tautan' })
+          if (error) throw new Error(errMsg(error))
+        }}
+        onClose={() => setLinking(null)} onSaved={() => { setLinking(null); void reload(true) }} />}
       {current && current.kind === 'foto' && (
         <Viewer item={current} url={current.storage_path ? urls[current.storage_path] : undefined}
           index={photos.findIndex((p) => p.id === current.id)} total={photos.length}
@@ -130,91 +139,6 @@ export default function DocsTab() {
           albums={albums.map((g) => g.album)} onClose={() => setViewing(null)} onDelete={() => void remove(current)} onSaved={() => void reload(true)} />
       )}
     </div>
-  )
-}
-
-function UploadModal({ activityId, files, albums, defaultAlbum, onClose, onDone }: {
-  activityId: string; files: File[]; albums: string[]; defaultAlbum: string; onClose: () => void; onDone: () => void
-}) {
-  const toast = useToast()
-  const [album, setAlbum] = useState(defaultAlbum || '')
-  const [takenOn, setTakenOn] = useState(today())
-  const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(0)
-  const [failed, setFailed] = useState<string[]>([])
-  const bad = files.filter((f) => !f.type.startsWith('image/'))
-  const ok = files.filter((f) => f.type.startsWith('image/'))
-
-  async function go() {
-    setBusy(true); setDone(0); setFailed([])
-    const fails: string[] = []
-    for (const f of ok) {
-      try {
-        const blob = await compressImage(f)
-        if (!blob) throw new Error('Berkas tidak dapat dibaca sebagai gambar.')
-        await uploadDoc({ activityId, path: randomDocPath(activityId), blob, fileName: f.name, album: album.trim() || null, takenOn: takenOn || null })
-      } catch (e) { fails.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`) }
-      setDone((n) => n + 1)
-    }
-    setBusy(false)
-    if (fails.length) { setFailed(fails); toast(`${ok.length - fails.length} foto terunggah, ${fails.length} gagal.`, 'error'); return }
-    toast(`${ok.length} foto diunggah.`, 'success')
-    onDone()
-  }
-
-  return (
-    <Modal title={`Unggah ${ok.length} foto`} onClose={() => !busy && onClose()}
-      footer={<><button className="btn" onClick={onClose} disabled={busy}>{failed.length ? 'Tutup' : 'Batal'}</button>
-        <button className="btn primary" disabled={busy || !ok.length} onClick={() => void go()}>{busy ? `Mengunggah ${done}/${ok.length}…` : failed.length ? 'Coba lagi semua' : 'Unggah'}</button></>}>
-      <div className="form-grid">
-        <Field label="Album" hint={`Kosongkan untuk "${DEFAULT_ALBUM}".`}>
-          <input className="input" list="doc-albums" value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="mis. Hari 1" autoFocus />
-        </Field>
-        <Field label="Tanggal"><input className="input" type="date" value={takenOn} onChange={(e) => setTakenOn(e.target.value)} /></Field>
-      </div>
-      <datalist id="doc-albums">{albums.filter((a) => a !== DEFAULT_ALBUM).map((a) => <option key={a} value={a} />)}</datalist>
-      <p className="muted small">Foto dikompres otomatis (sisi terpanjang 1600 px) sebelum diunggah. Caption bisa diisi setelahnya dengan membuka fotonya.</p>
-      {bad.length > 0 && <div className="alert warn"><span>{bad.length} berkas bukan gambar dan dilewati: {bad.map((b) => b.name).join(', ')}</span></div>}
-      {failed.length > 0 && <div className="alert error"><span>{failed.join(' · ')}</span></div>}
-    </Modal>
-  )
-}
-
-function LinkModal({ value, activityId, albums, onClose, onSaved }: {
-  value: Partial<DocItem>; activityId: string; albums: string[]; onClose: () => void; onSaved: () => void
-}) {
-  const toast = useToast()
-  const [f, setF] = useState({ title: value.title ?? '', url: value.url ?? '', album: value.album ?? '', caption: value.caption ?? '', taken_on: value.taken_on ?? today() })
-  const [busy, setBusy] = useState(false)
-
-  async function submit(e: FormEvent) {
-    e.preventDefault()
-    const url = normalizeUrl(f.url)
-    if (!url) return toast('Tautan harus berupa alamat http(s) yang valid.', 'error')
-    setBusy(true)
-    const payload = { title: f.title.trim() || null, url, album: f.album.trim() || null, caption: f.caption.trim() || null, taken_on: f.taken_on || null }
-    const { error } = value.id
-      ? await supabase.from('documentation').update(payload).eq('id', value.id)
-      : await supabase.from('documentation').insert({ ...payload, activity_id: activityId, kind: 'tautan' })
-    setBusy(false)
-    if (error) return toast(errMsg(error), 'error')
-    toast('Tautan disimpan.', 'success'); onSaved()
-  }
-
-  return (
-    <Modal title={value.id ? 'Ubah tautan' : 'Tambah tautan dokumentasi'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="docform" disabled={busy}>Simpan</button></>}>
-      <form id="docform" onSubmit={submit}>
-        <Field label="Judul"><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="mis. Video pembukaan" autoFocus /></Field>
-        <Field label="Tautan *" hint="Video, folder Drive, atau dokumen di situs lain."><input className="input" required value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder="https://…" /></Field>
-        <div className="form-grid">
-          <Field label="Album"><input className="input" list="doc-albums2" value={f.album} onChange={(e) => setF({ ...f, album: e.target.value })} /></Field>
-          <Field label="Tanggal"><input className="input" type="date" value={f.taken_on} onChange={(e) => setF({ ...f, taken_on: e.target.value })} /></Field>
-        </div>
-        <datalist id="doc-albums2">{albums.filter((a) => a !== DEFAULT_ALBUM).map((a) => <option key={a} value={a} />)}</datalist>
-        <Field label="Keterangan"><textarea className="input" value={f.caption} onChange={(e) => setF({ ...f, caption: e.target.value })} /></Field>
-      </form>
-    </Modal>
   )
 }
 
