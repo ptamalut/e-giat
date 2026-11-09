@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth/AuthContext'
+import { BrandProvider } from './components/brand'
 import { ThemeProvider } from './components/theme'
 import { UIProvider } from './components/ui'
 import '@fontsource-variable/inter'
@@ -14,7 +15,9 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <UIProvider>
           <AuthProvider>
-            <App />
+            <BrandProvider>
+              <App />
+            </BrandProvider>
           </AuthProvider>
         </UIProvider>
       </ThemeProvider>

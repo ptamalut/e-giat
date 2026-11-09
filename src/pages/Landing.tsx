@@ -1,14 +1,15 @@
-import { ArrowRight, CalendarCheck, CheckCheck, ClipboardList, Images, LogIn, MapPin, Award, QrCode, UserRound, ClipboardPaste, CalendarDays } from 'lucide-react'
+import { ArrowRight, CalendarCheck, ClipboardList, Images, LogIn, MapPin, Award, QrCode, UserRound, ClipboardPaste, CalendarDays } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { BrandMark, useBrand } from '../components/brand'
 import { ThemeToggle } from '../components/theme'
+import { contactLines, copyright, DEFAULT_HERO_TEXT, DEFAULT_HERO_TITLE, websiteHref } from '../lib/branding'
 import { fmtDateRange } from '../lib/format'
 import { fetchPublicActivities } from '../lib/publicApi'
 import { errMsg } from '../lib/supabase'
 import type { PublicActivity } from '../lib/types'
 
-const SLOGAN = 'Pelaksanaan Kegiatan PTA Malut'
 
 const FEATURES = [
   { icon: QrCode, title: 'Absensi mudah', text: 'Absen dari HP, lengkap dengan foto selfie dan lokasi bila diminta panitia.' },
@@ -25,16 +26,18 @@ const STEPS = [
 ]
 
 export function Brand({ light = false }: { light?: boolean }) {
+  const { settings } = useBrand()
   return (
     <div className={`landing-brand ${light ? 'light' : ''}`}>
-      <span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>
-      <span><b>LAKSANA</b><small>{SLOGAN}</small></span>
+      <BrandMark size={18} />
+      <span><b>{settings.app_name}</b>{settings.tagline && <small>{settings.tagline}</small>}</span>
     </div>
   )
 }
 
 export default function Landing() {
   const { session } = useAuth()
+  const { settings: brand } = useBrand()
   const [items, setItems] = useState<PublicActivity[] | null>(null)
   const [error, setError] = useState('')
 
@@ -55,9 +58,9 @@ export default function Landing() {
             <Link className="btn landing-login" to={session ? '/admin' : '/login'}><LogIn size={16} /> {session ? 'Buka dashboard' : 'Masuk panitia'}</Link>
           </nav>
           <div className="landing-hero-body">
-            <span className="landing-pill">LAKSANA · {SLOGAN}</span>
-            <h1>Satu pintu untuk semua pelaksanaan kegiatan.</h1>
-            <p>Absensi, kuis, sertifikat, notula, dan dokumentasi kegiatan PTA Malut dalam satu tempat. Peserta cukup memasukkan NIP, tanpa membuat akun.</p>
+            <span className="landing-pill">{brand.app_name}{brand.tagline ? ` · ${brand.tagline}` : ''}</span>
+            <h1>{brand.hero_title ?? DEFAULT_HERO_TITLE}</h1>
+            <p>{brand.hero_text ?? DEFAULT_HERO_TEXT}</p>
             <a className="btn primary lg" href="#kegiatan">Lihat kegiatan berjalan <ArrowRight size={18} /></a>
           </div>
         </div>
@@ -128,8 +131,15 @@ export default function Landing() {
       </main>
 
       <footer className="landing-foot">
-        <div className="container row between">
-          <span>© {new Date().getFullYear()} LAKSANA - {SLOGAN}</span>
+        <div className="container row between" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <span>{copyright(brand)}</span>
+            {contactLines(brand).length > 0 && (
+              <div className="small" style={{ marginTop: 6 }}>
+                {contactLines(brand).map((l) => <div key={l}>{websiteHref(l) && l === brand.website ? <a href={websiteHref(l)!} target="_blank" rel="noreferrer">{l}</a> : l}</div>)}
+              </div>
+            )}
+          </div>
           <Link to={session ? '/admin' : '/login'}>Masuk panitia</Link>
         </div>
       </footer>

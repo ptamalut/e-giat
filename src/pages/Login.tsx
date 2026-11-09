@@ -1,9 +1,11 @@
-import { BarChart3, CheckCheck, ClipboardList, QrCode } from 'lucide-react'
+import { BarChart3, ClipboardList, QrCode } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { BrandMark, useBrand } from '../components/brand'
 import { ThemeToggle } from '../components/theme'
 import { Field } from '../components/ui'
+import { copyright } from '../lib/branding'
 import { errMsg, supabase } from '../lib/supabase'
 
 const POINTS = [
@@ -14,6 +16,7 @@ const POINTS = [
 
 export default function Login() {
   const { session, loading } = useAuth()
+  const { settings: brand } = useBrand()
   const loc = useLocation()
   const [mode, setMode] = useState<'in' | 'up'>('in')
   const [email, setEmail] = useState('')
@@ -47,8 +50,8 @@ export default function Login() {
       <div className="corner-theme"><ThemeToggle /></div>
       <aside className="auth-aside">
         <div>
-          <div className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>LAKSANA</div>
-          <div className="brand-sub">Pelaksanaan Kegiatan PTA Malut</div>
+          <div className="brand"><BrandMark size={18} />{brand.app_name}</div>
+          {brand.tagline && <div className="brand-sub">{brand.tagline}</div>}
         </div>
         <div>
           <h2>Kelola absensi dan kuis kegiatan dengan rapi.</h2>
@@ -62,12 +65,12 @@ export default function Login() {
             ))}
           </ul>
         </div>
-        <small style={{ opacity: .6 }}>© {new Date().getFullYear()} LAKSANA - Pelaksanaan Kegiatan PTA Malut</small>
+        <small style={{ opacity: .6 }}>{copyright(brand)}</small>
       </aside>
 
       <div className="auth-main">
         <div className="auth-card">
-          <div className="only-mobile" style={{ marginBottom: 28 }}><div className="brand"><span className="brand-mark"><CheckCheck size={18} strokeWidth={2.6} /></span>LAKSANA</div><div className="brand-sub">Pelaksanaan Kegiatan PTA Malut</div></div>
+          <div className="only-mobile" style={{ marginBottom: 28 }}><div className="brand"><BrandMark size={18} />{brand.app_name}</div>{brand.tagline && <div className="brand-sub">{brand.tagline}</div>}</div>
           <h1 style={{ marginBottom: 6 }}>{mode === 'in' ? 'Selamat datang kembali' : 'Buat akun panitia'}</h1>
           <p className="muted" style={{ marginBottom: 24 }}>{mode === 'in' ? 'Masuk untuk mengelola kegiatan Anda.' : 'Daftar untuk mulai membuat kegiatan.'}</p>
           {error && <div className="alert error">{error}</div>}
