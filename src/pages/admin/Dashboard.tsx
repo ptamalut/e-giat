@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, use
 import { fmtDateRange } from '../../lib/format'
 import { MENUS, type MenuKey } from '../../lib/menus'
 import { activityPhase, PHASE_LABEL, PHASE_TONE, type Phase } from '../../lib/phase'
+import { PickEmployees } from './ParticipantPicker'
 import LetterFields from '../../components/LetterFields'
 import { checkLetterFile, emptyLetter, hasLetterText, saveLetter, type LetterInput } from '../../lib/lettersApi'
 import { JENIS_LABEL } from '../../lib/people'
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [letter, setLetter] = useState<LetterInput>(emptyLetter())
   const [letterFile, setLetterFile] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
+  const [created, setCreated] = useState<Activity | null>(null)   // kegiatan yang baru dibuat: langkah terakhir, memilih peserta
   const [filter, setFilter] = useState<'semua' | Phase>('semua')
   const { data, error, loading, reload } = useAsync(async () => {
     const { data, error } = await supabase
@@ -65,7 +67,7 @@ export default function Dashboard() {
     setLetter(emptyLetter()); setLetterFile(null); setAdding(true)
   }
   const pickJenis = (j: ActivityJenis) => { setNewJenis(j); setMenuOn((m) => ({ ...m, quiz: j === 'diklat' })) }   // jenis Kegiatan tanpa kuis (bawaan)
-  const STEPS = ['Informasi', 'Dasar surat', 'Menu'] as const
+  const STEPS = ['Informasi', 'Dasar surat', 'Menu', 'Peserta'] as const
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -87,7 +89,7 @@ export default function Dashboard() {
       start_date: nf.start_date || null,
       end_date: nf.end_date || null,
       ...Object.fromEntries(MENUS.map((m) => [m.flag, menuOn[m.key]])), // menu yang dinyalakan
-    }).select('id').single()
+    }).select('*').single()
     if (error) { setCreating(false); return toast(errMsg(error), 'error') }
     // dasar surat (opsional diisi saat membuat kegiatan; berkas bisa menyusul di Ringkasan)
     let letterFailed = ''
@@ -96,8 +98,8 @@ export default function Dashboard() {
     }
     setCreating(false); setAdding(false); setLetter(emptyLetter()); setLetterFile(null)
     if (letterFailed) toast(`Kegiatan dibuat, tetapi dasar surat belum tersimpan (${letterFailed}). Tambahkan lagi di Ringkasan kegiatan.`, 'error')
-    else toast('Kegiatan dibuat. Lanjut tambahkan peserta.', 'success')
-    nav(`/admin/kegiatan/${data.id}/peserta`)
+    else toast('Kegiatan dibuat. Sekarang pilih pesertanya.', 'success')
+    setCreated(data as Activity)     // langsung lanjut ke langkah terakhir: memilih peserta dari data pegawai
   }
 
   const all = data ?? []
@@ -164,6 +166,12 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {created && (
+        <PickEmployees activity={created} taken={new Set()}
+          onClose={() => { const id = created.id; setCreated(null); nav(`/admin/kegiatan/${id}/peserta`) }}
+          onSaved={() => { const id = created.id; setCreated(null); nav(`/admin/kegiatan/${id}/peserta`) }} />
+      )}
+
       {adding && (
         <Modal title="Kegiatan baru" onClose={() => setAdding(false)}
           footer={<>
@@ -171,7 +179,7 @@ export default function Dashboard() {
             <span className="spacer" />
             {step > 0 && <button type="button" className="btn" onClick={() => setStep(step - 1)} disabled={creating}><ArrowLeft size={15} /> Kembali</button>}
             <button className="btn primary" form="new-act" disabled={creating}>
-              {step < 2 ? <>{step === 1 && !hasLetterText(letter) && !letterFile ? 'Lewati' : 'Lanjut'} <ArrowRight size={15} /></> : creating ? 'Menyimpan…' : 'Simpan & tambah peserta'}
+              {step < 2 ? <>{step === 1 && !hasLetterText(letter) && !letterFile ? 'Lewati' : 'Lanjut'} <ArrowRight size={15} /></> : creating ? 'Menyimpan…' : <>Buat &amp; pilih peserta <ArrowRight size={15} /></>}
             </button>
           </>}>
           <Stepper steps={STEPS} current={step} />

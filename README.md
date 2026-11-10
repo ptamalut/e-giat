@@ -59,7 +59,7 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
   Berkas disimpan di bucket `materi` dengan nama acak; alamatnya hanya diberikan oleh server kepada yang berhak (migrasi 024).
 - **Halaman Absensi dan Kuis dirapikan**: kartu sesi tunggal (pilih sesi, ringkasan pengaturan sebagai penanda, menu *Lainnya*), ringkasan kehadiran satu baris, toolbar tabel dengan menu *Tindakan* dan *Ekspor*;
   kartu kuis dengan penanda ringkas dan menu aksi, serta pengaturan kuis dengan bilah simpan yang menempel di bawah.
-- **Antarmuka admin yang dirapikan**: *Kegiatan baru* berupa **3 langkah** (Informasi dengan kartu Diklat/Kegiatan, Dasar surat opsional, Menu dengan kartu bersakelar); *Tambah dari data pegawai* berupa **2 langkah**
+- **Antarmuka admin yang dirapikan**: *Kegiatan baru* berupa **4 langkah** (Informasi dengan kartu Diklat/Kegiatan, Dasar surat opsional, Menu dengan kartu bersakelar, lalu **Peserta**: setelah menu dipilih, kegiatan dibuat dan langsung muncul jendela pemilihan peserta dari data pegawai); *Tambah dari data pegawai* berupa **2 langkah**
   (pilih pegawai dengan penghitung terpilih dan "Pilih semua hasil", lalu jenis dan hak akses menu sebagai chip); *Atur jenis & hak akses* massal memakai pilihan Tidak diubah/Aktif/Nonaktif per menu; *Ringkasan* memakai
   kartu menu bersakelar dan pengaturan yang dikelompokkan (Informasi, Nilai dan peringkat, Akses publik) dengan zona hapus terpisah; toolbar tab Peserta dirangkum menjadi menu *Urutan* dan *Ekspor & cetak*.
   Semua jendela dialog kini punya kepala dan kaki tetap dengan isi yang bisa digulir.
