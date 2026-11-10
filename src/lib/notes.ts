@@ -130,6 +130,6 @@ export function outlineText(items: readonly NoteItem[]): string {
 /** Catatan kosong untuk formulir baru. */
 export const emptyNote = (location: string | null): Omit<MeetingNote, 'id' | 'activity_id' | 'created_at' | 'updated_at'> => ({
   title: '', held_at: null, location, leader: null, notetaker: null, attendees: null,
-  agenda: null, discussion: null, decisions: null, follow_ups: [], status: 'draft', attendee_list: [],
+  agenda: null, discussion: null, decisions: null, follow_ups: [], status: 'draft', attendee_list: [], recordings: [],
   basis: null, held_until: null, leader_role: null, leader_nip: null, notetaker_nip: null, sections: [],
 })

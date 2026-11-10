@@ -10,6 +10,7 @@ export const portalNoteApi = (token: string, sessions: { id: string; title: stri
   sessions: async () => sessions,
   people: (sessionId) => rpc('portal_note_people', { p_token: token, p_session: sessionId }),
   letters: () => rpc('portal_note_letters', { p_token: token }),
+  recordingPath: async (ext) => (await rpc<{ path: string }>('portal_rec_slot', { p_token: token, p_ext: ext })).path,
 })
 
 /** Unggah foto ke path yang dicadangkan server lalu catat; tautan dicatat langsung. */

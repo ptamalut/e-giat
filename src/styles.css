@@ -1022,3 +1022,10 @@ button.landing-navlink { background: none; border: 0; font: inherit; font-weight
 @media (max-width: 700px) { .ss-item { border-right: 0; border-bottom: 1px solid var(--border); } .stat-strip { grid-template-columns: 1fr 1fr; } }
 .sticky-bar { margin-top: 18px; }
 .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 24px; }
+
+/* rekaman suara notula */
+.spin { animation: spin .8s linear infinite; }
+.rec-item { padding: 14px 0; border-top: 1px solid var(--border); margin-top: 12px; }
+.rec-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-audio { display: block; width: 100%; margin-top: 10px; height: 40px; }
+.callout.warn { border-left-color: var(--warn, #d97706); }

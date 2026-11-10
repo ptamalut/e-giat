@@ -4,6 +4,8 @@ import NoteEditor, { type NoteApi, type NoteDraft } from '../../components/NoteE
 import { Empty, ErrorBox, Loading, PageHeader, useAsync } from '../../components/ui'
 import { fmtDateTime } from '../../lib/format'
 import { fetchLetters } from '../../lib/lettersApi'
+import { randomRecordingPath } from '../../lib/recordings'
+import { removeRecordingFiles } from '../../lib/recordingsApi'
 import { emptyNote, followUpProgress, noteBody, overdue } from '../../lib/notes'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { AttendanceSession, MeetingNote } from '../../lib/types'
@@ -47,6 +49,8 @@ export default function NotesTab() {
       return list.map((p) => ({ name: p.name, nip: p.identifier, job_title: p.job_title, institution: p.institution }))
     },
     letters: async () => (await fetchLetters(activity.id)).slice().reverse().map((l) => ({ issuer: l.issuer, number: l.number, letter_date: l.letter_date, subject: l.subject })),
+    recordingPath: async (ext) => randomRecordingPath(activity.id, ext),
+    removeRecordings: removeRecordingFiles,
   }), [activity.id, activity.enable_attendance])
 
   if (editing) {

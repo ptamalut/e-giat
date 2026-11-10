@@ -8,7 +8,7 @@ interface Recognition {
   onresult: ((e: RecognitionEvent) => void) | null
   onerror: ((e: { error: string }) => void) | null
   onend: (() => void) | null
-  start(): void; stop(): void; abort(): void
+  start(track?: MediaStreamTrack): void; stop(): void; abort(): void
 }
 type RecognitionCtor = new () => Recognition
 
@@ -18,6 +18,15 @@ const ctor = (): RecognitionCtor | null => {
 }
 
 export const speechSupported = () => typeof window !== 'undefined' && ctor() !== null
+
+/**
+ * Apakah pengenalan suara bisa menerima trek audio langsung (Chrome 139 ke atas), sehingga rekaman bisa diubah ke teks
+ * tanpa diputar lewat speaker. Dideteksi dari fungsi statis `available` yang hadir bersamaan dengan fitur itu.
+ */
+export const trackSpeechSupported = () => {
+  const c = typeof window !== 'undefined' ? (ctor() as unknown as { available?: unknown } | null) : null
+  return !!c && typeof c.available === 'function'
+}
 
 export type SpeechFailure = 'izin' | 'mikrofon' | 'jaringan' | 'tidak-didukung' | 'lain'
 
@@ -44,7 +53,7 @@ export interface Dictation { stop: () => void }
  * Mulai mendengarkan terus-menerus. Chrome menghentikan pengenalan setelah hening beberapa detik; fungsi ini
  * otomatis memulai lagi sampai `stop()` dipanggil. Mengembalikan null bila browser tidak mendukung.
  */
-export function startDictation(h: DictationHandlers, lang = 'id-ID'): Dictation | null {
+export function startDictation(h: DictationHandlers, lang = 'id-ID', opts: { track?: MediaStreamTrack } = {}): Dictation | null {
   const Ctor = ctor()
   if (!Ctor) { h.onFail('tidak-didukung'); return null }
   let wanted = true
@@ -76,7 +85,7 @@ export function startDictation(h: DictationHandlers, lang = 'id-ID'): Dictation 
     }
     rec.onend = () => {
       h.onInterim('')
-      if (!wanted) return
+      if (!wanted || opts.track?.readyState === 'ended') return
       // mulai lagi; bila terus gagal dalam waktu singkat, berhenti agar tidak berputar tanpa akhir
       const now = Date.now()
       restarts = restarts.filter((t) => now - t < 5000)
@@ -84,7 +93,7 @@ export function startDictation(h: DictationHandlers, lang = 'id-ID'): Dictation 
       if (restarts.length > 6) return fail('lain')
       setTimeout(() => { if (wanted) { try { begin() } catch { fail('lain') } } }, 200)
     }
-    rec.start()
+    if (opts.track) rec.start(opts.track); else rec.start()
   }
   try { begin() } catch { fail('lain'); return null }
   return { stop: () => { wanted = false; try { rec?.stop() } catch { /* sudah berhenti */ } } }

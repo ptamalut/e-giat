@@ -77,10 +77,26 @@ export interface MeetingNote {
   sections: NoteSection[]
   /** Daftar peserta terpilih (versi lama; kini peserta ditulis sebagai teks) */
   attendee_list: AttendeeRef[]
+  /** Rekaman suara yang tersimpan bersama notula */
+  recordings: NoteRecording[]
   /** peserta (petugas/panitia) yang membuatnya lewat link pribadi; null = dibuat admin */
   added_by?: string | null
   created_at: string
   updated_at: string
+}
+
+/** Satu rekaman suara pada notula (berkas audio di bucket "rekaman") beserta teks hasil pengubahannya. */
+export interface NoteRecording {
+  id: string
+  path: string
+  file_name: string
+  mime: string
+  size: number
+  /** detik */
+  duration: number
+  created_at: string
+  /** teks hasil "Ubah rekaman ke teks" (kosong bila belum) */
+  transcript: string
 }
 
 /** Satu peserta pada notula (versi lama). */
@@ -429,6 +445,7 @@ export interface PortalNote {
   notetaker_nip?: string | null
   sections?: NoteSection[]
   attendee_list?: AttendeeRef[]
+  recordings?: NoteRecording[]
   /** hanya terisi untuk petugas/panitia: status notula dan apakah buatan orang ini */
   status?: 'draft' | 'final'
   mine?: boolean
