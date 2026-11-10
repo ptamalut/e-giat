@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityDays, basisFromLetters, dayLabel, joinLocal, letterLine, mergePeople, personKey, splitLocal } from './noteDefaults'
+import { activityDays, basisFromLetters, dayLabel, joinLocal, letterLine, personKey, splitLocal } from './noteDefaults'
 import { attendeeLines, buildNoteDoc } from './noteDoc'
 
 const L = (o: Partial<{ issuer: string; number: string; letter_date: string; subject: string }> = {}) => ({ issuer: null, number: null, letter_date: null, subject: null, ...o })
@@ -37,21 +37,17 @@ describe('tanggal kegiatan', () => {
   })
 })
 
-describe('peserta rapat', () => {
+describe('peserta', () => {
   const P = (name: string, nip: string | null = null, job: string | null = null) => ({ name, nip, job_title: job, institution: null })
-  it('mergePeople tanpa duplikat dan mempertahankan urutan', () => {
-    const base = [P('Budi', '1')]
-    const out = mergePeople(base, [P('budi', '1'), P(' Siti ', null, ' Staf '), P('Siti'), P('  ')])
-    expect(out.map((p) => p.name)).toEqual(['Budi', 'Siti'])
-    expect(out[1].job_title).toBe('Staf')
+  it('kunci orang tidak peka huruf besar dan spasi', () => {
     expect(personKey(P('Budi ', '1'))).toBe(personKey(P('budi', '1')))
   })
-  it('dokumen: peserta terpilih tampil bernomor; tanpa daftar memakai teks lama', () => {
+  it('dokumen: teks peserta dipakai; daftar lama (notula sebelumnya) dipakai bila teks kosong', () => {
     expect(attendeeLines([P('Budi', '1', 'Ketua'), P('Siti')])).toBe('1. Budi – Ketua\n2. Siti')
     expect(attendeeLines([])).toBe('')
-    const d = buildNoteDoc({ follow_ups: [], held_at: null, attendee_list: [P('Budi'), P('Siti')], attendees: 'teks lama' }, { title: [], address: [] })
-    expect(d.header.find((h) => h.label === 'Peserta Rapat')?.value).toBe('1. Budi\n2. Siti')
-    const old = buildNoteDoc({ follow_ups: [], held_at: null, attendee_list: [], attendees: 'teks lama' }, { title: [], address: [] })
-    expect(old.header.find((h) => h.label === 'Peserta Rapat')?.value).toBe('teks lama')
+    const both = buildNoteDoc({ follow_ups: [], held_at: null, attendee_list: [P('Budi'), P('Siti')], attendees: 'Ketua dan Wakil Ketua' }, { title: [], address: [] })
+    expect(both.header.find((h) => h.label === 'Peserta')?.value).toBe('Ketua dan Wakil Ketua')
+    const listOnly = buildNoteDoc({ follow_ups: [], held_at: null, attendee_list: [P('Budi'), P('Siti')], attendees: null }, { title: [], address: [] })
+    expect(listOnly.header.find((h) => h.label === 'Peserta')?.value).toBe('1. Budi\n2. Siti')
   })
 })

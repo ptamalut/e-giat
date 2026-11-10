@@ -82,8 +82,8 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
   Isian awal: peserta = absensi, kuis, sertifikat; narasumber = absensi, sertifikat; panitia = semua kecuali kuis. Menu yang boleh
   dipakai seseorang = menu aktif di kegiatan **dan** hak akses orang itu, ditegakkan di server (RPC portal). Peserta yang berhak
   melihat **notula Final** dan **dokumentasi** di halaman pribadinya.
-- **Notula sesuai format resmi**: editor mengikuti format notula (kop surat, judul *NOTULA*, lalu **Dasar, Hari, Tanggal, Pukul, Tempat, Acara, Pimpinan Rapat, Notulis, Peserta Rapat**,
-  **Jalannya Rapat** bagian **A, B, C …** (judul bagian, kalimat pengantar, butir bernomor dengan judul tebal + isi, anak butir a, b, c; huruf bagian otomatis mengikuti urutan dan bisa digeser naik/turun),
+- **Notula sesuai format resmi**: editor mengikuti format notula (kop surat, judul *NOTULA*, lalu **Dasar, Hari, Tanggal, Pukul, Tempat, Acara, Pimpinan, Notulis, Peserta**,
+  **Jalannya Kegiatan** bagian **A, B, C …** (judul bagian, kalimat pengantar, butir bernomor dengan judul tebal + isi, anak butir a, b, c; huruf bagian otomatis mengikuti urutan dan bisa digeser naik/turun),
   tabel **Rencana Tindak Lanjut / Penanggung Jawab** (kolom *Tenggat* ikut tampil bila diisi), dan **tanda tangan** Notulis serta *Mengetahui* pimpinan rapat lengkap dengan NIP).
   Notula baru diberi kerangka Pembukaan – Pembahasan – Kesimpulan dan Rencana Tindak Lanjut – Penutup yang bebas ditambah/diubah/dihapus. Daftar butir panjang bisa **ditempel sekaligus**
   (*Tempel daftar*: `1.` = butir, `a.` = anak butir, `**teks**` = tebal). Hari dan tanggal diisi otomatis dari waktu pelaksanaan; *Pukul* tampil `10.00 WIT s.d. selesai` (atau jam selesai yang diisi).
@@ -92,8 +92,7 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
   bila judul/alamat kosong, kop memakai nama instansi dan kontak; tanpa logo surat, kop hanya berisi teks (migrasi 019 dan 020).
 - **Isian notula otomatis dari kegiatan**: *Dasar* diambil dari **dasar surat** kegiatan (satu surat: "Surat {asal} Nomor … tanggal … perihal …"; beberapa surat: bernomor), *Hari dan tanggal* dipilih dari **tanggal pelaksanaan kegiatan**
   (pilihan "Tanggal lain…" tersedia; pukul mulai dan selesai diisi sendiri), *Tempat* = tempat kegiatan, dan *Acara* = nama kegiatan. Isian ini tampil dengan penanda **Dari data kegiatan**; tombol **Ubah** membuatnya bisa diketik manual
-  dan **Ikuti data kegiatan** mengembalikannya. **Peserta rapat** dipilih dari orang di kegiatan (cari, *Pilih semua*, atau yang hadir pada sebuah sesi) atau ditambah manual untuk tamu; **pimpinan rapat** dan **notulis** dipilih dari daftar itu
-  (NIP dan jabatan terisi otomatis, jabatan boleh disesuaikan). Pada dokumen, peserta rapat tampil bernomor. Berlaku di admin dan di halaman pribadi petugas/panitia, yang tampilannya dirapikan (bilah aksi Word/PDF/Simpan tetap di bawah, nyaman di HP) (migrasi 023).
+  dan **Ikuti data kegiatan** mengembalikannya. **Peserta** ditulis sebagai teks bebas (mis. "Ketua dan Wakil Ketua, Steering Committee, serta Anggota …" atau satu nama per baris), dan bisa diisi otomatis dari **semua peserta kegiatan** atau dari **yang hadir pada sebuah sesi**; **pimpinan** dan **notulis** dipilih dari **peserta kegiatan** (NIP dan jabatan terisi otomatis, jabatan boleh disesuaikan). Istilah pada formulir dan dokumen bersifat umum untuk seluruh kegiatan (*Pimpinan*, *Peserta*, *Jalannya Kegiatan*), bukan hanya rapat. Berlaku di admin dan di halaman pribadi petugas/panitia, yang tampilannya dirapikan (bilah aksi Word/PDF/Simpan tetap di bawah, nyaman di HP) (migrasi 023).
 - **Pengaturan aplikasi** dibagi menjadi tab **Umum** (identitas, halaman depan, kontak), **Logo dan favicon**, **Kop surat**, dan **Akun saya**.
 - **Rekam rapat (suara → teks)** di editor notula: tombol *Mulai merekam* mengubah ucapan menjadi teks bahasa Indonesia secara langsung, **gratis dan tanpa API key**,
   memakai pengenalan suara bawaan **Google Chrome / Microsoft Edge** (suara diproses oleh layanan browser tersebut, jadi perlu internet; Firefox/Safari belum didukung).

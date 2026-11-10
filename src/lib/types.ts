@@ -65,17 +65,17 @@ export interface MeetingNote {
   decisions: string | null
   follow_ups: FollowUp[]
   status: 'draft' | 'final'
-  /** Dasar pelaksanaan rapat (mis. nomor dan tanggal undangan) */
+  /** Dasar pelaksanaan kegiatan (mis. nomor dan tanggal undangan) */
   basis: string | null
   /** Pukul selesai: "selesai" atau jam (mis. 12.00); kosong = selesai */
   held_until: string | null
-  /** Jabatan pimpinan rapat dan NIP pimpinan/notulis, untuk baris tanda tangan */
+  /** Jabatan pimpinan dan NIP pimpinan/notulis, untuk baris tanda tangan */
   leader_role: string | null
   leader_nip: string | null
   notetaker_nip: string | null
-  /** Jalannya rapat: bagian A, B, C … beserta butir-butirnya */
+  /** Jalannya kegiatan: bagian A, B, C … beserta butir-butirnya */
   sections: NoteSection[]
-  /** Peserta rapat terpilih (pimpinan rapat dan notulis dipilih dari daftar ini) */
+  /** Daftar peserta terpilih (versi lama; kini peserta ditulis sebagai teks) */
   attendee_list: AttendeeRef[]
   /** peserta (petugas/panitia) yang membuatnya lewat link pribadi; null = dibuat admin */
   added_by?: string | null
@@ -83,7 +83,7 @@ export interface MeetingNote {
   updated_at: string
 }
 
-/** Satu peserta rapat pada notula. */
+/** Satu peserta pada notula (versi lama). */
 export interface AttendeeRef { name: string; nip: string | null; job_title: string | null; institution: string | null }
 
 /** Ringkasan surat dasar kegiatan (untuk mengisi "Dasar" notula). */
@@ -98,7 +98,7 @@ export interface FollowUp { id: string; task: string; pic: string; due: string; 
 export interface NoteItem { id: string; lead: string; text: string; subs: NoteSub[] }
 export interface NoteSub { id: string; lead: string; text: string }
 /**
- * Satu bagian "Jalannya Rapat". Berjenis 'teks' (pengantar + butir) atau 'tindak_lanjut'
+ * Satu bagian "Jalannya Kegiatan". Berjenis 'teks' (pengantar + butir) atau 'tindak_lanjut'
  * (pengantar + tabel Rencana Tindak Lanjut dari `follow_ups`). Hurufnya (A, B, …) mengikuti urutan.
  */
 export interface NoteSection { id: string; type: 'teks' | 'tindak_lanjut'; title: string; intro: string; items: NoteItem[] }

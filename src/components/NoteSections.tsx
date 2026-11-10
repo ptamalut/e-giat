@@ -131,15 +131,15 @@ function SectionCard({ s, i, n, onChange, onRemove, onMove, fus, onFus, today }:
   )
 }
 
-/** Editor "Jalannya Rapat": bagian A, B, C … beserta butir dan anak butirnya, dan tabel rencana tindak lanjut. */
+/** Editor "Jalannya Kegiatan": bagian A, B, C … beserta butir dan anak butirnya, dan tabel rencana tindak lanjut. */
 export default function NoteSections({ sections, onChange, followUps, onFollowUps, today }: {
   sections: NoteSection[]; onChange: (s: NoteSection[]) => void; followUps: FollowUp[]; onFollowUps: (l: FollowUp[]) => void; today: string
 }) {
   const hasTable = sections.some((s) => s.type === 'tindak_lanjut')
   const set = (i: number, s: NoteSection) => onChange(sections.map((x, y) => (y === i ? s : x)))
   return (
-    <div className="stack" role="group" aria-label="Jalannya rapat">
-      <div className="card-head" style={{ marginBottom: 0 }}><h2>Jalannya rapat</h2>
+    <div className="stack" role="group" aria-label="Jalannya kegiatan">
+      <div className="card-head" style={{ marginBottom: 0 }}><h2>Jalannya kegiatan</h2>
         <span className="muted small">Bagian diberi huruf A, B, C … otomatis sesuai urutan.</span></div>
       {!sections.length && <div className="card"><p className="muted" style={{ margin: 0 }}>Belum ada bagian. Tambahkan bagian pertama di bawah.</p></div>}
       {sections.map((s, i) => (
@@ -148,7 +148,7 @@ export default function NoteSections({ sections, onChange, followUps, onFollowUp
       ))}
       <div className="row tight">
         <button type="button" className="btn" onClick={() => onChange([...sections, newSection('teks', '')])}><ListPlus size={16} /> Tambah bagian</button>
-        {!hasTable && <button type="button" className="btn" onClick={() => onChange([...sections, newSection('tindak_lanjut', 'Kesimpulan dan Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, rapat menyepakati rencana tindak lanjut sebagai berikut:')])}><Table2 size={16} /> Tambah tabel tindak lanjut</button>}
+        {!hasTable && <button type="button" className="btn" onClick={() => onChange([...sections, newSection('tindak_lanjut', 'Kesimpulan dan Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, disepakati rencana tindak lanjut sebagai berikut:')])}><Table2 size={16} /> Tambah tabel tindak lanjut</button>}
       </div>
     </div>
   )

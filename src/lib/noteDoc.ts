@@ -1,6 +1,6 @@
 /**
  * Susunan dokumen notula sesuai format resmi (kop surat, "NOTULA", Dasar/Hari/Tanggal/Pukul/Tempat/Acara/Pimpinan/Notulis/Peserta,
- * "Jalannya Rapat" A–I, tabel Rencana Tindak Lanjut, tanda tangan). Bagian murni: hasilnya (NoteDoc) dipakai oleh
+ * "Jalannya Kegiatan" A–I, tabel Rencana Tindak Lanjut, tanda tangan). Bagian murni: hasilnya (NoteDoc) dipakai oleh
  * penulis Word (exportNote.ts) dan PDF (exportNotePdf.ts) sehingga keduanya sama persis.
  */
 import type { AppSettings } from './branding'
@@ -78,7 +78,7 @@ export function timeRange(iso: string, until: string | null | undefined, tz?: st
   return `${w.time}${zone} s.d. ${end}`
 }
 
-/** Peserta rapat terpilih sebagai daftar bernomor ("1. Nama – Jabatan"); kosong bila tidak ada. */
+/** Peserta terpilih (notula lama) sebagai daftar bernomor ("1. Nama – Jabatan"); kosong bila tidak ada. */
 export const attendeeLines = (list: readonly AttendeeRef[] | null | undefined): string =>
   (list ?? []).map((p, i) => `${i + 1}. ${p.name}${p.job_title ? ` – ${p.job_title}` : ''}`).join('\n')
 
@@ -156,13 +156,13 @@ export function buildNoteDoc(note: NoteDocInput, kop: { title: string[]; address
   add('Tempat', note.location)
   add('Acara', note.agenda)
   const leader = (note.leader ?? '').trim()
-  add('Pimpinan Rapat', leader && note.leader_role?.trim() ? `${leader} (${note.leader_role.trim()})` : leader)
+  add('Pimpinan', leader && note.leader_role?.trim() ? `${leader} (${note.leader_role.trim()})` : leader)
   add('Notulis', note.notetaker)
-  add('Peserta Rapat', attendeeLines(note.attendee_list) || note.attendees)
+  add('Peserta', note.attendees || attendeeLines(note.attendee_list))
 
   const sections = noteSections({ sections: note.sections ?? [], discussion: note.discussion ?? null, decisions: note.decisions ?? null, follow_ups: note.follow_ups }, false)
   const blocks: Block[] = []
-  if (sections.length) blocks.push({ t: 'heading', text: 'Jalannya Rapat:' })
+  if (sections.length) blocks.push({ t: 'heading', text: 'Jalannya Kegiatan:' })
   const tableDone = { v: false }
   sections.forEach((s, i) => blocks.push(...sectionBlocks(s, i, note.follow_ups, tableDone)))
 
@@ -171,14 +171,14 @@ export function buildNoteDoc(note: NoteDocInput, kop: { title: string[]; address
   const signature = leader || (note.notetaker ?? '').trim()
     ? {
         left: { caption: ['Notulis'], name: (note.notetaker ?? '').trim(), nip: nip(note.notetaker_nip) },
-        right: { caption: ['Mengetahui,', role ? `${role},` : 'Pimpinan Rapat,'], name: leader, nip: nip(note.leader_nip) },
+        right: { caption: ['Mengetahui,', role ? `${role},` : 'Pimpinan,'], name: leader, nip: nip(note.leader_nip) },
       }
     : null
   return { kop, title: 'NOTULA', header, blocks, signature }
 }
 
-/** Nama berkas unduhan, mis. "notula-rapat-persiapan.docx". */
+/** Nama berkas unduhan, mis. "notula-pembukaan-bimtek.docx". */
 export const noteFileName = (title: string, ext: 'docx' | 'pdf') => {
   const base = title.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 60)
-  return `notula-${base || 'rapat'}.${ext}`
+  return `notula-${base || 'kegiatan'}.${ext}`
 }

@@ -15,7 +15,7 @@ export function followUpProgress(list: readonly FollowUp[]): { done: number; tot
 /** Tindak lanjut belum selesai yang tenggatnya sudah lewat (tanggal yyyy-mm-dd). */
 export const overdue = (f: FollowUp, today: string) => !f.done && !!f.due && f.due < today
 
-/** Isi daftar peserta rapat dari nama-nama (bernomor). */
+/** Isi peserta dari nama-nama (bernomor). */
 export const attendeesText = (people: readonly { name: string; institution?: string | null }[]) =>
   people.map((p, i) => `${i + 1}. ${p.name}${p.institution ? ` (${p.institution})` : ''}`).join('\n')
 
@@ -30,10 +30,10 @@ export const sectionLetter = (i: number) => (i >= 0 && i < 26 ? String.fromCharC
 
 /** Kerangka bagian untuk notula baru, mengikuti format notula: Pembukaan … Kesimpulan dan Rencana Tindak Lanjut … Penutup. */
 export const defaultSections = (): NoteSection[] => [
-  newSection('teks', 'Pembukaan', 'Rapat dibuka oleh … selaku pimpinan rapat, dengan menyampaikan hal-hal sebagai berikut:'),
+  newSection('teks', 'Pembukaan', 'Kegiatan dibuka oleh … selaku pimpinan, dengan menyampaikan hal-hal sebagai berikut:'),
   newSection('teks', 'Pembahasan'),
-  newSection('tindak_lanjut', 'Kesimpulan dan Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, rapat menyepakati rencana tindak lanjut sebagai berikut:'),
-  newSection('teks', 'Penutup', 'Rapat ditutup oleh pimpinan rapat dengan ucapan terima kasih atas kehadiran dan masukan seluruh peserta rapat.'),
+  newSection('tindak_lanjut', 'Kesimpulan dan Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, disepakati rencana tindak lanjut sebagai berikut:'),
+  newSection('teks', 'Penutup', 'Kegiatan ditutup oleh pimpinan dengan ucapan terima kasih atas kehadiran dan masukan seluruh peserta.'),
 ]
 
 const subHasText = (x: { lead: string; text: string }) => !!(x.lead.trim() || x.text.trim())
@@ -67,7 +67,7 @@ export function noteSections(n: Sectioned | { sections?: NoteSection[] | null; d
   if (disc.length) out.push(newSection('teks', 'Pembahasan', '', disc.map((t) => newItem('', t))))
   const dec = linesOf(n.decisions)
   if (dec.length) out.push(newSection('teks', 'Keputusan dan Kesimpulan', '', dec.map((t) => newItem('', t))))
-  if (n.follow_ups.length) out.push(newSection('tindak_lanjut', 'Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, rapat menyepakati rencana tindak lanjut sebagai berikut:'))
+  if (n.follow_ups.length) out.push(newSection('tindak_lanjut', 'Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, disepakati rencana tindak lanjut sebagai berikut:'))
   return out.length || !blank ? out : defaultSections()
 }
 

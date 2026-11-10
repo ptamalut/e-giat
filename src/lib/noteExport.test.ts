@@ -34,7 +34,7 @@ describe('ekspor notula', () => {
     if (OUT) writeFileSync(`${OUT}/notula.docx`, bytes)
     const zip = unzipSync(bytes)
     const xml = strFromU8(zip['word/document.xml'])
-    for (const s of ['MAHKAMAH AGUNG REPUBLIK INDONESIA', 'NOTULA', 'Dasar', '10.00 WIT s.d. selesai', 'Jalannya Rapat:', 'A. Pembukaan', 'Struktur kepanitiaan.', 'Rencana Tindak Lanjut', 'Penanggung Jawab', 'Mengetahui,', 'NIP. 196806051992031004']) {
+    for (const s of ['MAHKAMAH AGUNG REPUBLIK INDONESIA', 'NOTULA', 'Dasar', '10.00 WIT s.d. selesai', 'Jalannya Kegiatan:', 'A. Pembukaan', 'Struktur kepanitiaan.', 'Rencana Tindak Lanjut', 'Penanggung Jawab', 'Mengetahui,', 'NIP. 196806051992031004']) {
       expect(xml, s).toContain(s)
     }
     expect(Object.keys(zip).some((f) => f.startsWith('word/media/'))).toBe(true)   // logo tertanam

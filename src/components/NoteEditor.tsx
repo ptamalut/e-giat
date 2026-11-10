@@ -1,12 +1,13 @@
-import { ArrowLeft, FileDown, FileText, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileDown, FileText, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useBrand } from './brand'
-import { FollowField, PeoplePicker, PersonSelect } from './NoteFields'
+import { FollowField, PersonSelect } from './NoteFields'
 import NoteSections from './NoteSections'
 import { Field, useAsync, useConfirm, useToast } from './ui'
 import { fromLocalInput, toLocalInput } from '../lib/format'
-import { cleanFollowUps, cleanSections, newItem, newSection, noteSections, sectionLetter } from '../lib/notes'
+import { attendeesText, cleanFollowUps, cleanSections, newItem, newSection, noteSections, sectionLetter } from '../lib/notes'
 import { activityDays, basisFromLetters, dayLabel, joinLocal, splitLocal } from '../lib/noteDefaults'
+import { attendeeLines } from '../lib/noteDoc'
 import { downloadNote, type NoteFormat } from '../lib/noteExport'
 import NoteRecorder from '../pages/admin/NoteRecorder'
 import { errMsg } from '../lib/supabase'
@@ -38,9 +39,9 @@ const today = () => new Date().toISOString().slice(0, 10)
 const orNull = (v: string) => v.trim() || null
 
 /**
- * Editor notula berformat resmi. Dasar, tanggal, tempat, dan acara mengikuti data kegiatan (bisa diubah manual);
- * peserta rapat dipilih dari orang di kegiatan, lalu pimpinan rapat dan notulis dipilih dari peserta rapat.
- * Hasilnya dapat diunduh sebagai Word dan PDF.
+ * Editor notula berformat resmi untuk seluruh kegiatan. Dasar, tanggal, tempat, dan acara mengikuti data kegiatan (bisa diubah manual);
+ * peserta ditulis sebagai teks (nama bisa diisi dari peserta kegiatan atau yang hadir pada sesi), sedangkan pimpinan dan notulis
+ * dipilih dari peserta kegiatan. Hasilnya dapat diunduh sebagai Word dan PDF.
  */
 export default function NoteEditor({ draft, activityId, context, api, backLabel = 'Daftar notula', onBack }: {
   draft: NoteDraft; activityId: string; context: NoteContext; api: NoteApi; backLabel?: string; onBack: () => void
@@ -58,12 +59,11 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     day: heldLocal.day || days[0] || today(), time: heldLocal.time || '09:00',
     leader: draft.leader ?? '', leaderRole: draft.leader_role ?? '', leaderNip: draft.leader_nip ?? '',
     notetaker: draft.notetaker ?? '', notetakerNip: draft.notetaker_nip ?? '',
-    attendees: draft.attendees ?? '',
+    attendees: draft.attendees || attendeeLines(draft.attendee_list) || '',   // notula lama dengan daftar peserta: ditampilkan sebagai teks
   })
   // mode isian yang mengikuti kegiatan: null = belum ditentukan (diputuskan dari isi tersimpan setelah data dasar surat dimuat)
   const [mode, setMode] = useState<{ basis: boolean | null; location: boolean | null; agenda: boolean | null }>({ basis: null, location: null, agenda: null })
   const [otherDay, setOtherDay] = useState(!!heldLocal.day && days.length > 0 && !days.includes(heldLocal.day))
-  const [people, setPeople] = useState<AttendeeRef[]>(draft.attendee_list ?? [])
   const [secs, setSecs] = useState<NoteSection[]>(() => noteSections(draft))
   const [fus, setFus] = useState<FollowUp[]>(draft.follow_ups)
   const [busy, setBusy] = useState(false)
@@ -83,7 +83,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
   const val = (k: 'basis' | 'location' | 'agenda') => (isManual(k) ? f[k] : auto[k])
   const setManual = (k: 'basis' | 'location' | 'agenda') => (m: boolean) => setMode((c) => ({ ...c, [k]: m }))
 
-  const snapshot = () => JSON.stringify({ f, mode, otherDay, people, secs, fus })
+  const snapshot = () => JSON.stringify({ f, mode, otherDay, secs, fus })
   const [saved, setSaved] = useState(snapshot)
   const dirty = snapshot() !== saved
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -98,7 +98,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
 
   const current = (): MeetingNote => ({
     id: id ?? '', activity_id: activityId, title: f.title.trim(), held_at: fromLocalInput(joinLocal(f.day, f.time)) || null,
-    location: orNull(val('location')), leader: orNull(f.leader), notetaker: orNull(f.notetaker), attendees: orNull(f.attendees), attendee_list: people,
+    location: orNull(val('location')), leader: orNull(f.leader), notetaker: orNull(f.notetaker), attendees: orNull(f.attendees), attendee_list: [],
     agenda: orNull(val('agenda')), discussion: null, decisions: null,
     basis: orNull(val('basis')), held_until: orNull(f.until), leader_role: orNull(f.leaderRole), leader_nip: orNull(f.leaderNip), notetaker_nip: orNull(f.notetakerNip),
     sections: cleanSections(secs), follow_ups: cleanFollowUps(fus), status: f.status, created_at: '', updated_at: '',
@@ -119,7 +119,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     setBusy(false)
     setId(newId)
     setSecs(n.sections); setFus(n.follow_ups)
-    setSaved(JSON.stringify({ f, mode, otherDay, people, secs: n.sections, fus: n.follow_ups }))
+    setSaved(JSON.stringify({ f, mode, otherDay, secs: n.sections, fus: n.follow_ups }))
     toast('Notula disimpan.', 'success')
     return true
   }
@@ -145,15 +145,17 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     try { await downloadNote(format, current(), settings) } catch (e) { toast(errMsg(e), 'error') } finally { setExporting(null) }
   }
 
-  // pimpinan rapat / notulis dipilih dari peserta rapat; mengeluarkan seseorang dari daftar mengosongkan perannya
-  const changePeople = (list: AttendeeRef[]) => {
-    const has = (name: string) => list.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())
-    setPeople(list)
-    setF((c) => ({
-      ...c,
-      ...(c.leader && !has(c.leader) && people.some((p) => p.name === c.leader) ? { leader: '', leaderNip: '', leaderRole: '' } : {}),
-      ...(c.notetaker && !has(c.notetaker) && people.some((p) => p.name === c.notetaker) ? { notetaker: '', notetakerNip: '' } : {}),
-    }))
+  // pimpinan dan notulis dipilih dari peserta kegiatan (dimuat sekali)
+  const pool = useAsync(() => api.people(null).catch(() => [] as AttendeeRef[]), [activityId])
+  const [src, setSrc] = useState('')
+  async function fillAttendees() {
+    if (!src) return
+    let list: AttendeeRef[]
+    try { list = await api.people(src === '__all' ? null : src) } catch (e) { return toast(errMsg(e), 'error') }
+    if (!list.length) return toast(src === '__all' ? 'Belum ada orang di kegiatan ini.' : 'Belum ada yang hadir pada sesi itu.', 'info')
+    if (f.attendees.trim() && !(await confirm({ title: 'Ganti isi peserta?', confirmText: 'Ganti', message: 'Isi peserta yang sudah ditulis akan diganti dengan daftar nama dari sumber yang dipilih.' }))) return
+    setF((c) => ({ ...c, attendees: attendeesText(list) }))
+    toast(`${list.length} nama diisi.`, 'success')
   }
 
   // hasil rekaman suara masuk sebagai butir pada bagian terpilih (bawaan: bagian pembahasan pertama)
@@ -186,7 +188,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
       <div className="stack">
         <div className="card">
           <Field label="Judul *" hint="Nama notula pada daftar dan nama berkas unduhan. Pada dokumen, judulnya tetap “NOTULA”.">
-            <input className="input" value={f.title} onChange={set('title')} placeholder="mis. Rapat Panitia Bimtek CPP" autoFocus={!id} />
+            <input className="input" value={f.title} onChange={set('title')} placeholder="mis. Notula Pembukaan Bimtek CPP" autoFocus={!id} />
           </Field>
           <Field label="Status" hint="Tandai Final bila notula sudah disahkan.">
             <div className="pills" role="radiogroup" aria-label="Status">
@@ -198,11 +200,11 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
         </div>
 
         <div className="card">
-          <div className="card-head"><h2>Keterangan rapat</h2><span className="muted small">Diisi otomatis dari data kegiatan</span></div>
+          <div className="card-head"><h2>Keterangan</h2><span className="muted small">Diisi otomatis dari data kegiatan</span></div>
           <FollowField label="Dasar" auto={auto.basis} manual={isManual('basis')} value={f.basis} onChange={(v) => setF((c) => ({ ...c, basis: v }))} onManual={setManual('basis')} lines={2}
-            hint="Surat undangan atau dasar pelaksanaan rapat." empty="Belum ada dasar surat pada kegiatan; isi manual di sini atau tambahkan di Ringkasan kegiatan." />
+            hint="Surat undangan atau dasar pelaksanaan kegiatan." empty="Belum ada dasar surat pada kegiatan; isi manual di sini atau tambahkan di Ringkasan kegiatan." />
           <div className="form-grid when-grid">
-            <Field label="Hari dan tanggal" hint={days.length ? 'Mengikuti tanggal pelaksanaan kegiatan.' : 'Kegiatan belum punya tanggal; isi tanggal rapat.'}>
+            <Field label="Hari dan tanggal" hint={days.length ? 'Mengikuti tanggal pelaksanaan kegiatan.' : 'Kegiatan belum punya tanggal; isi tanggal pelaksanaan.'}>
               {days.length > 0 ? (
                 <div className="stack" style={{ gap: 6 }}>
                   <select className="input" value={dayValue} aria-label="Hari dan tanggal"
@@ -212,7 +214,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
                   </select>
                   {dayValue === '__other' && <input className="input" type="date" value={f.day} onChange={set('day')} aria-label="Tanggal lain" />}
                 </div>
-              ) : <input className="input" type="date" value={f.day} onChange={set('day')} aria-label="Tanggal rapat" />}
+              ) : <input className="input" type="date" value={f.day} onChange={set('day')} aria-label="Tanggal pelaksanaan" />}
             </Field>
             <Field label="Pukul mulai"><input className="input" type="time" value={f.time} onChange={set('time')} /></Field>
             <Field label="Pukul selesai" hint="Kosong = “selesai”."><input className="input" value={f.until} onChange={set('until')} placeholder="selesai" aria-label="Pukul selesai" /></Field>
@@ -223,22 +225,34 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
             empty="Isi nama acara." />
         </div>
 
-        <PeoplePicker people={people} onChange={changePeople} sessions={sessions.data ?? []} loadPool={(sid) => api.people(sid)}
-          legacy={f.attendees || (draft.attendees ? '' : null)} onLegacy={(v) => setF((c) => ({ ...c, attendees: v }))} />
+        <div className="card">
+          <div className="card-head"><h2>Peserta</h2>
+            <div className="row tight" style={{ marginLeft: 'auto' }}>
+                <select className="input" style={{ width: 230 }} value={src} onChange={(e) => setSrc(e.target.value)} aria-label="Sumber nama peserta">
+                  <option value="">Isi nama dari…</option>
+                  <option value="__all">Semua peserta kegiatan</option>
+                  {(sessions.data ?? []).map((x) => <option key={x.id} value={x.id}>Hadir: {x.title}</option>)}
+                </select>
+                <button type="button" className="btn sm" disabled={!src} onClick={() => void fillAttendees()}><Users size={14} /> Isi</button>
+            </div>
+          </div>
+          <textarea className="input" rows={4} value={f.attendees} onChange={set('attendees')} aria-label="Peserta"
+            placeholder="Tulis bebas, mis. Ketua dan Wakil Ketua, Steering Committee, serta Anggota Organizing Committee; atau satu nama per baris. Bisa juga diisi otomatis dari peserta kegiatan di atas." />
+        </div>
 
         <div className="card">
-          <div className="card-head"><h2>Pimpinan rapat dan notulis</h2><span className="muted small">Dipilih dari peserta rapat</span></div>
+          <div className="card-head"><h2>Pimpinan dan notulis</h2><span className="muted small">Dipilih dari peserta kegiatan</span></div>
           <div className="form-grid">
-            <PersonSelect label="Pimpinan rapat" people={people} name={f.leader} nip={f.leaderNip} disabledHint="Pilih peserta rapat terlebih dulu."
+            <PersonSelect label="Pimpinan" people={pool.data ?? []} name={f.leader} nip={f.leaderNip} disabledHint={pool.loading ? 'Memuat peserta kegiatan…' : 'Belum ada peserta kegiatan. Tambahkan di menu Peserta.'}
               onPick={(p) => setF((c) => ({ ...c, leader: p.name, leaderNip: p.nip ?? '', leaderRole: p.job_title ?? '' }))}
               onClear={() => setF((c) => ({ ...c, leader: '', leaderNip: '', leaderRole: '' }))} />
-            <Field label="Jabatan pimpinan rapat" hint="Tampil di dokumen dan pada tanda tangan “Mengetahui”; diisi dari jabatan, boleh disesuaikan (mis. Ketua Organizing Committee).">
-              <input className="input" value={f.leaderRole} onChange={set('leaderRole')} disabled={!f.leader} aria-label="Jabatan pimpinan rapat" />
+            <Field label="Jabatan pimpinan" hint="Tampil di dokumen dan pada tanda tangan “Mengetahui”; diisi dari jabatan, boleh disesuaikan (mis. Ketua Panitia).">
+              <input className="input" value={f.leaderRole} onChange={set('leaderRole')} disabled={!f.leader} aria-label="Jabatan pimpinan" />
             </Field>
-            <Field label="NIP pimpinan rapat"><input className="input" inputMode="numeric" value={f.leaderNip} onChange={set('leaderNip')} disabled={!f.leader} aria-label="NIP pimpinan rapat" /></Field>
+            <Field label="NIP pimpinan"><input className="input" inputMode="numeric" value={f.leaderNip} onChange={set('leaderNip')} disabled={!f.leader} aria-label="NIP pimpinan" /></Field>
           </div>
           <div className="form-grid">
-            <PersonSelect label="Notulis" people={people} name={f.notetaker} nip={f.notetakerNip} disabledHint="Pilih peserta rapat terlebih dulu."
+            <PersonSelect label="Notulis" people={pool.data ?? []} name={f.notetaker} nip={f.notetakerNip} disabledHint={pool.loading ? 'Memuat peserta kegiatan…' : 'Belum ada peserta kegiatan. Tambahkan di menu Peserta.'}
               onPick={(p) => setF((c) => ({ ...c, notetaker: p.name, notetakerNip: p.nip ?? '' }))}
               onClear={() => setF((c) => ({ ...c, notetaker: '', notetakerNip: '' }))} />
             <Field label="NIP notulis"><input className="input" inputMode="numeric" value={f.notetakerNip} onChange={set('notetakerNip')} disabled={!f.notetaker} aria-label="NIP notulis" /></Field>
