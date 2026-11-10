@@ -52,5 +52,7 @@ describe('kop surat', () => {
     const s = normalizeSettings({ kop_title: '  A  \n\n B ', kop_address: '   ' })
     expect(s.kop_title).toBe('A\nB'); expect(s.kop_address).toBeNull()
     expect(normalizeSettings({}).kop_title).toBeNull()
+    expect(normalizeSettings({ kop_logo_path: ' abc.png ' }).kop_logo_path).toBe('abc.png')
+    expect(normalizeSettings({}).kop_logo_path).toBeNull()
   })
 })

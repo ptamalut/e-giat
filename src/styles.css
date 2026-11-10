@@ -580,11 +580,18 @@ button.thumb-btn { padding: 0; border: 0; background: none; cursor: zoom-in; bor
 .ns-addsub { margin: 6px 0 0 22px; }
 .ns-paste { margin-top: 8px; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
 .ns-fu { margin-top: 10px; }
-/* pratinjau kop surat (Pengaturan) */
-.kop-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-bottom: 3px double var(--text-2); background: #fff; color: #111; border-radius: 4px 4px 0 0; }
+/* pengaturan aplikasi */
+.settings-panel { max-width: 860px; }
+button.tab { background: none; border: 0; border-bottom: 2px solid transparent; font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; }
+button.tab.active { border-bottom-color: var(--gold); }
+.kop-logo-box { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); }
+.kop-logo-box img { height: 72px; max-width: 160px; object-fit: contain; background: #fff; border-radius: 6px; }
+.kop-logo-box.empty { justify-content: center; min-height: 72px; }
+.kop-preview { display: flex; align-items: center; gap: 14px; padding: 14px 16px 12px; border: 1px solid var(--border); border-bottom: 4px double #111; background: #fff; color: #111; border-radius: 4px 4px 0 0; }
+.kop-preview img { height: 64px; max-width: 110px; object-fit: contain; flex: none; }
 .kop-preview > div { flex: 1; display: grid; text-align: center; font-family: 'Times New Roman', Times, serif; }
-.kop-preview b { font-size: .92rem; }
-.kop-preview small { font-size: .72rem; }
+.kop-preview b { font-size: 1rem; line-height: 1.3; }
+.kop-preview small { font-size: .74rem; line-height: 1.35; }
 /* tampilan baca notula */
 .nv { color: var(--text-2); font-size: .95rem; line-height: 1.55; }
 .nv-meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 8px; }
