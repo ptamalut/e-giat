@@ -71,6 +71,17 @@ function ActivityCard({ a, upcoming = false }: { a: PublicActivity; upcoming?: b
   )
 }
 
+/** Daftar kartu kegiatan: kisi biasa bila sedikit; bila banyak (lebih dari 3) menjadi slider yang bisa digeser. */
+const SLIDER_MIN = 4
+function ActivityCards({ list, label, upcoming = false }: { list: PublicActivity[]; label: string; upcoming?: boolean }) {
+  if (list.length < SLIDER_MIN) return <div className="landing-grid">{list.map((a) => <ActivityCard key={a.id} a={a} upcoming={upcoming} />)}</div>
+  return (
+    <Slider label={label}>
+      {list.map((a) => <div key={a.id} className="slider-item"><ActivityCard a={a} upcoming={upcoming} /></div>)}
+    </Slider>
+  )
+}
+
 export default function Landing() {
   const { session } = useAuth()
   const { settings: brand } = useBrand()
@@ -171,13 +182,13 @@ export default function Landing() {
               <p className="muted">{upcoming.length ? 'Kegiatan akan tampil di sini pada hari pelaksanaannya; lihat Kegiatan mendatang di bawah.' : 'Kegiatan akan tampil di sini setelah panitia mengaktifkannya. Silakan kembali lagi nanti.'}</p>
             </div>
           )}
-          {running.length > 0 && <div className="landing-grid">{running.map((a) => <ActivityCard key={a.id} a={a} />)}</div>}
+          {running.length > 0 && <ActivityCards list={running} label="Kegiatan berjalan" />}
         </section>
 
         {upcoming.length > 0 && (
           <section id="mendatang" className="container landing-section" aria-labelledby="h-mendatang">
             <SectionHead id="h-mendatang" eyebrow="Segera" title="Kegiatan mendatang" sub="Kegiatan yang akan dimulai pada tanggal berikutnya. Peserta dapat membuka halaman pribadinya sejak sekarang." />
-            <div className="landing-grid">{upcoming.map((a) => <ActivityCard key={a.id} a={a} upcoming />)}</div>
+            <ActivityCards list={upcoming} label="Kegiatan mendatang" upcoming />
           </section>
         )}
 
