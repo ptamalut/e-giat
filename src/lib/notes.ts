@@ -28,13 +28,27 @@ export const newSection = (type: NoteSection['type'] = 'teks', title = '', intro
 /** Huruf bagian: A, B, C … (setelah Z memakai angka). */
 export const sectionLetter = (i: number) => (i >= 0 && i < 26 ? String.fromCharCode(65 + i) : String(i + 1))
 
-/** Kerangka bagian untuk notula baru, mengikuti format notula: Pembukaan … Kesimpulan dan Rencana Tindak Lanjut … Penutup. */
-export const defaultSections = (): NoteSection[] => [
-  newSection('teks', 'Pembukaan', 'Kegiatan dibuka oleh … selaku pimpinan, dengan menyampaikan hal-hal sebagai berikut:'),
-  newSection('teks', 'Pembahasan'),
-  newSection('tindak_lanjut', 'Kesimpulan dan Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, disepakati rencana tindak lanjut sebagai berikut:'),
-  newSection('teks', 'Penutup', 'Kegiatan ditutup oleh pimpinan dengan ucapan terima kasih atas kehadiran dan masukan seluruh peserta.'),
-]
+/**
+ * Isi notula = satu narasi + butir-butir (opsional). Disimpan sebagai satu bagian tanpa judul; notula lama yang terdiri dari beberapa
+ * bagian diratakan: judul bagian menjadi baris tebal pada narasi dan seluruh butirnya dikumpulkan.
+ */
+export interface NoteBody { text: string; items: NoteItem[] }
+
+export function flattenSections(sections: readonly NoteSection[]): NoteBody {
+  const parts: string[] = []
+  const items: NoteItem[] = []
+  for (const s of sections) {
+    if (s.type === 'tindak_lanjut') continue
+    const head = s.title.trim() ? `**${s.title.trim()}**` : ''
+    const intro = s.intro.trim()
+    if (head || intro) parts.push([head, intro].filter(Boolean).join('\n'))
+    items.push(...s.items)
+  }
+  return { text: parts.join('\n\n'), items }
+}
+
+/** Satu bagian tanpa judul dari narasi dan butir; kosong bila keduanya kosong. */
+export const bodyToSections = (b: NoteBody): NoteSection[] => (b.text.trim() || b.items.length ? [newSection('teks', '', b.text.trim(), b.items)] : [])
 
 const subHasText = (x: { lead: string; text: string }) => !!(x.lead.trim() || x.text.trim())
 
@@ -58,18 +72,21 @@ type Sectioned = Pick<MeetingNote, 'sections' | 'discussion' | 'decisions' | 'fo
 
 /**
  * Bagian yang ditampilkan/diedit: bagian tersimpan; bila kosong (notula lama sebelum format ini) diturunkan dari
- * pembahasan, keputusan, dan tindak lanjut lama; bila semuanya kosong memakai kerangka bawaan.
+ * pembahasan dan keputusan lama (tindak lanjut lama ikut sebagai bagian hanya bila ada isi lama; selain itu tabelnya ditambahkan di akhir dokumen).
  */
-export function noteSections(n: Sectioned | { sections?: NoteSection[] | null; discussion: string | null; decisions: string | null; follow_ups: FollowUp[] }, blank = true): NoteSection[] {
+export function noteSections(n: Sectioned | { sections?: NoteSection[] | null; discussion: string | null; decisions: string | null; follow_ups: FollowUp[] }): NoteSection[] {
   if (n.sections?.length) return n.sections
   const out: NoteSection[] = []
   const disc = paragraphs(n.discussion)
   if (disc.length) out.push(newSection('teks', 'Pembahasan', '', disc.map((t) => newItem('', t))))
   const dec = linesOf(n.decisions)
   if (dec.length) out.push(newSection('teks', 'Keputusan dan Kesimpulan', '', dec.map((t) => newItem('', t))))
-  if (n.follow_ups.length) out.push(newSection('tindak_lanjut', 'Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, disepakati rencana tindak lanjut sebagai berikut:'))
-  return out.length || !blank ? out : defaultSections()
+  if (n.follow_ups.length && out.length) out.push(newSection('tindak_lanjut', 'Rencana Tindak Lanjut', 'Berdasarkan hasil pembahasan, disepakati rencana tindak lanjut sebagai berikut:'))
+  return out
 }
+
+/** Isi notula (narasi + butir) dari catatan tersimpan, termasuk notula lama berbagian. */
+export const noteBody = (n: Parameters<typeof noteSections>[0]): NoteBody => flattenSections(noteSections(n))
 
 const BOLD = /^\*\*(.+?)\*\*[\s.:]*(.*)$/
 const NUM = /^\s*(\d{1,3})[.)]\s+(.*)$/
@@ -114,5 +131,5 @@ export function outlineText(items: readonly NoteItem[]): string {
 export const emptyNote = (location: string | null): Omit<MeetingNote, 'id' | 'activity_id' | 'created_at' | 'updated_at'> => ({
   title: '', held_at: null, location, leader: null, notetaker: null, attendees: null,
   agenda: null, discussion: null, decisions: null, follow_ups: [], status: 'draft', attendee_list: [],
-  basis: null, held_until: null, leader_role: null, leader_nip: null, notetaker_nip: null, sections: defaultSections(),
+  basis: null, held_until: null, leader_role: null, leader_nip: null, notetaker_nip: null, sections: [],
 })

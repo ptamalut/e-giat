@@ -71,6 +71,29 @@ describe('buildNoteDoc', () => {
   })
 })
 
+describe('notula satu narasi', () => {
+  const kop = { title: [], address: [] }
+  it('tanpa huruf bagian: paragraf per baris, butir bernomor, lalu tabel tindak lanjut di akhir', () => {
+    const d = buildNoteDoc({
+      follow_ups: [{ id: '1', task: 'Kirim laporan', pic: 'Budi', due: '', done: false }],
+      sections: [{ id: 's', type: 'teks', title: '', intro: 'Kegiatan dibuka oleh **Ketua**.\n\nPembahasan berlangsung baik.', items: [{ id: 'i', lead: 'Penting', text: 'butir satu', subs: [{ id: 'x', lead: '', text: 'anak' }] }] }],
+    }, kop, TZ)
+    expect(d.blocks.filter((b) => b.t === 'heading').map((b) => (b as { text: string }).text)).toEqual(['Jalannya Kegiatan:', 'Rencana Tindak Lanjut'])
+    const paras = d.blocks.filter((b) => b.t === 'para') as { runs: { text: string; bold?: boolean }[] }[]
+    expect(paras).toHaveLength(2)
+    expect(paras[0].runs).toEqual([{ text: 'Kegiatan dibuka oleh ' }, { text: 'Ketua', bold: true }, { text: '.' }])
+    expect(d.blocks.filter((b) => b.t === 'item').map((b) => (b as { marker: string }).marker)).toEqual(['1.', 'a.'])
+    expect(d.blocks[d.blocks.length - 1].t).toBe('table')
+  })
+  it('hanya tindak lanjut: tanpa bagian, tabel tetap tampil dengan judulnya', () => {
+    const d = buildNoteDoc({ follow_ups: [{ id: '1', task: 'T', pic: '', due: '', done: false }], sections: [] }, kop, TZ)
+    expect(d.blocks.map((b) => b.t)).toEqual(['heading', 'table'])
+  })
+  it('narasi kosong dan tanpa tindak lanjut: tidak ada isi', () => {
+    expect(buildNoteDoc({ follow_ups: [], sections: [] }, kop, TZ).blocks).toEqual([])
+  })
+})
+
 describe('kop dan nama berkas', () => {
   const base = { kop_title: null, kop_address: null, org_name: null, address: null, phone: null, email: null, website: null }
   it('kop memakai isian kop; bila kosong memakai nama instansi dan kontak', () => {

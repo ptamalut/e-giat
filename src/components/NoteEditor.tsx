@@ -2,14 +2,15 @@ import { ArrowLeft, FileDown, FileText, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useBrand } from './brand'
 import { FollowField, PersonSelect } from './NoteFields'
-import NoteSections from './NoteSections'
+import { FollowUpsCard, NoteBody } from './NoteBody'
 import { Field, useAsync, useConfirm, useToast } from './ui'
 import { fromLocalInput, toLocalInput } from '../lib/format'
-import { attendeesText, cleanFollowUps, cleanSections, newItem, newSection, noteSections, sectionLetter } from '../lib/notes'
+import { attendeesText, bodyToSections, cleanFollowUps, cleanSections, newItem, noteBody, type NoteBody as Body } from '../lib/notes'
 import { activityDays, basisFromLetters, dayLabel, joinLocal, splitLocal } from '../lib/noteDefaults'
 import { attendeeLines } from '../lib/noteDoc'
 import { downloadNote, type NoteFormat } from '../lib/noteExport'
 import NoteRecorder from '../pages/admin/NoteRecorder'
+import { appendBlock } from '../lib/transcript'
 import { errMsg } from '../lib/supabase'
 import type { AttendeeRef, FollowUp, LetterBrief, MeetingNote, NoteContext, NoteSection } from '../lib/types'
 
@@ -64,11 +65,10 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
   // mode isian yang mengikuti kegiatan: null = belum ditentukan (diputuskan dari isi tersimpan setelah data dasar surat dimuat)
   const [mode, setMode] = useState<{ basis: boolean | null; location: boolean | null; agenda: boolean | null }>({ basis: null, location: null, agenda: null })
   const [otherDay, setOtherDay] = useState(!!heldLocal.day && days.length > 0 && !days.includes(heldLocal.day))
-  const [secs, setSecs] = useState<NoteSection[]>(() => noteSections(draft))
+  const [body, setBody] = useState<Body>(() => noteBody(draft))   // satu narasi + butir (notula lama berbagian diratakan)
   const [fus, setFus] = useState<FollowUp[]>(draft.follow_ups)
   const [busy, setBusy] = useState(false)
   const [exporting, setExporting] = useState<NoteFormat | null>(null)
-  const [target, setTarget] = useState('')
 
   const sessions = useAsync(() => api.sessions().catch(() => []), [activityId])
   const letters = useAsync(() => api.letters().catch(() => []), [activityId])
@@ -83,7 +83,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
   const val = (k: 'basis' | 'location' | 'agenda') => (isManual(k) ? f[k] : auto[k])
   const setManual = (k: 'basis' | 'location' | 'agenda') => (m: boolean) => setMode((c) => ({ ...c, [k]: m }))
 
-  const snapshot = () => JSON.stringify({ f, mode, otherDay, secs, fus })
+  const snapshot = () => JSON.stringify({ f, mode, otherDay, body, fus })
   const [saved, setSaved] = useState(snapshot)
   const dirty = snapshot() !== saved
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -101,7 +101,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     location: orNull(val('location')), leader: orNull(f.leader), notetaker: orNull(f.notetaker), attendees: orNull(f.attendees), attendee_list: [],
     agenda: orNull(val('agenda')), discussion: null, decisions: null,
     basis: orNull(val('basis')), held_until: orNull(f.until), leader_role: orNull(f.leaderRole), leader_nip: orNull(f.leaderNip), notetaker_nip: orNull(f.notetakerNip),
-    sections: cleanSections(secs), follow_ups: cleanFollowUps(fus), status: f.status, created_at: '', updated_at: '',
+    sections: cleanSections(bodyToSections(body)), follow_ups: cleanFollowUps(fus), status: f.status, created_at: '', updated_at: '',
   })
 
   async function save(): Promise<boolean> {
@@ -118,8 +118,8 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     } catch (e) { setBusy(false); toast(errMsg(e), 'error'); return false }
     setBusy(false)
     setId(newId)
-    setSecs(n.sections); setFus(n.follow_ups)
-    setSaved(JSON.stringify({ f, mode, otherDay, secs: n.sections, fus: n.follow_ups }))
+    setFus(n.follow_ups)
+    setSaved(JSON.stringify({ f, mode, otherDay, body, fus: n.follow_ups }))
     toast('Notula disimpan.', 'success')
     return true
   }
@@ -158,20 +158,6 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     toast(`${list.length} nama diisi.`, 'success')
   }
 
-  // hasil rekaman suara masuk sebagai butir pada bagian terpilih (bawaan: bagian pembahasan pertama)
-  const textSecs = secs.map((s, i) => ({ s, i })).filter((x) => x.s.type === 'teks')
-  const defaultTarget = (textSecs.length > 2 ? textSecs[1] : textSecs[0])?.s.id ?? ''
-  const targetId = textSecs.some((x) => x.s.id === target) ? target : defaultTarget
-  function addToTarget(texts: string[]) {
-    const items = texts.map((t) => newItem('', t))
-    setSecs((cur) => {
-      const at = cur.findIndex((s) => s.id === targetId)
-      if (at < 0) return [...cur, newSection('teks', 'Pembahasan', '', items)]
-      return cur.map((s, i) => (i === at ? { ...s, items: [...s.items, ...items] } : s))
-    })
-  }
-
-  const pr = useMemo(() => ({ done: fus.filter((x) => x.done).length, total: fus.length }), [fus])
   const titleOk = !!f.title.trim()
   const dayValue = !otherDay && days.includes(f.day) ? f.day : '__other'
 
@@ -260,23 +246,15 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
         </div>
 
         <NoteRecorder refDate={new Date(`${f.day}T12:00:00`)}
-          onDiscussion={(t) => addToTarget(t.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean))}
+          onDiscussion={(t) => setBody((b) => ({ ...b, text: appendBlock(b.text, t) }))}
           onApply={(a) => {
-            if (a.agenda.length) addToTarget(a.agenda)
-            if (a.decisions.length) addToTarget(a.decisions)
+            const more = [...a.agenda, ...a.decisions]
+            if (more.length) setBody((b) => ({ ...b, items: [...b.items, ...more.map((t) => newItem('', t))] }))
             if (a.followUps.length) setFus((c) => [...c, ...a.followUps.map((x) => ({ id: crypto.randomUUID(), done: false, ...x }))])
           }} />
-        {textSecs.length > 1 && (
-          <div className="row tight muted small" style={{ marginTop: -8 }}>
-            <label htmlFor="rec-target">Hasil rekaman dimasukkan sebagai butir pada bagian</label>
-            <select id="rec-target" className="input" style={{ width: 260, minHeight: 30, padding: '2px 8px' }} value={targetId} onChange={(e) => setTarget(e.target.value)}>
-              {textSecs.map((x) => <option key={x.s.id} value={x.s.id}>{sectionLetter(x.i)}. {x.s.title || '(tanpa judul)'}</option>)}
-            </select>
-          </div>
-        )}
 
-        <NoteSections sections={secs} onChange={setSecs} followUps={fus} onFollowUps={setFus} today={today()} />
-        {pr.total > 0 && <p className="muted small" style={{ margin: 0 }}>Rencana tindak lanjut: {pr.done}/{pr.total} selesai.</p>}
+        <NoteBody body={body} onChange={setBody} />
+        <FollowUpsCard list={fus} onChange={setFus} today={today()} />
 
         {id && <div className="row"><button className="btn danger" onClick={() => void remove()}><Trash2 size={16} /> Hapus notula</button></div>}
       </div>

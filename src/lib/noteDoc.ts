@@ -106,22 +106,27 @@ function itemRuns(x: { lead: string; text: string }): Run[] {
   return inlineRuns(text)
 }
 
-function sectionBlocks(s: NoteSection, i: number, fu: readonly FollowUp[], tableDone: { v: boolean }): Block[] {
-  const out: Block[] = [{ t: 'heading', text: s.title ? `${sectionLetter(i)}. ${s.title}` : `${sectionLetter(i)}.` }]
-  if (s.intro.trim()) out.push({ t: 'para', runs: inlineRuns(s.intro.trim()) })
+const fmtDue = (d: string) => new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${d}T00:00:00`))
+
+/** Tabel Rencana Tindak Lanjut / Penanggung Jawab (kolom Tenggat hanya bila ada yang diisi). */
+function followUpTable(fu: readonly FollowUp[]): Block {
+  const due = fu.some((f) => f.due)
+  return {
+    t: 'table',
+    head: due ? ['No', 'Rencana Tindak Lanjut', 'Penanggung Jawab', 'Tenggat'] : ['No', 'Rencana Tindak Lanjut', 'Penanggung Jawab'],
+    widths: due ? [0.07, 0.5, 0.25, 0.18] : [0.08, 0.6, 0.32],
+    rows: fu.map((f, k) => [String(k + 1), f.task, f.pic || '-', ...(due ? [f.due ? fmtDue(f.due) : '-'] : [])]),
+    center: [0],
+  }
+}
+
+/** Satu bagian: judul berhuruf hanya bila notula berbagian (lama); narasi per baris menjadi paragraf, lalu butir bernomor. */
+function sectionBlocks(s: NoteSection, i: number, lettered: boolean, fu: readonly FollowUp[], tableDone: { v: boolean }): Block[] {
+  const out: Block[] = []
+  if (lettered) out.push({ t: 'heading', text: s.title ? `${sectionLetter(i)}. ${s.title}` : `${sectionLetter(i)}.` })
+  for (const line of s.intro.split('\n').map((l) => l.trim()).filter(Boolean)) out.push({ t: 'para', runs: inlineRuns(line) })
   if (s.type === 'tindak_lanjut') {
-    if (!tableDone.v && fu.length) {
-      tableDone.v = true
-      const due = fu.some((f) => f.due)
-      const fmt = (d: string) => new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${d}T00:00:00`))
-      out.push({
-        t: 'table',
-        head: due ? ['No', 'Rencana Tindak Lanjut', 'Penanggung Jawab', 'Tenggat'] : ['No', 'Rencana Tindak Lanjut', 'Penanggung Jawab'],
-        widths: due ? [0.07, 0.5, 0.25, 0.18] : [0.08, 0.6, 0.32],
-        rows: fu.map((f, k) => [String(k + 1), f.task, f.pic || '-', ...(due ? [f.due ? fmt(f.due) : '-'] : [])]),
-        center: [0],
-      })
-    }
+    if (!tableDone.v && fu.length) { tableDone.v = true; out.push(followUpTable(fu)) }
     return out
   }
   s.items.forEach((it: NoteItem, k) => {
@@ -160,11 +165,14 @@ export function buildNoteDoc(note: NoteDocInput, kop: { title: string[]; address
   add('Notulis', note.notetaker)
   add('Peserta', note.attendees || attendeeLines(note.attendee_list))
 
-  const sections = noteSections({ sections: note.sections ?? [], discussion: note.discussion ?? null, decisions: note.decisions ?? null, follow_ups: note.follow_ups }, false)
+  const sections = noteSections({ sections: note.sections ?? [], discussion: note.discussion ?? null, decisions: note.decisions ?? null, follow_ups: note.follow_ups })
+  const lettered = sections.length > 1 || sections.some((s) => s.title.trim())     // notula lama berbagian A, B, C …
   const blocks: Block[] = []
   if (sections.length) blocks.push({ t: 'heading', text: 'Jalannya Kegiatan:' })
   const tableDone = { v: false }
-  sections.forEach((s, i) => blocks.push(...sectionBlocks(s, i, note.follow_ups, tableDone)))
+  sections.forEach((s, i) => blocks.push(...sectionBlocks(s, i, lettered, note.follow_ups, tableDone)))
+  // notula satu narasi: tabel rencana tindak lanjut menyusul di akhir bila ada
+  if (!tableDone.v && note.follow_ups.length) blocks.push({ t: 'heading', text: 'Rencana Tindak Lanjut' }, followUpTable(note.follow_ups))
 
   const nip = (v: string | null | undefined) => ((v ?? '').trim() ? `NIP. ${(v ?? '').trim()}` : '')
   const role = (note.leader_role ?? '').trim()
