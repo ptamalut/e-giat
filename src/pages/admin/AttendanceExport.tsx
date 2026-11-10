@@ -43,6 +43,7 @@ export default function AttendanceExport({ activity, people, sessions, attendanc
   const [group, setGroup] = useState<AttGroup>('satker')
   const [columns, setColumns] = useState<AttColumn[]>(['identifier', 'job_title', 'role', 'status', 'time'])
   const [landscape, setLandscape] = useState(true)
+  const [qr, setQr] = useState(true)
   const [busy, setBusy] = useState<'docx' | 'pdf' | null>(null)
 
   const chosen = sessions.filter((s) => sessionIds.includes(s.id)) // urutan sesi
@@ -55,10 +56,12 @@ export default function AttendanceExport({ activity, people, sessions, attendanc
     return n
   }, [chosen, people, members])
 
-  const opts: AttExportOptions = { title, sessionIds: chosen.map((s) => s.id), roles, unit, group, columns, landscape }
+  const qrOn = qr && columns.includes('signature')
+  const noCodes = attendances.length > 0 && attendances.every((a) => !a.sign_code)   // migrasi 022 belum dijalankan
+  const opts: AttExportOptions = { title, sessionIds: chosen.map((s) => s.id), roles, unit, group, columns, landscape, qrBase: qrOn ? window.location.origin : undefined }
   const models = useMemo(() => buildAttendanceModels(activity, people, sessions, attendances, members, activity.satker_order, opts),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activity, people, sessions, attendances, members, title, sessionIds, roles, unit, group, columns, landscape])
+    [activity, people, sessions, attendances, members, title, sessionIds, roles, unit, group, columns, landscape, qrOn])
   const shown = models.filter((m) => m.total > 0)
   const total = shown.reduce((n, m) => n + m.total, 0)
   const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
@@ -121,6 +124,12 @@ export default function AttendanceExport({ activity, people, sessions, attendanc
         <div>
           <div className="label" style={{ marginBottom: 8 }}>Kolom (selain No dan Nama)</div>
           {COLUMNS.map((c) => <Check key={c.id} label={c.label} hint={c.hint} checked={columns.includes(c.id)} onChange={() => setColumns(toggle(columns, c.id))} />)}
+          {columns.includes('signature') && (
+            <div style={{ marginLeft: 26 }}>
+              <Check label="Isi dengan QR tanda tangan elektronik" hint="Yang sudah hadir/terlambat otomatis diberi QR pribadi; pindai untuk memeriksa keaslian kehadiran. Yang belum hadir dibiarkan kosong untuk tanda tangan basah." checked={qr} onChange={setQr} />
+              {qrOn && noCodes && <div className="alert warn"><span>Kode tanda tangan elektronik belum tersedia. Jalankan <code>supabase/migrations/022_tanda_tangan_elektronik.sql</code> di Supabase SQL Editor lalu muat ulang halaman.</span></div>}
+            </div>
+          )}
         </div>
         <div>
           <div className="label" style={{ marginBottom: 6 }}>Pengelompokan tabel</div>

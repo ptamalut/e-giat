@@ -592,6 +592,15 @@ button.tab.active { border-bottom-color: var(--gold); }
 .kop-preview > div { flex: 1; display: grid; text-align: center; font-family: 'Times New Roman', Times, serif; }
 .kop-preview b { font-size: 1rem; line-height: 1.3; }
 .kop-preview small { font-size: .74rem; line-height: 1.35; }
+/* verifikasi tanda tangan elektronik */
+.vs-status { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: var(--radius-sm); margin-bottom: 14px; }
+.vs-status > div { display: grid; gap: 2px; }
+.vs-status span { font-size: .86rem; opacity: .85; }
+.vs-status.ok { background: var(--success-bg); color: var(--success); }
+.vs-status.no { background: var(--warn-bg); color: var(--warn); }
+.vs-card { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); margin-bottom: 12px; }
+.vs-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; font-size: .92rem; }
+.vs-row b { font-weight: 650; overflow-wrap: anywhere; }
 /* tampilan baca notula */
 .nv { color: var(--text-2); font-size: .95rem; line-height: 1.55; }
 .nv-meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 8px; }

@@ -118,6 +118,10 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
   Satker baru dan orang baru otomatis menyusul di akhir; "Kembali ke abjad" menghapus urutan khusus.
   Bila filter jenis (Peserta/Narasumber/Moderator/Panitia) sedang dipilih, **Atur urutan** hanya memuat dan mengatur jenis itu; urutan jenis lain tidak bergeser (orang yang merangkap ikut berpindah di semua jenisnya karena urutannya satu).
 - **Ekspor absensi Word/PDF** (Absensi → *Word / PDF*): pilih **sesi** (satu atau beberapa; tiap sesi jadi bagian/halaman tersendiri), **jenis** menurut kedudukan pada sesi, dan **satuan kerja** (semua atau satu). Tabel bisa dikelompokkan **per satker**, **per jenis**, atau satu tabel; kolom bisa dipilih (NIP, pangkat, jabatan, WhatsApp, kedudukan, status, jam absen, kolom tanda tangan untuk daftar hadir cetak). Ringkasan hadir/terlambat/izin/sakit/alpa/belum absen ikut dicantumkan, dan urutan mengikuti pengaturan urutan di tab Peserta.
+- **Tanda tangan elektronik (QR) pada daftar hadir**: tiap catatan kehadiran punya **kode acak 128 bit**. Saat mengekspor absensi ke Word/PDF dengan kolom *Tanda tangan*, opsi **Isi dengan QR tanda tangan elektronik** (aktif bawaan)
+  mengisi kolom itu dengan **QR pribadi** untuk setiap orang yang tercatat **hadir/terlambat**; yang belum hadir, izin, sakit, atau alpa dibiarkan kosong untuk tanda tangan basah. Memindai QR membuka **`/v/<kode>`** (publik, tanpa login) yang
+  menampilkan nama, jabatan, satuan kerja, kegiatan, sesi, dan waktu absen beserta status **sah**; NIP disamarkan, dan kehadiran yang dicatat manual oleh panitia diberi keterangan. Catatan yang dihapus atau diubah menjadi izin/sakit/alpa
+  tidak lagi sah. Kode tidak bisa ditebak dan tidak dapat dipakai mengubah data (migrasi 022).
 - **Ekspor Word (.docx) dan PDF**: daftar peserta/narasumber/panitia per satker atau satu tabel, dengan pilihan peran,
   kolom (NIP, Pangkat/Gol., Jabatan, WhatsApp, Peran, kolom tanda tangan untuk daftar hadir), judul, dan orientasi A4.
   Dokumen dibuat langsung di browser (tanpa server) dengan nomor halaman dan tanggal cetak.
@@ -221,7 +225,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, lalu `021_absensi_otomatis_kegiatan.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, lalu `022_tanda_tangan_elektronik.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

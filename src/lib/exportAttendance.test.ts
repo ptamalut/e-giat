@@ -70,3 +70,30 @@ describe('ekspor absensi', () => {
     expect(m.groups).toEqual([])
   })
 })
+
+describe('QR tanda tangan elektronik pada daftar hadir', () => {
+  const code = (n: number) => String(n).repeat(32).slice(0, 32)
+  const coded = atts.map((a, i) => ({ ...a, sign_code: code(i + 1) }))
+  const buildQr = (o: Partial<AttExportOptions> = {}, list: Attendance[] = coded) =>
+    buildAttendanceModels({ name: 'Diklat' }, people, sessions, list, members, null, { ...base, group: 'none', columns: ['signature'], qrBase: 'https://laksana.example/', ...o })
+
+  it('QR hanya untuk yang hadir/terlambat; alamat memuat kode', () => {
+    const [m] = buildQr()
+    // urutan baris: A (hadir), B (belum absen), C (terlambat), D (izin)
+    expect(m.groups[0].signs).toEqual([`https://laksana.example/v/${code(1)}`, null, `https://laksana.example/v/${code(2)}`, null])
+    expect(m.footnote).toMatch(/Tanda tangan elektronik/)
+  })
+  it('tanpa opsi qrBase, tanpa kolom tanda tangan, atau tanpa kode: tidak ada QR', () => {
+    expect(buildQr({ qrBase: undefined })[0].groups[0].signs?.some(Boolean)).toBe(false)
+    expect(buildQr({ qrBase: undefined })[0].footnote).toBeUndefined()
+    expect(buildQr({ columns: ['status'] })[0].groups[0].signs?.some(Boolean)).toBe(false)
+    expect(buildQr({}, atts)[0].groups[0].signs?.some(Boolean)).toBe(false)
+    expect(buildQr({}, atts)[0].footnote).toBeUndefined()
+  })
+  it('QR sejajar dengan baris pada tabel per satker', () => {
+    const [m] = buildQr({ group: 'satker' })
+    expect(m.groups.map((g) => g.signs?.length)).toEqual(m.groups.map((g) => g.rows.length))
+    expect(m.groups[0].signs).toEqual([`https://laksana.example/v/${code(1)}`, null])
+  })
+})
+

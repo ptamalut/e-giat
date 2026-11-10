@@ -1,8 +1,9 @@
 import {
-  AlignmentType, BorderStyle, Document, Footer, HeightRule, Packer, PageNumber, PageOrientation, Paragraph,
+  AlignmentType, BorderStyle, Document, Footer, HeightRule, ImageRun, Packer, PageNumber, PageOrientation, Paragraph,
   ShadingType, Table, TableLayoutType, TableRow, TableCell, TextRun, VerticalAlign, WidthType,
 } from 'docx'
-import { columnWidthsMm, type ExportModel } from './exportModel'
+import { columnWidthsMm, hasSignQr, type ExportModel } from './exportModel'
+import { dataUrlBytes, qrMap } from './signQr'
 
 const CM = 567 // twips per cm
 const FONT = 'Calibri'
@@ -23,7 +24,8 @@ const makeFooter = (printedAt: Date) => new Footer({
 })
 
 /** Bagian dokumen (satu model ekspor = satu bagian, mulai di halaman baru). */
-function buildSection(model: ExportModel, footer: Footer) {
+function buildSection(model: ExportModel, footer: Footer, qrs: Map<string, string>) {
+  const withQr = hasSignQr(model)
   const margin = Math.round(1.5 * CM)
   const pageW = model.landscape ? 29.7 * CM : 21 * CM
   const contentW = Math.round(pageW - 2 * margin)
@@ -51,6 +53,12 @@ function buildSection(model: ExportModel, footer: Footer) {
     children: [new Paragraph({ alignment: i === 0 ? AlignmentType.CENTER : AlignmentType.LEFT, children: [run(text)] })],
   })
 
+  /** sel kolom Tanda Tangan berisi QR tanda tangan elektronik (di tengah) */
+  const qrCell = (url: string, i: number) => new TableCell({
+    width: { size: widths[i], type: WidthType.DXA }, borders, verticalAlign: VerticalAlign.CENTER, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data: dataUrlBytes(qrs.get(url)!), transformation: { width: 56, height: 56 } })] })],
+  })
+
   const children: (Paragraph | Table)[] = [
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [run(model.title.toUpperCase(), { bold: true, size: 30 })] }),
     ...model.subtitle.map((t, i) => new Paragraph({
@@ -72,14 +80,19 @@ function buildSection(model: ExportModel, footer: Footer) {
       layout: TableLayoutType.FIXED,
       rows: [
         new TableRow({ tableHeader: true, cantSplit: true, children: model.headers.map((h, i) => headCell(h, i)) }),
-        ...g.rows.map((r) => new TableRow({
+        ...g.rows.map((r, ri) => new TableRow({
           cantSplit: true,
-          height: model.hasSignature ? { value: Math.round(1.0 * CM), rule: HeightRule.ATLEAST } : undefined,
-          children: r.map((c, i) => bodyCell(c, i)),
+          height: model.hasSignature ? { value: Math.round((withQr ? 1.7 : 1.0) * CM), rule: HeightRule.ATLEAST } : undefined,
+          children: r.map((c, i) => {
+            const url = model.keys[i] === 'signature' ? g.signs?.[ri] : null
+            return url && qrs.has(url) ? qrCell(url, i) : bodyCell(c, i)
+          }),
         })),
       ],
     }))
   })
+
+  if (model.footnote) children.push(new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: model.footnote, italics: true, size: 16, color: '475569', font: FONT })] }))
 
   return {
     properties: {
@@ -96,11 +109,12 @@ function buildSection(model: ExportModel, footer: Footer) {
 /** Dokumen Word (.docx) dari satu atau beberapa model ekspor (tiap model menjadi bagian tersendiri). */
 export async function exportDocx(models: ExportModel | readonly ExportModel[], printedAt = new Date()): Promise<Blob> {
   const list: readonly ExportModel[] = 'headers' in models ? [models] : models
+  const qrs = await qrMap(list.flatMap((m) => m.groups.flatMap((g) => g.signs ?? [])))
   const doc = new Document({
     creator: 'LAKSANA',
     title: list[0].title,
     styles: { default: { document: { run: { font: FONT, size: 19 } } } },
-    sections: list.map((m) => buildSection(m, makeFooter(printedAt))),
+    sections: list.map((m) => buildSection(m, makeFooter(printedAt), qrs)),
   })
   return Packer.toBlob(doc)
 }

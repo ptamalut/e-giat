@@ -21,11 +21,17 @@ export interface ExportModel {
   headers: string[]
   /** kunci kolom (sejajar dengan headers), dipakai untuk menentukan lebar */
   keys: ColumnKey[]
-  groups: { label: string | null; rows: string[][] }[]
+  /** `signs` (opsional, sejajar dengan `rows`): alamat verifikasi untuk QR tanda tangan elektronik pada kolom Tanda Tangan; null = kosong */
+  groups: { label: string | null; rows: string[][]; signs?: (string | null)[] }[]
   total: number
   landscape: boolean
   hasSignature: boolean
+  /** catatan di bawah tabel (mis. penjelasan QR tanda tangan elektronik) */
+  footnote?: string
 }
+
+/** Ada QR tanda tangan elektronik pada model ini. */
+export const hasSignQr = (m: ExportModel) => m.groups.some((g) => g.signs?.some(Boolean))
 
 const LABEL: Record<ExportColumn, string> = {
   identifier: 'NIP', grade: 'Pangkat/Gol. Ruang', job_title: 'Jabatan', phone: 'No. WhatsApp', role: 'Peran', signature: 'Tanda Tangan',

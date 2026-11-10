@@ -10,6 +10,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import PublicActivityPage from './pages/PublicActivity'
 import SetupNeeded from './pages/SetupNeeded'
+import VerifySignaturePage from './pages/VerifySignature'
 
 // Bagian peserta & panitia dipisah agar halaman peserta (HP) tetap ringan.
 const AdminShell = lazy(() => import('./pages/admin/AdminShell'))
@@ -56,6 +57,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/k/:id" element={<PublicActivityPage />} />
+        <Route path="/v/:code" element={<VerifySignaturePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/galeri" element={<GalleryList />} />
         <Route path="/galeri/:id" element={<GalleryActivityPage />} />
