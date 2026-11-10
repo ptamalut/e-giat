@@ -9,6 +9,7 @@ import { removeActivityCertificateFiles } from '../../lib/certificateApi'
 import { removeSelfiesOf } from '../../lib/selfieApi'
 import { removeActivityDocFiles } from '../../lib/docsApi'
 import { removeActivityMaterialFiles } from '../../lib/materialsApi'
+import { removeActivityRecordingFiles } from '../../lib/recordingsApi'
 import { removeActivityLetterFiles } from '../../lib/lettersApi'
 import LettersCard from './LettersCard'
 import { errMsg, supabase } from '../../lib/supabase'
@@ -97,6 +98,7 @@ export default function Overview() {
     await removeSelfiesOf({ activityId: a.id }) // dan foto selfie absensi
     await removeActivityDocFiles(a.id) // dan foto dokumentasi
     await removeActivityMaterialFiles(a.id) // dan berkas materi
+    await removeActivityRecordingFiles(a.id) // dan rekaman suara notula
     await removeActivityLetterFiles(a.id) // dan berkas dasar surat
     const { error } = await supabase.from('activities').delete().eq('id', a.id)
     if (error) return toast(errMsg(error), 'error')

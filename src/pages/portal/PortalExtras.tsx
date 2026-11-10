@@ -47,7 +47,7 @@ export function NotesSection({ token, canManage = false, activityId, context, se
   }
   const toDraft = (n: PortalNote): NoteDraft => ({ id: n.id, title: n.title, held_at: n.held_at, location: n.location, leader: n.leader, notetaker: n.notetaker, attendees: n.attendees,
     agenda: n.agenda, discussion: n.discussion, decisions: n.decisions, follow_ups: n.follow_ups, status: n.status ?? 'draft',
-    basis: n.basis ?? null, held_until: n.held_until ?? null, leader_role: n.leader_role ?? null, leader_nip: n.leader_nip ?? null, notetaker_nip: n.notetaker_nip ?? null, sections: n.sections ?? [], attendee_list: n.attendee_list ?? [] })
+    basis: n.basis ?? null, held_until: n.held_until ?? null, leader_role: n.leader_role ?? null, leader_nip: n.leader_nip ?? null, notetaker_nip: n.notetaker_nip ?? null, sections: n.sections ?? [], attendee_list: n.attendee_list ?? [], recordings: n.recordings ?? [] })
 
   if (editing) {
     return <div className="keep"><NoteEditor key={editing.id ?? 'baru'} draft={editing} activityId={activityId} context={context} api={api} backLabel="Kembali ke halaman saya"

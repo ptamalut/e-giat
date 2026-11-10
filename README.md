@@ -92,13 +92,15 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
   (pilihan "Tanggal lain…" tersedia; pukul mulai dan selesai diisi sendiri), *Tempat* = tempat kegiatan, dan *Acara* = nama kegiatan. Isian ini tampil dengan penanda **Dari data kegiatan**; tombol **Ubah** membuatnya bisa diketik manual
   dan **Ikuti data kegiatan** mengembalikannya. **Peserta** ditulis sebagai teks bebas (mis. "Ketua dan Wakil Ketua, Steering Committee, serta Anggota …" atau satu nama per baris), dan bisa diisi otomatis dari **semua peserta kegiatan** atau dari **yang hadir pada sebuah sesi**; **pimpinan** dan **notulis** dipilih dari **peserta kegiatan** (NIP dan jabatan terisi otomatis, jabatan boleh disesuaikan). Istilah pada formulir dan dokumen bersifat umum untuk seluruh kegiatan (*Pimpinan*, *Peserta*, *Jalannya Kegiatan*), bukan hanya rapat. Berlaku di admin dan di halaman pribadi petugas/panitia, yang tampilannya dirapikan (bilah aksi Word/PDF/Simpan tetap di bawah, nyaman di HP) (migrasi 023).
 - **Pengaturan aplikasi** dibagi menjadi tab **Umum** (identitas, halaman depan, kontak), **Logo dan favicon**, **Kop surat**, dan **Akun saya**.
-- **Rekam rapat (suara → teks)** di editor notula: tombol *Mulai merekam* mengubah ucapan menjadi teks bahasa Indonesia secara langsung, **gratis dan tanpa API key**,
-  memakai pengenalan suara bawaan **Google Chrome / Microsoft Edge** (suara diproses oleh layanan browser tersebut, jadi perlu internet; Firefox/Safari belum didukung).
-  Perekaman lanjut otomatis saat Chrome berhenti karena hening, bisa dijeda/dilanjutkan, dan layar dijaga tetap menyala. Transkrip bisa disunting, dimasukkan ke
-  *Pembahasan*, atau diunduh `.txt`. *Cari keputusan & tindak lanjut* menyarankan isian berdasarkan **kata kunci** (bukan AI): kalimat "diputuskan/disepakati…" menjadi
+- **Rekaman suara** di editor notula, dua langkah yang terpisah. (1) **Merekam**: *Mulai merekam* memakai perekam bawaan browser (Chrome, Edge, Firefox terbaru; alamat https) dan
+  **langsung menyimpan rekaman sebagai berkas audio** di bucket `rekaman` (suara bicara ±14 MB per jam, batas 50 MB per rekaman, layar dijaga tetap menyala). Rekaman tercantum pada
+  notula (klik **Simpan**), bisa diputar, diunduh, dan dihapus. Bila unggahan gagal, rekaman tetap ditahan di halaman agar bisa diunggah ulang atau diunduh. Peserta/petugas lewat link pribadi
+  juga bisa merekam; rekaman hanya tampil bagi pembuatnya dan admin. (2) **Ubah ke teks**: tombol per rekaman, **gratis dan tanpa API key**, memakai pengenalan suara bawaan
+  **Google Chrome / Microsoft Edge** (suara diproses oleh layanan browser, perlu internet). Di Chrome 139+ rekaman dialirkan langsung tanpa suara dari speaker; browser lain yang punya pengenalan suara memakai
+  cara cadangan (rekaman diputar lewat speaker dan didengar mikrofon). Prosesnya berjalan **selama durasi rekaman** (bisa dihentikan, hasil sebagian tetap disimpan). Transkrip tersimpan bersama rekaman,
+  bisa disunting, **dimasukkan ke narasi notula**, atau diunduh `.txt`. *Cari keputusan & tindak lanjut* menyarankan isian berdasarkan **kata kunci** (bukan AI): kalimat "diputuskan/disepakati…" menjadi
   keputusan, "ditugaskan kepada…/paling lambat 15 November/PIC…" menjadi tindak lanjut lengkap dengan penanggung jawab dan tenggat. Semua saran dicentang dan ditinjau dulu.
-- **Dokumentasi**: unggah foto (dikompres otomatis, disimpan di Storage dengan nama acak) atau tambah tautan video/folder, dikelompokkan
-  per **album**, dengan galeri, keterangan, dan penampil foto. Peserta yang diberi hak akses melihatnya di halaman pribadinya.
+  Berkas rekaman memakai nama acak pada bucket publik (seperti materi); alamatnya hanya diberikan kepada yang berhak (migrasi 025). Judul notula juga bisa dicentang **sesuai nama kegiatan**.
 
 **Kegiatan & peserta**
 - Status kegiatan (Draft / Berjalan / Selesai); draft menutup absensi & kuis untuk peserta.
@@ -180,7 +182,7 @@ Kartu kegiatan di dasbor dan riwayat halaman depan menampilkan lencana jenisnya 
 ## Petugas/panitia menginput notula dan dokumentasi dari halaman pribadi
 Orang yang berkedudukan **Petugas** (jenis Kegiatan) atau **Panitia** (jenis Diklat) dan punya hak akses *Notula* / *Dokumentasi* bisa **menginput langsung dari link pribadinya**, tidak hanya melihat:
 - **Notula**: tombol *Tambah notula* membuka editor yang sama dengan halaman admin (judul, waktu, tempat, pimpinan, pencatat, status Draft/Final, peserta rapat yang bisa diisi dari semua orang di kegiatan atau yang hadir pada sebuah sesi,
-  dasar, acara, pimpinan dan notulis beserta NIP, bagian A, B, C … dengan butir/anak butir, tabel tindak lanjut + penanggung jawab, **rekam rapat suara-ke-teks**, unduh Word dan PDF). Mereka dapat **mengubah dan menghapus notula buatannya sendiri**; draf buatan mereka hanya terlihat oleh mereka dan admin
+  dasar, acara, pimpinan dan notulis beserta NIP, bagian A, B, C … dengan butir/anak butir, tabel tindak lanjut + penanggung jawab, **rekaman suara dan pengubah rekaman ke teks**, unduh Word dan PDF). Mereka dapat **mengubah dan menghapus notula buatannya sendiri**; draf buatan mereka hanya terlihat oleh mereka dan admin
   sampai ditandai Final. Notula buatan admin atau orang lain tidak bisa diubah.
 - **Dokumentasi**: tombol *Tambah foto* (dikompres otomatis, per album dan tanggal) dan *Tambah tautan*. Foto diunggah ke path yang dicadangkan server (sekali pakai, 30 menit) sehingga tidak bisa mengunggah sembarang berkas. Penghapusan foto tetap oleh admin.
 - Peserta, narasumber, dan moderator tetap hanya melihat. Admin melihat penanda **"Dari petugas"** pada notula dan foto yang dibuat lewat link pribadi dan tetap bisa mengelola semuanya (migrasi 017).
@@ -240,7 +242,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, `022_tanda_tangan_elektronik.sql`, `023_notula_peserta_rapat.sql`, lalu `024_materi.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, `022_tanda_tangan_elektronik.sql`, `023_notula_peserta_rapat.sql`, `024_materi.sql`, lalu `025_rekaman_notula.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

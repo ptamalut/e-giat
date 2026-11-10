@@ -3,16 +3,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { useBrand } from './brand'
 import { FollowField, PersonSelect } from './NoteFields'
 import { FollowUpsCard, NoteBody } from './NoteBody'
-import { Field, useAsync, useConfirm, useToast } from './ui'
+import { Check, Field, useAsync, useConfirm, useToast } from './ui'
 import { fromLocalInput, toLocalInput } from '../lib/format'
 import { attendeesText, bodyToSections, cleanFollowUps, cleanSections, newItem, noteBody, type NoteBody as Body } from '../lib/notes'
+import { cleanRecordings, droppedPaths } from '../lib/recordings'
 import { activityDays, basisFromLetters, dayLabel, joinLocal, splitLocal } from '../lib/noteDefaults'
 import { attendeeLines } from '../lib/noteDoc'
 import { downloadNote, type NoteFormat } from '../lib/noteExport'
-import NoteRecorder from '../pages/admin/NoteRecorder'
+import NoteRecordings from './NoteRecordings'
 import { appendBlock } from '../lib/transcript'
 import { errMsg } from '../lib/supabase'
-import type { AttendeeRef, FollowUp, LetterBrief, MeetingNote, NoteContext, NoteSection } from '../lib/types'
+import type { AttendeeRef, FollowUp, LetterBrief, MeetingNote, NoteContext, NoteRecording, NoteSection } from '../lib/types'
 
 export type NoteDraft = Omit<MeetingNote, 'id' | 'activity_id' | 'created_at' | 'updated_at'> & { id?: string }
 
@@ -21,7 +22,7 @@ export interface NotePayload {
   title: string; held_at: string | null; location: string | null; leader: string | null; notetaker: string | null; attendees: string | null
   agenda: string | null; discussion: string | null; decisions: string | null; follow_ups: FollowUp[]; status: 'draft' | 'final'
   basis: string | null; held_until: string | null; leader_role: string | null; leader_nip: string | null; notetaker_nip: string | null; sections: NoteSection[]
-  attendee_list: AttendeeRef[]
+  attendee_list: AttendeeRef[]; recordings: NoteRecording[]
 }
 
 /** Penyimpanan notula: admin memakai tabel langsung, petugas memakai fungsi server berbasis token. */
@@ -34,6 +35,10 @@ export interface NoteApi {
   people: (sessionId: string | null) => Promise<AttendeeRef[]>
   /** dasar surat kegiatan, untuk mengisi "Dasar" */
   letters: () => Promise<LetterBrief[]>
+  /** path berkas rekaman baru yang boleh diunggah */
+  recordingPath: (ext: string) => Promise<string>
+  /** hapus berkas rekaman di server (tidak tersedia bagi petugas: berkas yatim dibiarkan) */
+  removeRecordings?: (paths: string[]) => Promise<void>
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -64,9 +69,13 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
   })
   // mode isian yang mengikuti kegiatan: null = belum ditentukan (diputuskan dari isi tersimpan setelah data dasar surat dimuat)
   const [mode, setMode] = useState<{ basis: boolean | null; location: boolean | null; agenda: boolean | null }>({ basis: null, location: null, agenda: null })
+  const [titleFollows, setTitleFollows] = useState(!!draft.title && draft.title.trim() === context.name.trim())   // judul sama dengan nama kegiatan
   const [otherDay, setOtherDay] = useState(!!heldLocal.day && days.length > 0 && !days.includes(heldLocal.day))
   const [body, setBody] = useState<Body>(() => noteBody(draft))   // satu narasi + butir (notula lama berbagian diratakan)
   const [fus, setFus] = useState<FollowUp[]>(draft.follow_ups)
+  const [recs, setRecs] = useState<NoteRecording[]>(draft.recordings ?? [])
+  const [recBusy, setRecBusy] = useState(false)                       // sedang merekam / mengubah rekaman ke teks
+  const [savedPaths, setSavedPaths] = useState<Set<string>>(() => new Set((draft.recordings ?? []).map((r) => r.path)))   // rekaman pada notula tersimpan
   const [busy, setBusy] = useState(false)
   const [exporting, setExporting] = useState<NoteFormat | null>(null)
 
@@ -83,7 +92,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
   const val = (k: 'basis' | 'location' | 'agenda') => (isManual(k) ? f[k] : auto[k])
   const setManual = (k: 'basis' | 'location' | 'agenda') => (m: boolean) => setMode((c) => ({ ...c, [k]: m }))
 
-  const snapshot = () => JSON.stringify({ f, mode, otherDay, body, fus })
+  const snapshot = () => JSON.stringify({ f, mode, otherDay, titleFollows, body, fus, recs })
   const [saved, setSaved] = useState(snapshot)
   const dirty = snapshot() !== saved
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
@@ -97,15 +106,15 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
   }, [dirty])
 
   const current = (): MeetingNote => ({
-    id: id ?? '', activity_id: activityId, title: f.title.trim(), held_at: fromLocalInput(joinLocal(f.day, f.time)) || null,
+    id: id ?? '', activity_id: activityId, title: (titleFollows ? context.name : f.title).trim(), held_at: fromLocalInput(joinLocal(f.day, f.time)) || null,
     location: orNull(val('location')), leader: orNull(f.leader), notetaker: orNull(f.notetaker), attendees: orNull(f.attendees), attendee_list: [],
     agenda: orNull(val('agenda')), discussion: null, decisions: null,
     basis: orNull(val('basis')), held_until: orNull(f.until), leader_role: orNull(f.leaderRole), leader_nip: orNull(f.leaderNip), notetaker_nip: orNull(f.notetakerNip),
-    sections: cleanSections(bodyToSections(body)), follow_ups: cleanFollowUps(fus), status: f.status, created_at: '', updated_at: '',
+    sections: cleanSections(bodyToSections(body)), follow_ups: cleanFollowUps(fus), status: f.status, recordings: cleanRecordings(recs), created_at: '', updated_at: '',
   })
 
   async function save(): Promise<boolean> {
-    if (!f.title.trim()) { toast('Isi judul notula.', 'error'); return false }
+    if (!(titleFollows ? context.name : f.title).trim()) { toast('Isi judul notula.', 'error'); return false }
     setBusy(true)
     const n = current()
     let newId: string
@@ -114,21 +123,28 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
         title: n.title, held_at: n.held_at, location: n.location, leader: n.leader, notetaker: n.notetaker, attendees: n.attendees, attendee_list: n.attendee_list,
         agenda: n.agenda, discussion: null, decisions: null, follow_ups: n.follow_ups, status: n.status,
         basis: n.basis, held_until: n.held_until, leader_role: n.leader_role, leader_nip: n.leader_nip, notetaker_nip: n.notetaker_nip, sections: n.sections,
+        recordings: n.recordings,
       }, id)
     } catch (e) { setBusy(false); toast(errMsg(e), 'error'); return false }
     setBusy(false)
     setId(newId)
     setFus(n.follow_ups)
-    setSaved(JSON.stringify({ f, mode, otherDay, body, fus: n.follow_ups }))
+    // berkas rekaman yang sudah tidak tercantum dihapus dari server (setelah notula tersimpan)
+    void api.removeRecordings?.(droppedPaths(savedPaths, n.recordings))
+    setSavedPaths(new Set(n.recordings.map((r) => r.path)))
+    setSaved(JSON.stringify({ f, mode, otherDay, titleFollows, body, fus: n.follow_ups, recs }))
     toast('Notula disimpan.', 'success')
     return true
   }
 
   async function back() {
+    if (recBusy && !(await confirm({ title: 'Rekaman masih berjalan', danger: true, confirmText: 'Tinggalkan', message: 'Merekam atau mengubah rekaman ke teks akan dihentikan dan hasilnya hilang.' }))) return
     if (dirty) {
       const ok = await confirm({ title: 'Buang perubahan?', confirmText: 'Buang', danger: true, message: 'Ada perubahan yang belum disimpan.' })
       if (!ok) return
     }
+    // rekaman yang diunggah pada sesi ini tetapi tidak jadi disimpan dibuang dari server
+    void api.removeRecordings?.(recs.map((r) => r.path).filter((p) => !savedPaths.has(p)))
     onBack()
   }
 
@@ -137,6 +153,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     const ok = await confirm({ title: 'Hapus notula ini?', danger: true, confirmText: 'Hapus' })
     if (!ok) return
     try { await api.remove(id) } catch (e) { return toast(errMsg(e), 'error') }
+    void api.removeRecordings?.([...new Set([...savedPaths, ...recs.map((r) => r.path)])])
     toast('Notula dihapus.', 'success'); onBack()
   }
 
@@ -158,7 +175,7 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
     toast(`${list.length} nama diisi.`, 'success')
   }
 
-  const titleOk = !!f.title.trim()
+  const titleOk = !!(titleFollows ? context.name : f.title).trim()
   const dayValue = !otherDay && days.includes(f.day) ? f.day : '__other'
 
   return (
@@ -174,8 +191,10 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
       <div className="stack">
         <div className="card">
           <Field label="Judul *" hint="Nama notula pada daftar dan nama berkas unduhan. Pada dokumen, judulnya tetap “NOTULA”.">
-            <input className="input" value={f.title} onChange={set('title')} placeholder="mis. Notula Pembukaan Bimtek CPP" autoFocus={!id} />
+            <input className="input" value={titleFollows ? context.name : f.title} onChange={set('title')} disabled={titleFollows} placeholder="mis. Notula Pembukaan Bimtek CPP" autoFocus={!id} aria-label="Judul" />
           </Field>
+          <Check label="Judul sesuai nama kegiatan" hint="Memakai nama kegiatan ini apa adanya sebagai judul notula." checked={titleFollows}
+            onChange={(v) => { setTitleFollows(v); if (v) setF((c) => ({ ...c, title: context.name })) }} />
           <Field label="Status" hint="Tandai Final bila notula sudah disahkan.">
             <div className="pills" role="radiogroup" aria-label="Status">
               {(['draft', 'final'] as const).map((st) => (
@@ -245,8 +264,8 @@ export default function NoteEditor({ draft, activityId, context, api, backLabel 
           </div>
         </div>
 
-        <NoteRecorder refDate={new Date(`${f.day}T12:00:00`)}
-          onDiscussion={(t) => setBody((b) => ({ ...b, text: appendBlock(b.text, t) }))}
+        <NoteRecordings recordings={recs} savedPaths={savedPaths} newPath={api.recordingPath} refDate={new Date(`${f.day}T12:00:00`)} onChange={setRecs} onBusy={setRecBusy}
+          onInsert={(t) => setBody((b) => ({ ...b, text: appendBlock(b.text, t) }))}
           onApply={(a) => {
             const more = [...a.agenda, ...a.decisions]
             if (more.length) setBody((b) => ({ ...b, items: [...b.items, ...more.map((t) => newItem('', t))] }))
