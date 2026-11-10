@@ -1,4 +1,4 @@
-import { Award, BarChart3, CalendarCheck, ClipboardList, Images, LayoutDashboard, NotebookPen, Users, type LucideIcon } from 'lucide-react'
+import { Award, BarChart3, BookOpen, CalendarCheck, ClipboardList, Images, LayoutDashboard, NotebookPen, Users, type LucideIcon } from 'lucide-react'
 import type { MenuKey } from '../../lib/menus'
 
 export interface ActivityNavItem { to: string; label: string; icon: LucideIcon; end?: boolean; menu?: MenuKey }
@@ -7,6 +7,7 @@ const ALL: ActivityNavItem[] = [
   { to: '', label: 'Ringkasan', icon: LayoutDashboard, end: true },
   { to: 'peserta', label: 'Peserta', icon: Users },
   { to: 'absensi', label: 'Absensi', icon: CalendarCheck, menu: 'attendance' },
+  { to: 'materi', label: 'Materi', icon: BookOpen, menu: 'materials' },
   { to: 'notula', label: 'Notula', icon: NotebookPen, menu: 'notes' },
   { to: 'kuis', label: 'Kuis', icon: ClipboardList, menu: 'quiz' },
   { to: 'sertifikat', label: 'Sertifikat', icon: Award, menu: 'certificate' },

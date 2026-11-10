@@ -26,6 +26,7 @@ const ReportsTab = lazy(() => import('./pages/admin/ReportsTab'))
 const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'))
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
 const NotesTab = lazy(() => import('./pages/admin/NotesTab'))
+const MaterialsTab = lazy(() => import('./pages/admin/MaterialsTab'))
 const DocsTab = lazy(() => import('./pages/admin/DocsTab'))
 const Portal = lazy(() => import('./pages/portal/Portal'))
 const QuizRun = lazy(() => import('./pages/portal/QuizRun'))
@@ -75,6 +76,7 @@ export default function App() {
               <Route index element={<Overview />} />
               <Route path="peserta" element={<ParticipantsTab />} />
               <Route path="absensi" element={<AttendanceTab />} />
+              <Route path="materi" element={<MaterialsTab />} />
               <Route path="notula" element={<NotesTab />} />
               <Route path="dokumentasi" element={<DocsTab />} />
               <Route path="kuis" element={<QuizzesTab />} />

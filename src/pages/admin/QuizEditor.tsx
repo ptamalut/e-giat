@@ -163,8 +163,6 @@ function Settings({ quiz, questionCount, onSaved }: { quiz: Quiz; questionCount:
       <div className="card-head">
         <h2>Pengaturan kuis</h2>
         <span className={`badge dot ${f.is_published ? 'success' : 'warn'}`}>{f.is_published ? 'Terbit' : 'Draft'}</span>
-        <span className="spacer" />
-        <button className="btn primary" disabled={busy || !dirty}>{busy ? 'Menyimpan…' : dirty ? 'Simpan pengaturan' : 'Tersimpan'}</button>
       </div>
       <div className="form-grid">
         <Field label="Judul *"><input className="input" required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
@@ -190,17 +188,26 @@ function Settings({ quiz, questionCount, onSaved }: { quiz: Quiz; questionCount:
         <Field label="Nilai kelulusan (0–100)" hint="Kosong = tanpa status lulus"><input className="input" type="number" min={0} max={100} value={f.passing} onChange={(e) => setF({ ...f, passing: e.target.value })} /></Field>
         <Field label="Maksimal percobaan" hint="Skor terbaik yang dipakai"><input className="input" type="number" min={1} max={20} value={f.max_attempts} onChange={(e) => setF({ ...f, max_attempts: Number(e.target.value) })} /></Field>
       </div>
-      <Check label="Masuk perhitungan nilai akhir &amp; peringkat" hint="Biasanya dimatikan untuk Pre Test." checked={f.counts_toward_final} onChange={(v) => setF({ ...f, counts_toward_final: v })} />
-      <Check label="Tampilkan skor ke peserta setelah selesai" checked={f.show_result} onChange={(v) => setF({ ...f, show_result: v })} />
-      <Check label="Tampilkan pembahasan &amp; kunci jawaban setelah selesai" checked={f.show_answers} onChange={(v) => setF({ ...f, show_answers: v })} />
+      <div className="check-grid">
+        <Check label="Masuk perhitungan nilai akhir &amp; peringkat" hint="Biasanya dimatikan untuk Pre Test." checked={f.counts_toward_final} onChange={(v) => setF({ ...f, counts_toward_final: v })} />
+        <Check label="Tampilkan skor ke peserta setelah selesai" checked={f.show_result} onChange={(v) => setF({ ...f, show_result: v })} />
+        <Check label="Tampilkan pembahasan &amp; kunci jawaban setelah selesai" checked={f.show_answers} onChange={(v) => setF({ ...f, show_answers: v })} />
+      </div>
 
       <div className="form-section"><Shuffle size={17} /> Aturan</div>
-      <Check label="Acak urutan soal" checked={f.shuffle_questions} onChange={(v) => setF({ ...f, shuffle_questions: v })} />
-      <Check label="Acak urutan pilihan jawaban" checked={f.shuffle_options} onChange={(v) => setF({ ...f, shuffle_options: v })} />
-      <Check label="Wajib sudah absen sebelum mengerjakan" hint="Peserta harus tercatat hadir/terlambat di minimal satu sesi." checked={f.require_checkin} onChange={(v) => setF({ ...f, require_checkin: v })} />
+      <div className="check-grid">
+        <Check label="Acak urutan soal" checked={f.shuffle_questions} onChange={(v) => setF({ ...f, shuffle_questions: v })} />
+        <Check label="Acak urutan pilihan jawaban" checked={f.shuffle_options} onChange={(v) => setF({ ...f, shuffle_options: v })} />
+        <Check label="Wajib sudah absen sebelum mengerjakan" hint="Peserta harus tercatat hadir/terlambat di minimal satu sesi." checked={f.require_checkin} onChange={(v) => setF({ ...f, require_checkin: v })} />
+      </div>
 
       <div className="form-section"><ShieldCheck size={17} /> Publikasi</div>
-      <Check label="Terbitkan kuis (terlihat oleh peserta)" checked={f.is_published} onChange={(v) => setF({ ...f, is_published: v })} />
+      <Check label="Terbitkan kuis (terlihat oleh peserta)" hint="Kuis draf tidak tampil di halaman pribadi peserta." checked={f.is_published} onChange={(v) => setF({ ...f, is_published: v })} />
+      <div className="sticky-bar" role="toolbar" aria-label="Simpan pengaturan kuis">
+        <span className={`small ${dirty ? '' : 'muted'}`}>{dirty ? 'Ada perubahan yang belum disimpan' : 'Semua perubahan tersimpan'}</span>
+        <span className="spacer" />
+        <button className="btn primary" disabled={busy || !dirty}>{busy ? 'Menyimpan…' : 'Simpan pengaturan'}</button>
+      </div>
     </form>
   )
 }

@@ -1,8 +1,8 @@
-import { Award, CalendarCheck, Check, ClipboardList, Images, NotebookPen, type LucideIcon } from 'lucide-react'
+import { Award, BookOpen, CalendarCheck, Check, ClipboardList, Images, NotebookPen, type LucideIcon } from 'lucide-react'
 import type { MenuDef, MenuKey } from '../lib/menus'
 
 export const MENU_ICONS: Record<MenuKey, LucideIcon> = {
-  attendance: CalendarCheck, notes: NotebookPen, quiz: ClipboardList, certificate: Award, documentation: Images,
+  attendance: CalendarCheck, materials: BookOpen, notes: NotebookPen, quiz: ClipboardList, certificate: Award, documentation: Images,
 }
 
 /** Menu kegiatan sebagai kartu dengan sakelar (aktif/nonaktif). */

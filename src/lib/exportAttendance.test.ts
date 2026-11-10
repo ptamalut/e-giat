@@ -4,7 +4,7 @@ import type { Attendance, AttendanceSession, Participant, PersonRole, SessionMem
 
 const P = (id: string, institution: string, role: PersonRole = 'peserta', roles: PersonRole[] = [role]): Participant => ({
   id, activity_id: 'a', name: id.toUpperCase(), identifier: `nip-${id}`, grade: null, job_title: `Jabatan ${id}`, institution, email: null, phone: null, role, roles,
-  employee_id: null, access_attendance: true, access_quiz: true, access_certificate: true, access_notes: false, access_documentation: false, sort_order: null, token: id, created_at: '',
+  employee_id: null, access_attendance: true, access_materials: true, access_quiz: true, access_certificate: true, access_notes: false, access_documentation: false, sort_order: null, token: id, created_at: '',
 })
 const S = (id: string, title: string, custom = false): AttendanceSession => ({
   id, activity_id: 'a', title, start_at: '2026-10-30T01:00:00Z', end_at: '2026-10-30T04:00:00Z', late_minutes: 15, require_selfie: false, require_location: false, custom_members: custom, created_at: '',

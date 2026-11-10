@@ -27,7 +27,7 @@ export default function Dashboard() {
   const [step, setStep] = useState(0)
   const [newJenis, setNewJenis] = useState<ActivityJenis>('diklat')
   const [nf, setNf] = useState({ name: '', location: '', start_date: '', end_date: '' })
-  const [menuOn, setMenuOn] = useState<Record<MenuKey, boolean>>({ attendance: true, notes: true, quiz: true, certificate: true, documentation: true })
+  const [menuOn, setMenuOn] = useState<Record<MenuKey, boolean>>({ attendance: true, materials: true, notes: true, quiz: true, certificate: true, documentation: true })
   const [letter, setLetter] = useState<LetterInput>(emptyLetter())
   const [letterFile, setLetterFile] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
@@ -61,7 +61,7 @@ export default function Dashboard() {
 
   function openAdd() {
     setNf({ name: '', location: '', start_date: '', end_date: '' }); setStep(0); setNewJenis('diklat')
-    setMenuOn({ attendance: true, notes: true, quiz: true, certificate: true, documentation: true })
+    setMenuOn({ attendance: true, materials: true, notes: true, quiz: true, certificate: true, documentation: true })
     setLetter(emptyLetter()); setLetterFile(null); setAdding(true)
   }
   const pickJenis = (j: ActivityJenis) => { setNewJenis(j); setMenuOn((m) => ({ ...m, quiz: j === 'diklat' })) }   // jenis Kegiatan tanpa kuis (bawaan)

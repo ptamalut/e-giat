@@ -25,6 +25,7 @@ describe('jenis merangkap', () => {
     expect(both.access_documentation).toBe(true) // dari panitia
     expect(defaultAccessFor(['narasumber', 'moderator']).access_quiz).toBe(false)
     expect(defaultAccessFor([])).toEqual(defaultAccess('peserta'))
+    expect(defaultAccess('peserta').access_materials && defaultAccess('narasumber').access_materials && defaultAccess('petugas').access_materials).toBe(true)  // materi terbuka untuk semua jenis
   })
 })
 
@@ -36,7 +37,7 @@ describe('jenis kegiatan', () => {
   })
   it('petugas: urutan baku setelah panitia, hak akses awal = semua menu kecuali kuis', () => {
     expect(sortRoles(['petugas', 'peserta'])).toEqual(['peserta', 'petugas'])
-    expect(defaultAccess('petugas')).toEqual({ access_attendance: true, access_notes: true, access_quiz: false, access_certificate: true, access_documentation: true })
+    expect(defaultAccess('petugas')).toEqual({ access_attendance: true, access_materials: true, access_notes: true, access_quiz: false, access_certificate: true, access_documentation: true })
     expect(rolesLabel({ role: 'peserta', roles: ['peserta', 'petugas'] })).toBe('Peserta / Petugas')
   })
 })

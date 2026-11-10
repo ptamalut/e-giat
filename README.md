@@ -53,6 +53,12 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
 
 **Menu per kegiatan, data pegawai, dan hak akses**
 - **Menu kegiatan**: di *Ringkasan → Menu kegiatan* panitia mengaktifkan/menonaktifkan *Absensi, Notula, Kuis, Sertifikat,
+- **Materi** (menu kegiatan baru): panitia mengunggah **materi dari pemateri** di menu *Materi* — banyak berkas sekaligus lewat seret-dan-lepas (PDF, Word, PowerPoint, Excel, ZIP, gambar, MP4, MP3; maksimal 50 MB per berkas; judul terisi otomatis dari nama berkas)
+  atau **tautan** (Google Drive, YouTube, dll.), dengan pemateri (saran dari narasumber kegiatan), deskripsi, dan status **terbit/draf**. Daftar bisa dicari dan difilter; berkas bisa diganti, diubah, atau dihapus.
+  Peserta melihat bagian **Materi** di halaman pribadinya (hanya yang terbit, hanya bila menu aktif dan orang itu punya hak akses *Materi*, yang bawaannya aktif untuk semua jenis) dan mengunduhnya dengan nama berkas asli.
+  Berkas disimpan di bucket `materi` dengan nama acak; alamatnya hanya diberikan oleh server kepada yang berhak (migrasi 024).
+- **Halaman Absensi dan Kuis dirapikan**: kartu sesi tunggal (pilih sesi, ringkasan pengaturan sebagai penanda, menu *Lainnya*), ringkasan kehadiran satu baris, toolbar tabel dengan menu *Tindakan* dan *Ekspor*;
+  kartu kuis dengan penanda ringkas dan menu aksi, serta pengaturan kuis dengan bilah simpan yang menempel di bawah.
 - **Antarmuka admin yang dirapikan**: *Kegiatan baru* berupa **3 langkah** (Informasi dengan kartu Diklat/Kegiatan, Dasar surat opsional, Menu dengan kartu bersakelar); *Tambah dari data pegawai* berupa **2 langkah**
   (pilih pegawai dengan penghitung terpilih dan "Pilih semua hasil", lalu jenis dan hak akses menu sebagai chip); *Atur jenis & hak akses* massal memakai pilihan Tidak diubah/Aktif/Nonaktif per menu; *Ringkasan* memakai
   kartu menu bersakelar dan pengaturan yang dikelompokkan (Informasi, Nilai dan peringkat, Akses publik) dengan zona hapus terpisah; toolbar tab Peserta dirangkum menjadi menu *Urutan* dan *Ekspor & cetak*.
@@ -233,7 +239,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, `022_tanda_tangan_elektronik.sql`, lalu `023_notula_peserta_rapat.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, `022_tanda_tangan_elektronik.sql`, `023_notula_peserta_rapat.sql`, lalu `024_materi.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

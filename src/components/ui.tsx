@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, ChevronDown, Info, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronDown, Info, MoreHorizontal, X } from 'lucide-react'
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 /* ---------- Toast ---------- */
@@ -217,9 +217,9 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
 
 
 /** Tombol dengan daftar aksi (menu tarik turun); tertutup saat memilih, menekan Esc, atau mengklik di luar. */
-export function ActionMenu({ label, icon, items, disabled, align = 'right' }: {
-  label: string; icon?: ReactNode; disabled?: boolean; align?: 'left' | 'right'
-  items: { label: string; hint?: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean }[]
+export function ActionMenu({ label, icon, items, disabled, align = 'right', iconOnly }: {
+  label: string; icon?: ReactNode; disabled?: boolean; align?: 'left' | 'right'; iconOnly?: boolean
+  items: { label: string; hint?: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean; danger?: boolean }[]
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -232,13 +232,13 @@ export function ActionMenu({ label, icon, items, disabled, align = 'right' }: {
   }, [open])
   return (
     <div className="action-menu" ref={ref}>
-      <button type="button" className="btn sm" disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {icon}{label}<ChevronDown size={14} />
-      </button>
+      {iconOnly
+        ? <button type="button" className="icon-btn" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen(!open)}><MoreHorizontal size={18} /></button>
+        : <button type="button" className="btn sm" disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>{icon}{label}<ChevronDown size={14} /></button>}
       {open && (
         <div className={`action-pop ${align}`} role="menu">
           {items.map((it) => (
-            <button key={it.label} type="button" role="menuitem" className="action-item" disabled={it.disabled} onClick={() => { setOpen(false); it.onSelect() }}>
+            <button key={it.label} type="button" role="menuitem" className={`action-item ${it.danger ? 'danger' : ''}`} disabled={it.disabled} onClick={() => { setOpen(false); it.onSelect() }}>
               {it.icon && <span className="ai-ico">{it.icon}</span>}
               <span><b>{it.label}</b>{it.hint && <small>{it.hint}</small>}</span>
             </button>

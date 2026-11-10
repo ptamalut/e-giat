@@ -1,11 +1,11 @@
 import type { Activity } from './types'
 
 /** Menu yang bisa diaktifkan/dinonaktifkan per kegiatan. */
-export type MenuKey = 'attendance' | 'notes' | 'quiz' | 'certificate' | 'documentation'
+export type MenuKey = 'attendance' | 'materials' | 'notes' | 'quiz' | 'certificate' | 'documentation'
 
 export interface MenuDef {
   key: MenuKey
-  flag: 'enable_attendance' | 'enable_notes' | 'enable_quiz' | 'enable_certificate' | 'enable_documentation'
+  flag: 'enable_attendance' | 'enable_materials' | 'enable_notes' | 'enable_quiz' | 'enable_certificate' | 'enable_documentation'
   /** segmen URL di bawah /admin/kegiatan/:id */
   route: string
   label: string
@@ -13,13 +13,15 @@ export interface MenuDef {
   /** deskripsi satu baris untuk kartu menu */
   short: string
   /** kolom hak akses per orang pada tabel peserta */
-  access: 'access_attendance' | 'access_notes' | 'access_quiz' | 'access_certificate' | 'access_documentation'
+  access: 'access_attendance' | 'access_materials' | 'access_notes' | 'access_quiz' | 'access_certificate' | 'access_documentation'
 }
 
 /** Urutan bawaan menu kegiatan. */
 export const MENUS: MenuDef[] = [
   { key: 'attendance', flag: 'enable_attendance', route: 'absensi', label: 'Absensi', access: 'access_attendance',
     hint: 'Sesi absensi, link & QR pribadi, foto selfie dan lokasi.', short: 'Sesi, link & QR pribadi, selfie' },
+  { key: 'materials', flag: 'enable_materials', route: 'materi', label: 'Materi', access: 'access_materials',
+    hint: 'Unggah materi (berkas atau tautan) dari pemateri; peserta mengunduhnya lewat link pribadi.', short: 'Unggah dan bagikan materi' },
   { key: 'notes', flag: 'enable_notes', route: 'notula', label: 'Notula', access: 'access_notes',
     hint: 'Catatan hasil rapat/sesi: pembahasan, keputusan, dan tindak lanjut (peserta hanya melihat yang Final).', short: 'Catatan rapat dan tindak lanjut' },
   { key: 'quiz', flag: 'enable_quiz', route: 'kuis', label: 'Kuis', access: 'access_quiz',

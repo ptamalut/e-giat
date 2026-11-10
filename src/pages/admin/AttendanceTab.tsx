@@ -1,6 +1,6 @@
 import { Camera, CalendarCheck, CalendarX, CheckCircle2, Clock, Copy, Download, FileDown, HeartPulse, ImageOff, MapPin, Pencil, Plus, RefreshCw, Search, Trash2, UserX, Users } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Check, Empty, ErrorBox, Field, Loading, Modal, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
+import { ActionMenu, Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { fmtDateTime, fmtTime, fromLocalInput, timeState, toLocalInput } from '../../lib/format'
 import { ATT_LABEL, memberMapOf, sessionCounts, sessionRole } from '../../lib/reports'
@@ -167,51 +167,57 @@ export default function AttendanceTab() {
 
   return (
     <div className="stack">
-      {(!single || sessions.length !== 1) && (
-        <div className="card">
-          <div className="card-head">
-            <h2>Sesi absensi</h2><span className="spacer" />
-            {!single && <button className="btn primary sm" onClick={() => {
-              const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1)
-              setEditing({ value: { title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15, require_selfie: true, require_location: true, custom_members: false }, members: null })
-            }}><Plus size={16} /> Tambah sesi</button>}
-          </div>
-          {sessions.length === 0
-            ? (single
-              ? <Empty icon={<CalendarX size={26} />} title="Absensi belum aktif">Absensi kegiatan dibuat otomatis oleh database. Jalankan <code>supabase/migrations/021_absensi_otomatis_kegiatan.sql</code> di Supabase SQL Editor, lalu muat ulang halaman ini.</Empty>
-              : <Empty icon={<CalendarX size={26} />} title="Belum ada sesi absensi">Buat sesi (mis. Hari 1) lengkap dengan jam buka &amp; tutup. Peserta hanya bisa absen pada rentang waktu itu.</Empty>)
-            : <div className="pills">{sessions.map((s) => (
-                <button key={s.id} className={`pill ${s.id === current?.id ? 'active' : ''}`} onClick={() => setSel(s.id)}>{s.title}</button>
-              ))}</div>}
+      <div className="card session-card">
+        <div className="card-head">
+          <h2>Sesi absensi</h2>
+          {sessions.length > 0 && (!single || sessions.length > 1) && (
+            <div className="pills" role="tablist" aria-label="Pilih sesi">{sessions.map((s) => (
+              <button key={s.id} role="tab" aria-selected={s.id === current?.id} className={`pill ${s.id === current?.id ? 'active' : ''}`} onClick={() => setSel(s.id)}>{s.title}</button>
+            ))}</div>
+          )}
+          <span className="spacer" />
+          {!single && <button className="btn primary sm" onClick={() => {
+            const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1)
+            setEditing({ value: { title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15, require_selfie: true, require_location: true, custom_members: false }, members: null })
+          }}><Plus size={16} /> Tambah sesi</button>}
         </div>
-      )}
+
+        {sessions.length === 0 && (single
+          ? <Empty icon={<CalendarX size={26} />} title="Absensi belum aktif">Absensi kegiatan dibuat otomatis oleh database. Jalankan <code>supabase/migrations/021_absensi_otomatis_kegiatan.sql</code> di Supabase SQL Editor, lalu muat ulang halaman ini.</Empty>
+          : <Empty icon={<CalendarX size={26} />} title="Belum ada sesi absensi">Buat sesi (mis. Hari 1) lengkap dengan jam buka &amp; tutup. Peserta hanya bisa absen pada rentang waktu itu.</Empty>)}
+
+        {current && (
+          <div className="session-detail">
+            <div className="sd-top">
+              <h3>{current.title} {STATE_BADGE[timeState(current.start_at, current.end_at, Date.now())]}</h3>
+              <div className="row tight">
+                <button className="btn sm" onClick={() => setEditing({ value: current, members: current.custom_members ? data.members.filter((m) => m.session_id === current.id) : null })}><Pencil size={14} /> Ubah sesi</button>
+                {(!single || photoPaths.length > 0 || !current.auto) && (
+                  <ActionMenu label="Lainnya" items={[
+                    ...(!single ? [{ label: 'Duplikat +1 hari', hint: 'Salin sesi ini untuk hari berikutnya', icon: <Copy size={16} />, onSelect: () => duplicateNextDay(current) }] : []),
+                    ...(photoPaths.length > 0 ? [{ label: 'Hapus semua foto selfie', hint: 'Catatan kehadiran dan lokasi tetap ada', icon: <ImageOff size={16} />, onSelect: () => void removePhotos(current) }] : []),
+                    ...(!current.auto ? [{ label: 'Hapus sesi', hint: 'Beserta seluruh data kehadirannya', icon: <Trash2 size={16} />, danger: true, onSelect: () => void removeSession(current) }] : []),
+                  ]} />
+                )}
+              </div>
+            </div>
+            <ul className="sd-meta" aria-label="Pengaturan sesi">
+              <li><Clock size={15} /> {fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)}</li>
+              <li><CalendarCheck size={15} /> {current.late_minutes * 60000 >= new Date(current.end_at).getTime() - new Date(current.start_at).getTime() ? 'Tanpa status terlambat' : `Terlambat setelah ${current.late_minutes} menit`}</li>
+              <li><Camera size={15} /> {current.require_selfie ? 'Selfie wajib' : 'Selfie tidak diminta'}</li>
+              <li><MapPin size={15} /> {current.require_location ? 'Lokasi wajib' : 'Lokasi tidak diminta'}</li>
+              <li><Users size={15} /> {current.auto ? 'Otomatis: semua orang di kegiatan yang berhak absen' : current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan'}</li>
+            </ul>
+          </div>
+        )}
+      </div>
 
       {current && counts && (
         <>
-          <div className="card">
-            <div className="row between">
-              <div>
-                <h2 style={{ marginBottom: 6, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{current.title} {STATE_BADGE[timeState(current.start_at, current.end_at, Date.now())]}</h2>
-                <div className="meta"><span><Clock size={15} /> {fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)}</span><span>Terlambat bila absen lewat {current.late_minutes} menit dari jam mulai</span>
-                  <span><Camera size={15} /> {current.require_selfie ? 'Selfie wajib' : 'Selfie tidak diminta'}</span>
-                  <span><MapPin size={15} /> {current.require_location ? 'Lokasi wajib' : 'Lokasi tidak diminta'}</span>
-                  <span><Users size={15} /> {current.auto ? 'Otomatis: semua orang di kegiatan yang berhak absen (peserta dan petugas yang ditambahkan langsung tampil)' : current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan (sesuai jenis utamanya)'}</span></div>
-              </div>
-              <div className="row tight">
-                <button className="btn sm" onClick={() => setEditing({ value: current, members: current.custom_members ? data.members.filter((m) => m.session_id === current.id) : null })}><Pencil size={14} /> Ubah</button>
-                {!single && <button className="btn sm" onClick={() => duplicateNextDay(current)}><Copy size={14} /> Duplikat +1 hari</button>}
-                {photoPaths.length > 0 && <button className="btn sm" onClick={() => void removePhotos(current)}><ImageOff size={14} /> Hapus foto</button>}
-                {!current.auto && <button className="btn sm danger" onClick={() => void removeSession(current)}><Trash2 size={14} /> Hapus</button>}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-            <Stat icon={<CheckCircle2 size={20} />} tone="success" value={counts.hadir} label="Hadir" />
-            <Stat icon={<Clock size={20} />} tone="warn" value={counts.terlambat} label="Terlambat" />
-            <Stat icon={<HeartPulse size={20} />} tone="info" value={counts.izin + counts.sakit} label="Izin / sakit" />
-            <Stat icon={<UserX size={20} />} tone="danger" value={counts.alpa} label="Alpa" />
-            <Stat icon={<CalendarCheck size={20} />} value={counts.belum} label="Belum absen" />
+          <div className="stat-strip" role="group" aria-label="Ringkasan kehadiran">
+            {([[CheckCircle2, 'success', counts.hadir, 'Hadir'], [Clock, 'warn', counts.terlambat, 'Terlambat'], [HeartPulse, 'info', counts.izin + counts.sakit, 'Izin / sakit'], [UserX, 'danger', counts.alpa, 'Alpa'], [CalendarCheck, '', counts.belum, 'Belum absen']] as const).map(([Icon, tone, v, label]) => (
+              <div className="ss-item" key={label}><span className={`icon-chip ${tone}`}><Icon size={18} /></span><div><b>{v}</b><span>{label}</span></div></div>
+            ))}
           </div>
 
           <div className="card flush">
@@ -232,10 +238,12 @@ export default function AttendanceTab() {
               </div>
               <div className="row tight">
                 <span className="muted small hide-sm">Diperbarui otomatis tiap 15 detik</span>
-                <button className="btn sm" onClick={() => void reload(true)}><RefreshCw size={14} /> Segarkan</button>
-                <button className="btn sm" onClick={() => void markAbsentAsAlpa()}>Belum absen = Alpa</button>
-                <button className="btn sm" onClick={exportCsv}><Download size={14} /> CSV</button>
-                <button className="btn sm" onClick={() => setExporting(true)}><FileDown size={14} /> Word / PDF</button>
+                <button className="icon-btn" onClick={() => void reload(true)} aria-label="Segarkan" title="Segarkan sekarang"><RefreshCw size={16} /></button>
+                <ActionMenu label="Tindakan" items={[{ label: 'Belum absen = Alpa', hint: 'Tandai semua yang belum tercatat sebagai Alpa', icon: <UserX size={16} />, onSelect: () => void markAbsentAsAlpa() }]} />
+                <ActionMenu label="Ekspor" icon={<FileDown size={15} />} items={[
+                  { label: 'Word / PDF', hint: 'Daftar hadir cetak, bisa dengan QR tanda tangan elektronik', icon: <FileDown size={16} />, onSelect: () => setExporting(true) },
+                  { label: 'CSV', hint: 'Data kehadiran sesi ini untuk spreadsheet', icon: <Download size={16} />, onSelect: exportCsv },
+                ]} />
               </div>
             </div>
             {group.length === 0
@@ -375,10 +383,14 @@ function SessionForm({ auto, value, members, activityId, roles, people, satkerOr
         <Field label="Batas terlambat (menit)" hint="Absen setelah jam dibuka + batas ini dicatat sebagai Terlambat. Isi 0 bila tidak ada toleransi.">
           <input className="input" type="number" min={0} value={f.late} onChange={(e) => setF({ ...f, late: Math.max(0, Number(e.target.value)) })} />
         </Field>
-        <Check label="Wajib foto selfie" hint="Peserta diminta izin kamera lalu mengambil foto saat absen. Tanpa foto, absen ditolak." checked={f.selfie} onChange={(v) => setF({ ...f, selfie: v })} />
-        <Check label="Wajib lokasi" hint="Peserta diminta izin lokasi; koordinat dan akurasinya dicatat. Tanpa lokasi, absen ditolak." checked={f.loc} onChange={(v) => setF({ ...f, loc: v })} />
+        <div className="form-section-title">Bukti kehadiran</div>
+        <div className="check-grid">
+          <Check label="Wajib foto selfie" hint="Peserta diminta izin kamera lalu mengambil foto saat absen. Tanpa foto, absen ditolak." checked={f.selfie} onChange={(v) => setF({ ...f, selfie: v })} />
+          <Check label="Wajib lokasi" hint="Peserta diminta izin lokasi; koordinat dan akurasinya dicatat. Tanpa lokasi, absen ditolak." checked={f.loc} onChange={(v) => setF({ ...f, loc: v })} />
+        </div>
         <p className="hint">Foto dan lokasi hanya dapat dilihat admin kegiatan ini. Jika keduanya dimatikan, peserta langsung absen satu ketukan.</p>
 
+        {!auto && <div className="form-section-title">Peserta sesi</div>}
         {!auto && <Field label="Siapa yang ikut sesi ini" hint={custom
           ? `Tentukan kedudukan tiap orang pada sesi ini: ${roles.map((r) => ROLE_LABEL[r].toLowerCase()).join(', ')}. Orang yang merangkap tinggal dipilihkan salah satu kedudukannya. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.`
           : 'Semua orang yang berhak absen di kegiatan ini ikut sesi ini, dengan jenis masing-masing. Yang merangkap mengikuti jenis utamanya (jenis pertama); pilih "Atur per sesi" bila ingin menentukan kedudukannya pada sesi ini.'}>
