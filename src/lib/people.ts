@@ -34,20 +34,20 @@ export const rolesLabel = (p: { role: PersonRole; roles?: PersonRole[] }, sep = 
 
 /** Hak akses menu per orang (berlaku bila menunya aktif di kegiatan). Urutan = urutan menu kegiatan. */
 export interface Access {
-  access_attendance: boolean; access_notes: boolean; access_quiz: boolean; access_certificate: boolean; access_documentation: boolean
+  access_attendance: boolean; access_materials: boolean; access_notes: boolean; access_quiz: boolean; access_certificate: boolean; access_documentation: boolean
 }
-export const ACCESS_KEYS = ['access_attendance', 'access_notes', 'access_quiz', 'access_certificate', 'access_documentation'] as const
+export const ACCESS_KEYS = ['access_attendance', 'access_materials', 'access_notes', 'access_quiz', 'access_certificate', 'access_documentation'] as const
 export const ACCESS_LABEL: Record<keyof Access, string> = {
-  access_attendance: 'Absensi', access_notes: 'Notula', access_quiz: 'Kuis', access_certificate: 'Sertifikat', access_documentation: 'Dokumentasi',
+  access_attendance: 'Absensi', access_materials: 'Materi', access_notes: 'Notula', access_quiz: 'Kuis', access_certificate: 'Sertifikat', access_documentation: 'Dokumentasi',
 }
 /** Isian awal hak akses mengikuti jenis (bisa diubah per orang): peserta = absensi, kuis, sertifikat; narasumber dan moderator = absensi, sertifikat; panitia = semua kecuali kuis. */
 export const defaultAccess = (r: PersonRole): Access => ({
-  access_attendance: true, access_notes: r === 'panitia' || r === 'petugas', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia' || r === 'petugas',
+  access_attendance: true, access_materials: true, access_notes: r === 'panitia' || r === 'petugas', access_quiz: r === 'peserta', access_certificate: true, access_documentation: r === 'panitia' || r === 'petugas',
 })
 
 /** Isian awal hak akses untuk beberapa jenis sekaligus: gabungan (atau) dari isian awal tiap jenis. */
 export const defaultAccessFor = (rs: readonly PersonRole[]): Access => {
-  const base: Access = { access_attendance: false, access_notes: false, access_quiz: false, access_certificate: false, access_documentation: false }
+  const base: Access = { access_attendance: false, access_materials: false, access_notes: false, access_quiz: false, access_certificate: false, access_documentation: false }
   for (const r of rs.length ? rs : (['peserta'] as PersonRole[])) for (const k of ACCESS_KEYS) base[k] ||= defaultAccess(r)[k]
   return base
 }

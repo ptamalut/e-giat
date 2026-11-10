@@ -24,6 +24,7 @@ export interface Activity {
   certificates_open: boolean
   /** menu yang diaktifkan untuk kegiatan ini (nonaktif = tidak tampil dan ditolak di server) */
   enable_attendance: boolean
+  enable_materials: boolean
   enable_notes: boolean
   enable_quiz: boolean
   enable_certificate: boolean
@@ -148,6 +149,7 @@ export interface Participant {
   employee_id: string | null
   /** hak akses menu per orang (berlaku bila menunya aktif di kegiatan) */
   access_attendance: boolean
+  access_materials: boolean
   access_quiz: boolean
   access_certificate: boolean
   access_notes: boolean
@@ -467,4 +469,30 @@ export interface ActivityLetter {
   mime_type: string | null
   size_bytes: number | null
   created_at: string
+}
+
+/** Materi kegiatan: berkas yang diunggah panitia atau tautan. */
+export interface Material {
+  id: string
+  activity_id: string
+  title: string
+  /** pemateri / narasumber */
+  speaker: string | null
+  description: string | null
+  kind: 'berkas' | 'tautan'
+  storage_path: string | null
+  file_name: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  url: string | null
+  /** false = draf, belum terlihat oleh peserta */
+  published: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** Materi terbit di halaman pribadi (alamat berkas diberikan server hanya untuk yang berhak). */
+export interface PortalMaterial {
+  id: string; title: string; speaker: string | null; description: string | null; kind: 'berkas' | 'tautan'
+  path: string | null; file_name: string | null; mime_type: string | null; size_bytes: number | null; url: string | null; created_at: string
 }

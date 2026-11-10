@@ -8,6 +8,7 @@ import { CardTitle, Empty, Loading, RankMedal, useToast } from '../../components
 import { fmtDate, fmtDateRange, fmtDateTime, fmtPct, fmtScore, fmtTime, timeState } from '../../lib/format'
 import { hasRole, nameInitial, ROLE_LABEL, ROLE_TONE, roleLine, rolesLabel, rolesOf } from '../../lib/people'
 import CheckInDialog, { type CheckInResult } from './CheckInDialog'
+import MaterialsSection from './MaterialsSection'
 import { DocsSection, NotesSection } from './PortalExtras'
 import { certPublicUrl } from '../../lib/certificateApi'
 import { certDownloadName } from '../../lib/certificates'
@@ -173,6 +174,8 @@ export default function Portal() {
             )
           })}
         </section>}
+
+        <MaterialsSection token={token} />
 
         {f.quiz && <section className="card">
           <div className="card-head"><CardTitle icon={<ClipboardList size={18} />}>Kuis</CardTitle></div>

@@ -1,7 +1,7 @@
 import { CalendarClock, ClipboardList, Copy, Eye, EyeOff, FileQuestion, Plus, Repeat, Timer, Trash2, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
+import { ActionMenu, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtDateTime } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Quiz, QuizType } from '../../lib/types'
@@ -114,18 +114,21 @@ export default function QuizzesTab() {
                 {q.is_published ? <span className="badge dot success">Terbit</span> : <span className="badge dot warn">Draft</span>}
               </div>
               <h3 style={{ fontSize: '1.08rem' }}><Link to={q.id} style={{ color: 'var(--text)' }}>{q.title}</Link></h3>
-              <div className="muted small" style={{ display: 'grid', gap: 5, margin: '10px 0 16px' }}>
-                <span className="row tight"><FileQuestion size={15} /> {n} soal</span>
-                <span className="row tight"><Timer size={15} /> {q.duration_minutes ? `${q.duration_minutes} menit` : 'Tanpa batas waktu'} <Repeat size={15} style={{ marginLeft: 8 }} /> maks {q.max_attempts}x</span>
-                <span className="row tight"><CalendarClock size={15} /> {windowText(q)}</span>
-                <span className="row tight"><Users size={15} /> {attempts} percobaan masuk</span>
-              </div>
+              <ul className="sd-meta" style={{ margin: '12px 0 16px' }}>
+                <li><FileQuestion size={15} /> {n} soal</li>
+                <li><Timer size={15} /> {q.duration_minutes ? `${q.duration_minutes} menit` : 'Tanpa batas waktu'}</li>
+                <li><Repeat size={15} /> maks {q.max_attempts}x</li>
+                <li><CalendarClock size={15} /> {windowText(q)}</li>
+                <li><Users size={15} /> {attempts} percobaan masuk</li>
+              </ul>
               <div className="row tight" style={{ paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 <Link className="btn sm primary" to={q.id}>Kelola soal &amp; pengaturan</Link>
                 <button className="btn sm" onClick={() => void togglePublish(q)}>{q.is_published ? <><EyeOff size={14} /> Sembunyikan</> : <><Eye size={14} /> Terbitkan</>}</button>
-                {q.type === 'pre' && <button className="btn sm" onClick={() => void copyAs(q, 'post')} title="Salin soal ini menjadi Post Test"><Copy size={14} /> Jadikan Post Test</button>}
                 <span className="spacer" />
-                <button className="icon-btn danger" onClick={() => void remove(q)} aria-label="Hapus kuis" title="Hapus kuis"><Trash2 size={16} /></button>
+                <ActionMenu label="Aksi lainnya" iconOnly items={[
+                  ...(q.type === 'pre' ? [{ label: 'Jadikan Post Test', hint: 'Salin soal ini menjadi Post Test baru (draf)', icon: <Copy size={16} />, onSelect: () => void copyAs(q, 'post') }] : []),
+                  { label: 'Hapus kuis', hint: 'Beserta semua soal dan hasilnya', icon: <Trash2 size={16} />, danger: true, onSelect: () => void remove(q) },
+                ]} />
               </div>
             </div>
           )
