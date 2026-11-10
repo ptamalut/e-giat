@@ -74,11 +74,22 @@ export interface MeetingNote {
   notetaker_nip: string | null
   /** Jalannya rapat: bagian A, B, C … beserta butir-butirnya */
   sections: NoteSection[]
+  /** Peserta rapat terpilih (pimpinan rapat dan notulis dipilih dari daftar ini) */
+  attendee_list: AttendeeRef[]
   /** peserta (petugas/panitia) yang membuatnya lewat link pribadi; null = dibuat admin */
   added_by?: string | null
   created_at: string
   updated_at: string
 }
+
+/** Satu peserta rapat pada notula. */
+export interface AttendeeRef { name: string; nip: string | null; job_title: string | null; institution: string | null }
+
+/** Ringkasan surat dasar kegiatan (untuk mengisi "Dasar" notula). */
+export interface LetterBrief { issuer: string | null; number: string | null; letter_date: string | null; subject: string | null }
+
+/** Data kegiatan yang menjadi isian otomatis notula (dasar surat dimuat terpisah). */
+export interface NoteContext { name: string; location: string | null; start_date: string | null; end_date: string | null }
 
 export interface FollowUp { id: string; task: string; pic: string; due: string; done: boolean }
 
@@ -415,6 +426,7 @@ export interface PortalNote {
   leader_nip?: string | null
   notetaker_nip?: string | null
   sections?: NoteSection[]
+  attendee_list?: AttendeeRef[]
   /** hanya terisi untuk petugas/panitia: status notula dan apakah buatan orang ini */
   status?: 'draft' | 'final'
   mine?: boolean

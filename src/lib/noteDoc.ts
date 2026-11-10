@@ -5,7 +5,7 @@
  */
 import type { AppSettings } from './branding'
 import { noteSections, sectionLetter } from './notes'
-import type { FollowUp, NoteItem, NoteSection } from './types'
+import type { AttendeeRef, FollowUp, NoteItem, NoteSection } from './types'
 
 export interface Run { text: string; bold?: boolean }
 
@@ -39,6 +39,7 @@ export interface NoteDocInput {
   notetaker?: string | null
   notetaker_nip?: string | null
   attendees?: string | null
+  attendee_list?: AttendeeRef[] | null
   sections?: NoteSection[] | null
   discussion?: string | null
   decisions?: string | null
@@ -76,6 +77,10 @@ export function timeRange(iso: string, until: string | null | undefined, tz?: st
   const end = !u ? 'selesai' : /^\d{1,2}[.:]\d{2}$/.test(u) ? `${u.replace(':', '.').padStart(5, '0')}${zone}` : u
   return `${w.time}${zone} s.d. ${end}`
 }
+
+/** Peserta rapat terpilih sebagai daftar bernomor ("1. Nama – Jabatan"); kosong bila tidak ada. */
+export const attendeeLines = (list: readonly AttendeeRef[] | null | undefined): string =>
+  (list ?? []).map((p, i) => `${i + 1}. ${p.name}${p.job_title ? ` – ${p.job_title}` : ''}`).join('\n')
 
 const lines = (t: string | null | undefined) => (t ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
 const endsPunct = (s: string) => /[.:;!?]$/.test(s)
@@ -153,7 +158,7 @@ export function buildNoteDoc(note: NoteDocInput, kop: { title: string[]; address
   const leader = (note.leader ?? '').trim()
   add('Pimpinan Rapat', leader && note.leader_role?.trim() ? `${leader} (${note.leader_role.trim()})` : leader)
   add('Notulis', note.notetaker)
-  add('Peserta Rapat', note.attendees)
+  add('Peserta Rapat', attendeeLines(note.attendee_list) || note.attendees)
 
   const sections = noteSections({ sections: note.sections ?? [], discussion: note.discussion ?? null, decisions: note.decisions ?? null, follow_ups: note.follow_ups }, false)
   const blocks: Block[] = []

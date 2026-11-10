@@ -80,6 +80,10 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
   Peserta rapat bisa diisi dari absensi. **Unduh Word (.docx) dan PDF (A4, huruf Times)** dengan susunan yang sama persis di admin maupun halaman pribadi petugas/panitia; peserta juga bisa mengunduh notula Final.
   Notula lama (pembahasan/keputusan/tindak lanjut) otomatis tampil sebagai bagian di format baru. **Kop surat** diatur di *Pengaturan aplikasi → Kop surat*: judul kop, alamat/kontak, dan **logo surat** yang diunggah sendiri (terpisah dari logo aplikasi);
   bila judul/alamat kosong, kop memakai nama instansi dan kontak; tanpa logo surat, kop hanya berisi teks (migrasi 019 dan 020).
+- **Isian notula otomatis dari kegiatan**: *Dasar* diambil dari **dasar surat** kegiatan (satu surat: "Surat {asal} Nomor … tanggal … perihal …"; beberapa surat: bernomor), *Hari dan tanggal* dipilih dari **tanggal pelaksanaan kegiatan**
+  (pilihan "Tanggal lain…" tersedia; pukul mulai dan selesai diisi sendiri), *Tempat* = tempat kegiatan, dan *Acara* = nama kegiatan. Isian ini tampil dengan penanda **Dari data kegiatan**; tombol **Ubah** membuatnya bisa diketik manual
+  dan **Ikuti data kegiatan** mengembalikannya. **Peserta rapat** dipilih dari orang di kegiatan (cari, *Pilih semua*, atau yang hadir pada sebuah sesi) atau ditambah manual untuk tamu; **pimpinan rapat** dan **notulis** dipilih dari daftar itu
+  (NIP dan jabatan terisi otomatis, jabatan boleh disesuaikan). Pada dokumen, peserta rapat tampil bernomor. Berlaku di admin dan di halaman pribadi petugas/panitia, yang tampilannya dirapikan (bilah aksi Word/PDF/Simpan tetap di bawah, nyaman di HP) (migrasi 023).
 - **Pengaturan aplikasi** dibagi menjadi tab **Umum** (identitas, halaman depan, kontak), **Logo dan favicon**, **Kop surat**, dan **Akun saya**.
 - **Rekam rapat (suara → teks)** di editor notula: tombol *Mulai merekam* mengubah ucapan menjadi teks bahasa Indonesia secara langsung, **gratis dan tanpa API key**,
   memakai pengenalan suara bawaan **Google Chrome / Microsoft Edge** (suara diproses oleh layanan browser tersebut, jadi perlu internet; Firefox/Safari belum didukung).
@@ -225,7 +229,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, lalu `022_tanda_tangan_elektronik.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, `021_absensi_otomatis_kegiatan.sql`, `022_tanda_tangan_elektronik.sql`, lalu `023_notula_peserta_rapat.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

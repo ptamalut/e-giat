@@ -12,7 +12,7 @@ import { buildNoteDoc, kopFromSettings } from '../../lib/noteDoc'
 import { downloadNote, type NoteFormat } from '../../lib/noteExport'
 import { portalDocWriter, portalNoteApi } from '../../lib/portalStaffApi'
 import { errMsg, rpc, supabase } from '../../lib/supabase'
-import type { PortalDoc, PortalNote } from '../../lib/types'
+import type { NoteContext, PortalDoc, PortalNote } from '../../lib/types'
 
 /** Muat data portal sekali; galat ditampilkan sebagai pesan. */
 function useRpc<T>(fn: string, token: string, version = 0) {
@@ -27,8 +27,8 @@ function useRpc<T>(fn: string, token: string, version = 0) {
 }
 
 /** Notula yang sudah Final. Petugas/panitia juga bisa menambah notula dan mengubah buatannya sendiri. */
-export function NotesSection({ token, canManage = false, activityId, activityName, location, sessions, onEditing }: {
-  token: string; canManage?: boolean; activityId: string; activityName: string; location: string | null; sessions: { id: string; title: string }[]
+export function NotesSection({ token, canManage = false, activityId, context, sessions, onEditing }: {
+  token: string; canManage?: boolean; activityId: string; context: NoteContext; sessions: { id: string; title: string }[]
   /** dipanggil saat editor notula dibuka/ditutup (halaman menyembunyikan bagian lain) */
   onEditing?: (editing: boolean) => void
 }) {
@@ -47,16 +47,16 @@ export function NotesSection({ token, canManage = false, activityId, activityNam
   }
   const toDraft = (n: PortalNote): NoteDraft => ({ id: n.id, title: n.title, held_at: n.held_at, location: n.location, leader: n.leader, notetaker: n.notetaker, attendees: n.attendees,
     agenda: n.agenda, discussion: n.discussion, decisions: n.decisions, follow_ups: n.follow_ups, status: n.status ?? 'draft',
-    basis: n.basis ?? null, held_until: n.held_until ?? null, leader_role: n.leader_role ?? null, leader_nip: n.leader_nip ?? null, notetaker_nip: n.notetaker_nip ?? null, sections: n.sections ?? [] })
+    basis: n.basis ?? null, held_until: n.held_until ?? null, leader_role: n.leader_role ?? null, leader_nip: n.leader_nip ?? null, notetaker_nip: n.notetaker_nip ?? null, sections: n.sections ?? [], attendee_list: n.attendee_list ?? [] })
 
   if (editing) {
-    return <div className="keep"><NoteEditor key={editing.id ?? 'baru'} draft={editing} activityId={activityId} activityName={activityName} api={api} backLabel="Kembali ke halaman saya"
+    return <div className="keep"><NoteEditor key={editing.id ?? 'baru'} draft={editing} activityId={activityId} context={context} api={api} backLabel="Kembali ke halaman saya"
       onBack={() => { setEditing(null); setVersion((v) => v + 1) }} /></div>
   }
   return (
     <section className="card" aria-label="Notula">
       <div className="card-head"><CardTitle icon={<NotebookPen size={18} />}>Notula</CardTitle><span className="spacer" />
-        {canManage && <button className="btn sm primary" onClick={() => setEditing(emptyNote(location))}><Plus size={14} /> Tambah notula</button>}</div>
+        {canManage && <button className="btn sm primary" onClick={() => setEditing(emptyNote(context.location))}><Plus size={14} /> Tambah notula</button>}</div>
       {canManage && <p className="muted small" style={{ marginTop: -6 }}>Sebagai petugas/panitia, Anda bisa mencatat notula; notula Draft hanya terlihat oleh Anda dan admin sampai Anda menandainya Final.</p>}
       {error && <div className="alert warn"><span>{error}</span></div>}
       {!data && !error && <Loading />}
