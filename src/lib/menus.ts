@@ -10,6 +10,8 @@ export interface MenuDef {
   route: string
   label: string
   hint: string
+  /** deskripsi satu baris untuk kartu menu */
+  short: string
   /** kolom hak akses per orang pada tabel peserta */
   access: 'access_attendance' | 'access_notes' | 'access_quiz' | 'access_certificate' | 'access_documentation'
 }
@@ -17,15 +19,15 @@ export interface MenuDef {
 /** Urutan bawaan menu kegiatan. */
 export const MENUS: MenuDef[] = [
   { key: 'attendance', flag: 'enable_attendance', route: 'absensi', label: 'Absensi', access: 'access_attendance',
-    hint: 'Sesi absensi, link & QR pribadi, foto selfie dan lokasi.' },
+    hint: 'Sesi absensi, link & QR pribadi, foto selfie dan lokasi.', short: 'Sesi, link & QR pribadi, selfie' },
   { key: 'notes', flag: 'enable_notes', route: 'notula', label: 'Notula', access: 'access_notes',
-    hint: 'Catatan hasil rapat/sesi: pembahasan, keputusan, dan tindak lanjut (peserta hanya melihat yang Final).' },
+    hint: 'Catatan hasil rapat/sesi: pembahasan, keputusan, dan tindak lanjut (peserta hanya melihat yang Final).', short: 'Catatan rapat dan tindak lanjut' },
   { key: 'quiz', flag: 'enable_quiz', route: 'kuis', label: 'Kuis', access: 'access_quiz',
-    hint: 'Pre test / post test berwaktu, hasil, dan peringkat.' },
+    hint: 'Pre test / post test berwaktu, hasil, dan peringkat.', short: 'Pre/post test dan peringkat' },
   { key: 'certificate', flag: 'enable_certificate', route: 'sertifikat', label: 'Sertifikat', access: 'access_certificate',
-    hint: 'Unggah sertifikat per orang dan buka unduhannya.' },
+    hint: 'Unggah sertifikat per orang dan buka unduhannya.', short: 'Sertifikat per orang' },
   { key: 'documentation', flag: 'enable_documentation', route: 'dokumentasi', label: 'Dokumentasi', access: 'access_documentation',
-    hint: 'Foto kegiatan dan tautan video/dokumen, dikelompokkan per album.' },
+    hint: 'Foto kegiatan dan tautan video/dokumen, dikelompokkan per album.', short: 'Foto dan tautan per album' },
 ]
 
 export const menuOn = (a: Pick<Activity, MenuDef['flag']>, key: MenuKey) =>

@@ -1,13 +1,15 @@
-import { CalendarCheck, CalendarDays, CheckCircle2, ClipboardList, MapPin, Plus, RotateCcw, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CalendarCheck, CalendarDays, CheckCircle2, ClipboardList, GraduationCap, MapPin, Plus, RotateCcw, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { MenuCards } from '../../components/MenuToggles'
+import Stepper from '../../components/Stepper'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
-import { MENUS } from '../../lib/menus'
+import { MENUS, type MenuKey } from '../../lib/menus'
 import { activityPhase, PHASE_LABEL, PHASE_TONE, type Phase } from '../../lib/phase'
 import LetterFields from '../../components/LetterFields'
 import { checkLetterFile, emptyLetter, hasLetterText, saveLetter, type LetterInput } from '../../lib/lettersApi'
-import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
+import { JENIS_LABEL } from '../../lib/people'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity, ActivityJenis } from '../../lib/types'
 
@@ -22,7 +24,10 @@ export default function Dashboard() {
   const confirm = useConfirm()
   const nav = useNavigate()
   const [adding, setAdding] = useState(false)
+  const [step, setStep] = useState(0)
   const [newJenis, setNewJenis] = useState<ActivityJenis>('diklat')
+  const [nf, setNf] = useState({ name: '', location: '', start_date: '', end_date: '' })
+  const [menuOn, setMenuOn] = useState<Record<MenuKey, boolean>>({ attendance: true, notes: true, quiz: true, certificate: true, documentation: true })
   const [letter, setLetter] = useState<LetterInput>(emptyLetter())
   const [letterFile, setLetterFile] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
@@ -54,20 +59,34 @@ export default function Dashboard() {
     void reload(true)
   }
 
-  async function create(e: FormEvent<HTMLFormElement>) {
+  function openAdd() {
+    setNf({ name: '', location: '', start_date: '', end_date: '' }); setStep(0); setNewJenis('diklat')
+    setMenuOn({ attendance: true, notes: true, quiz: true, certificate: true, documentation: true })
+    setLetter(emptyLetter()); setLetterFile(null); setAdding(true)
+  }
+  const pickJenis = (j: ActivityJenis) => { setNewJenis(j); setMenuOn((m) => ({ ...m, quiz: j === 'diklat' })) }   // jenis Kegiatan tanpa kuis (bawaan)
+  const STEPS = ['Informasi', 'Dasar surat', 'Menu'] as const
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    // berkas surat diperiksa dulu agar kegiatan tidak terbentuk setengah jadi
-    const badFile = letterFile ? checkLetterFile(letterFile) : null
-    if (badFile) return toast(badFile, 'error')
+    if (step === 0) {
+      if (!nf.name.trim()) return toast('Isi nama kegiatan.', 'error')
+      if (nf.start_date && nf.end_date && nf.end_date < nf.start_date) return toast('Tanggal selesai tidak boleh sebelum tanggal mulai.', 'error')
+      return setStep(1)
+    }
+    if (step === 1) {
+      const badFile = letterFile ? checkLetterFile(letterFile) : null   // berkas surat diperiksa dulu agar kegiatan tidak terbentuk setengah jadi
+      if (badFile) return toast(badFile, 'error')
+      return setStep(2)
+    }
     setCreating(true)
-    const f = new FormData(e.currentTarget)
     const { data, error } = await supabase.from('activities').insert({
-      name: String(f.get('name')).trim(),
+      name: nf.name.trim(),
       jenis: newJenis,
-      location: String(f.get('location') || '').trim() || null,
-      start_date: String(f.get('start_date') || '') || null,
-      end_date: String(f.get('end_date') || '') || null,
-      ...Object.fromEntries(MENUS.map((m) => [m.flag, f.get(m.flag) === 'on'])), // menu yang dicentang
+      location: nf.location.trim() || null,
+      start_date: nf.start_date || null,
+      end_date: nf.end_date || null,
+      ...Object.fromEntries(MENUS.map((m) => [m.flag, menuOn[m.key]])), // menu yang dinyalakan
     }).select('id').single()
     if (error) { setCreating(false); return toast(errMsg(error), 'error') }
     // dasar surat (opsional diisi saat membuat kegiatan; berkas bisa menyusul di Ringkasan)
@@ -90,7 +109,7 @@ export default function Dashboard() {
       <PageHeader
         title="Kegiatan"
         subtitle="Kelola semua kegiatan, peserta, absensi, dan kuis Anda."
-        actions={<button className="btn primary" onClick={() => setAdding(true)}><Plus size={17} /> Tambah kegiatan</button>}
+        actions={<button className="btn primary" onClick={openAdd}><Plus size={17} /> Tambah kegiatan</button>}
       />
 
       {!loading && all.length > 0 && (
@@ -114,7 +133,7 @@ export default function Dashboard() {
       {error && <ErrorBox error={error} onRetry={() => void reload()} />}
       {!loading && !error && list.length === 0 && (
         <div className="card"><Empty icon={<CalendarDays size={26} />} title={data?.length ? 'Tidak ada kegiatan dengan status ini' : 'Belum ada kegiatan'}>
-          {!data?.length && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={17} /> Buat kegiatan pertama</button>}
+          {!data?.length && <button className="btn primary" onClick={openAdd}><Plus size={17} /> Buat kegiatan pertama</button>}
         </Empty></div>
       )}
 
@@ -147,31 +166,50 @@ export default function Dashboard() {
 
       {adding && (
         <Modal title="Kegiatan baru" onClose={() => setAdding(false)}
-          footer={<><button className="btn" onClick={() => setAdding(false)}>Batal</button><button className="btn primary" form="new-act" disabled={creating}>{creating ? 'Menyimpan…' : 'Simpan & lanjut'}</button></>}>
-          <form id="new-act" onSubmit={create}>
-            <Field label="Jenis *" hint={JENIS_HINT[newJenis]}>
-              <div className="pills" role="radiogroup" aria-label="Jenis kegiatan">
-                {(['diklat', 'kegiatan'] as const).map((j) => (
-                  <button type="button" key={j} role="radio" aria-checked={newJenis === j} className={`pill ${newJenis === j ? 'active' : ''}`} onClick={() => setNewJenis(j)}>{JENIS_LABEL[j]}</button>
-                ))}
+          footer={<>
+            <button type="button" className="btn ghost" onClick={() => setAdding(false)}>Batal</button>
+            <span className="spacer" />
+            {step > 0 && <button type="button" className="btn" onClick={() => setStep(step - 1)} disabled={creating}><ArrowLeft size={15} /> Kembali</button>}
+            <button className="btn primary" form="new-act" disabled={creating}>
+              {step < 2 ? <>{step === 1 && !hasLetterText(letter) && !letterFile ? 'Lewati' : 'Lanjut'} <ArrowRight size={15} /></> : creating ? 'Menyimpan…' : 'Simpan & tambah peserta'}
+            </button>
+          </>}>
+          <Stepper steps={STEPS} current={step} />
+          <form id="new-act" onSubmit={submit} noValidate>
+            {step === 0 && <>
+              <Field label="Jenis kegiatan">
+                <div className="choice-cards" role="radiogroup" aria-label="Jenis kegiatan">
+                  {([['diklat', GraduationCap, 'Nilai akhir dan peringkat, kuis pre/post test. Untuk peserta, narasumber, moderator, dan panitia.'],
+                    ['kegiatan', CalendarDays, 'Rapat, sosialisasi, dan sejenisnya: tanpa peringkat; hanya peserta dan petugas. Absensi otomatis tanpa sesi.']] as const).map(([j, Icon, hint]) => (
+                    <button type="button" key={j} role="radio" aria-checked={newJenis === j} className={`choice-card ${newJenis === j ? 'on' : ''}`} onClick={() => pickJenis(j)}>
+                      <span className="cc-ico"><Icon size={18} /></span>
+                      <span><b>{JENIS_LABEL[j]}</b><small>{hint}</small></span>
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <Field label="Nama kegiatan *"><input className="input" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} autoFocus placeholder="mis. Pelatihan Manajemen Proyek Angkatan 3" aria-label="Nama kegiatan" /></Field>
+              <Field label="Lokasi"><input className="input" value={nf.location} onChange={(e) => setNf({ ...nf, location: e.target.value })} placeholder="mis. Aula Kantor Pusat / Zoom" aria-label="Lokasi" /></Field>
+              <div className="form-grid">
+                <Field label="Tanggal mulai" hint="Sebelum tanggal ini kegiatan tampil Mendatang."><input className="input" type="date" value={nf.start_date} onChange={(e) => setNf({ ...nf, start_date: e.target.value })} aria-label="Tanggal mulai" /></Field>
+                <Field label="Tanggal selesai"><input className="input" type="date" min={nf.start_date || undefined} value={nf.end_date} onChange={(e) => setNf({ ...nf, end_date: e.target.value })} aria-label="Tanggal selesai" /></Field>
               </div>
-            </Field>
-            <Field label="Nama kegiatan *"><input className="input" name="name" required autoFocus placeholder="mis. Pelatihan Manajemen Proyek Angkatan 3" /></Field>
-            <Field label="Lokasi"><input className="input" name="location" placeholder="mis. Aula Kantor Pusat / Zoom" /></Field>
-            <div className="form-grid">
-              <Field label="Tanggal mulai"><input className="input" type="date" name="start_date" /></Field>
-              <Field label="Tanggal selesai"><input className="input" type="date" name="end_date" /></Field>
-            </div>
-            <div className="label" style={{ margin: '4px 0 8px' }}>Dasar surat</div>
-            <p className="muted small" style={{ marginTop: 0 }}>Surat yang menjadi dasar pelaksanaan kegiatan. Boleh diisi sekarang atau nanti di Ringkasan kegiatan.</p>
-            <LetterFields value={letter} onChange={setLetter} file={letterFile} onFile={setLetterFile} idPrefix="new" />
-            <Field label="Menu yang dipakai" hint="Bisa diubah kapan saja di Ringkasan kegiatan. Menu nonaktif tidak tampil bagi panitia maupun peserta.">
-              <div className="menu-grid">
-                {MENUS.map((m) => (
-                  <label key={`${newJenis}-${m.key}`} className="menu-opt on"><input type="checkbox" name={m.flag} defaultChecked={!(newJenis === 'kegiatan' && m.key === 'quiz')} /><span><b>{m.label}</b></span></label>
-                ))}
+            </>}
+
+            {step === 1 && <>
+              <p className="muted small" style={{ marginTop: 0 }}>Surat yang menjadi dasar pelaksanaan kegiatan. Isian ini opsional: boleh dilewati dan ditambahkan nanti di Ringkasan kegiatan. Dasar surat dipakai otomatis pada notula.</p>
+              <LetterFields value={letter} onChange={setLetter} file={letterFile} onFile={setLetterFile} idPrefix="new" />
+            </>}
+
+            {step === 2 && <>
+              <p className="muted small" style={{ marginTop: 0 }}>Nyalakan menu yang dipakai pada kegiatan ini. Menu yang dimatikan tidak tampil bagi panitia maupun peserta, dan bisa diubah kapan saja di Ringkasan kegiatan.</p>
+              <MenuCards menus={MENUS} isOn={(m) => menuOn[m.key]} onToggle={(m, on) => setMenuOn((cur) => ({ ...cur, [m.key]: on }))} />
+              <div className="callout" style={{ marginTop: 14 }}>
+                <b>{nf.name.trim() || 'Kegiatan baru'}</b>
+                <span className="muted small">{JENIS_LABEL[newJenis]}{nf.start_date ? ` · ${fmtDateRange(nf.start_date, nf.end_date || nf.start_date)}` : ''}{nf.location.trim() ? ` · ${nf.location.trim()}` : ''}</span>
+                <span className="muted small">{MENUS.filter((m) => menuOn[m.key]).map((m) => m.label).join(', ') || 'Tanpa menu tambahan'}</span>
               </div>
-            </Field>
+            </>}
           </form>
         </Modal>
       )}
