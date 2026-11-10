@@ -110,7 +110,9 @@ export default function Overview() {
   const diklat = a.jenis === 'diklat'
   const steps = [
     { done: hasPeople, text: 'Pilih peserta kegiatan dari data pegawai (tentukan jenis dan hak akses menunya)', to: 'peserta', cta: 'Tambah peserta' },
-    menuOn(a, 'attendance') && { done: data.sessions > 0, text: 'Buat sesi absensi (hari/sesi + jam buka & tutup)', to: 'absensi', cta: 'Buat sesi' },
+    menuOn(a, 'attendance') && (diklat
+      ? { done: data.sessions > 0, text: 'Buat sesi absensi (hari/sesi + jam buka & tutup)', to: 'absensi', cta: 'Buat sesi' }
+      : { done: hasPeople && data.sessions > 0, text: 'Absensi otomatis: peserta yang ditambahkan langsung masuk daftar absensi (atur jam bila perlu)', to: 'absensi', cta: 'Lihat absensi' }),
     { done: hasPeople && (!menuOn(a, 'attendance') || data.sessions > 0), text: 'Bagikan link / QR unik ke setiap orang', to: 'peserta', cta: 'Lihat link' },
     menuOn(a, 'quiz') && { done: data.readyQuizzes > 0, text: 'Buat kuis pre test / post test lalu terbitkan', to: 'kuis', cta: 'Buat kuis' },
     menuOn(a, 'quiz') && diklat && { done: data.attempts > 0, text: 'Pantau hasil, peringkat, dan unduh laporan', to: 'laporan', cta: 'Buka laporan' },
@@ -185,9 +187,9 @@ export default function Overview() {
           <Field label="Lokasi"><input className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
           <Field label="Tanggal mulai"><input className="input" type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></Field>
           <Field label="Tanggal selesai"><input className="input" type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></Field>
-          <Field label="Status" hint="Draft: peserta belum bisa absen/kuis.">
+          <Field label="Status" hint="Draft: peserta belum bisa absen/kuis. Aktif: tampil Mendatang sebelum tanggal mulai dan otomatis Berjalan sejak hari H.">
             <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ActivityStatus })}>
-              <option value="draft">Draft</option><option value="aktif">Berjalan</option><option value="selesai">Selesai</option>
+              <option value="draft">Draft</option><option value="aktif">Aktif (Mendatang / Berjalan)</option><option value="selesai">Selesai</option>
             </select>
           </Field>
         </div>
@@ -199,7 +201,7 @@ export default function Overview() {
         <Check label="Tampilkan papan peringkat ke peserta" hint="Peserta melihat top 10 dan posisinya sendiri (nama peserta lain terlihat)." checked={form.show_leaderboard} onChange={(v) => setForm({ ...form, show_leaderboard: v })} />
         </>}
         <Check label="Tampilkan di halaman depan (masuk dengan NIP)"
-          hint={`Saat status Berjalan, kegiatan ini muncul di halaman depan aplikasi dan peserta bisa membuka halaman pribadinya dengan memasukkan NIP. Matikan bila peserta hanya boleh masuk lewat link/QR. Alamat langsung: ${location.origin}/k/${a.id}`}
+          hint={`Saat status Aktif (Mendatang atau Berjalan), kegiatan ini muncul di halaman depan aplikasi dan peserta bisa membuka halaman pribadinya dengan memasukkan NIP. Matikan bila peserta hanya boleh masuk lewat link/QR. Alamat langsung: ${location.origin}/k/${a.id}`}
           checked={form.public_access} onChange={(v) => setForm({ ...form, public_access: v })} />
         <Check label="Tampilkan foto dokumentasi di galeri publik"
           hint={`Semua foto di menu Dokumentasi kegiatan ini bisa dilihat siapa saja di halaman Galeri (${location.origin}/galeri/${a.id}), tanpa login. Aktifkan hanya bila fotonya layak dipublikasikan.`}

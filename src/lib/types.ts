@@ -159,6 +159,8 @@ export interface AttendanceSession {
   require_location: boolean
   /** false: semua orang di kegiatan ikut dengan jenis masing-masing; true: hanya yang terdaftar di session_members, dengan jenis per sesi */
   custom_members: boolean
+  /** sesi otomatis milik kegiatan berjenis Kegiatan (satu per kegiatan, mengikuti tanggal kegiatan) */
+  auto?: boolean
 }
 
 /** Anggota sebuah sesi absensi yang diatur per orang. */

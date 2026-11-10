@@ -12,7 +12,7 @@ peserta, absensi lewat link/QR pribadi, notula, kuis pre test / post test berwak
 | 0 | Isi **data pegawai** per satuan kerja (satu per satu atau tempel dari Excel) | Data pegawai |
 | 1 | Tambah **kegiatan** lalu **aktifkan menu** yang dipakai (absensi, notula, kuis, sertifikat, dokumentasi) | Dashboard → Kegiatan → Ringkasan |
 | 2 | Pilih **peserta dari data pegawai**; tentukan jenis (peserta/narasumber/moderator/panitia, boleh **merangkap**) dan hak akses menu tiap orang | Kegiatan → Peserta |
-| 3 | Buat **sesi absensi** (jam buka/tutup) → tiap orang otomatis punya **link & QR pribadi** | Kegiatan → Absensi / Peserta |
+| 3 | Buat **sesi absensi** (jam buka/tutup; jenis Kegiatan otomatis) → tiap orang otomatis punya **link & QR pribadi** | Kegiatan → Absensi / Peserta |
 | 4 | Buat **kuis** pre test / post test lengkap dengan durasi, jadwal buka-tutup, dan aturan lain | Kegiatan → Kuis |
 | 5 | Catat **notula**, unggah **sertifikat** dan **dokumentasi** | Kegiatan → Notula / Sertifikat / Dokumentasi |
 | 6 | Lihat **laporan**: kehadiran, hasil kuis, peringkat, pre vs post, analisis soal | Kegiatan → Laporan |
@@ -33,6 +33,14 @@ di halaman depan (lihat di bawah).
   atas namanya). Untuk membatasi penebakan, server menolak pencarian setelah **5 kegagalan** untuk NIP yang sama atau **40 kegagalan** pada satu kegiatan
   dalam 10 menit, dan hanya kegiatan berjalan yang dibuka untuk umum. Untuk kegiatan yang menuntut keamanan lebih tinggi (mis. kuis yang menentukan nilai),
   matikan opsi ini dan bagikan link/QR pribadi saja.
+
+**Absensi otomatis untuk jenis Kegiatan**: kegiatan berjenis *Kegiatan* tidak memakai penambahan sesi. Database otomatis membuat **satu sesi "Absensi"** yang berlaku untuk semua orang di kegiatan itu,
+jadi peserta dan petugas yang ditambahkan langsung muncul di tab Absensi. Waktunya mengikuti tanggal kegiatan (zona Asia/Jayapura; berubah bila tanggal kegiatan diubah; tanpa tanggal berlaku setahun) dan tidak ada status
+"terlambat". Jam, selfie, dan lokasi bisa diatur lewat **Ubah** di tab Absensi; tombol tambah/duplikat/hapus sesi tidak tersedia. Jenis *Diklat* tetap memakai sesi manual (migrasi 021).
+
+**Tahap kegiatan menurut tanggal**: kegiatan berstatus *Aktif* tampil **Mendatang** sebelum tanggal mulai dan otomatis **Berjalan** sejak hari H (tanpa tanggal mulai = Berjalan); *Draft* dan *Selesai* mengikuti status.
+Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (peserta masih bisa membuka halaman pribadi, mis. mengunduh sertifikat). Berlaku di dasbor (filter dan hitungan), header kegiatan, dan halaman depan
+(bagian *Kegiatan berjalan* dan *Kegiatan mendatang*, serta label di riwayat).
 
 **Siapa yang ikut tiap sesi absensi**
 - Tiap sesi absensi punya pilihan **Siapa yang ikut sesi ini**: *Semua orang di kegiatan* (bawaan; masing-masing dengan jenis utamanya di kegiatan) atau
@@ -213,7 +221,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, lalu `020_logo_kop_surat.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, `019_format_notula.sql`, `020_logo_kop_surat.sql`, lalu `021_absensi_otomatis_kegiatan.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
