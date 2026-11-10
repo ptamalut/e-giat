@@ -2,7 +2,7 @@ import { ArrowUpDown, Contact, Download, FileDown, ExternalLink, KeyRound, Link2
 import QRCode from 'qrcode'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Empty, ErrorBox, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
+import { ActionMenu, Empty, ErrorBox, Loading, Modal, useAsync, useConfirm, useToast } from '../../components/ui'
 import { downloadCsv, safeName } from '../../lib/csv'
 import { RoleBadges } from '../../components/RoleBadge'
 import { SatkerControls, SatkerGroupRow, useCollapsed } from '../../components/SatkerGroup'
@@ -209,11 +209,15 @@ export default function ParticipantsTab() {
             )}
           </div>
           <div className="row tight">
-            <button className="btn sm" onClick={() => setOrdering(roleFilter)} disabled={!data?.length}><ArrowUpDown size={15} /> Atur urutan</button>
-            <button className="btn sm" onClick={() => void syncOrder()} disabled={!data?.length} title="Ikuti urutan satuan kerja dan pegawai di Data pegawai"><Users size={15} /> Samakan dengan Data pegawai</button>
-            <button className="btn sm" onClick={() => setExporting(true)} disabled={!data?.length}><FileDown size={15} /> Ekspor Word / PDF</button>
-            <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
-            <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
+            <ActionMenu label="Urutan" icon={<ArrowUpDown size={15} />} disabled={!data?.length} items={[
+              { label: 'Atur urutan', hint: 'Geser satuan kerja dan orang secara manual', icon: <ArrowUpDown size={16} />, onSelect: () => setOrdering(roleFilter) },
+              { label: 'Samakan dengan Data pegawai', hint: 'Ikuti urutan satuan kerja dan pegawai di Data pegawai', icon: <Users size={16} />, onSelect: () => void syncOrder() },
+            ]} />
+            <ActionMenu label="Ekspor & cetak" icon={<FileDown size={15} />} disabled={!data?.length} items={[
+              { label: 'Ekspor Word / PDF', hint: 'Daftar peserta dengan kolom pilihan', icon: <FileDown size={16} />, onSelect: () => setExporting(true) },
+              { label: 'Link pribadi (CSV)', hint: 'Daftar link untuk dibagikan', icon: <Download size={16} />, onSelect: exportLinks },
+              { label: 'Kartu QR', hint: 'Cetak kartu QR semua orang', icon: <Printer size={16} />, onSelect: () => void printCards() },
+            ]} />
             <button className="btn primary sm" onClick={() => setPicking(true)}><Plus size={16} /> Tambah dari data pegawai</button>
           </div>
         </div>

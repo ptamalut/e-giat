@@ -1,6 +1,7 @@
 import { Award, CalendarCheck, CheckCheck, ClipboardList, LayoutGrid, Trash2, Trophy, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { MenuCards } from '../../components/MenuToggles'
 import { CardTitle, Check, ErrorBox, Field, Loading, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtPct, fmtScore } from '../../lib/format'
 import { MENUS, menuOn, type MenuDef } from '../../lib/menus'
@@ -11,7 +12,7 @@ import { removeActivityLetterFiles } from '../../lib/lettersApi'
 import LettersCard from './LettersCard'
 import { errMsg, supabase } from '../../lib/supabase'
 import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
-import type { ActivityJenis, ActivityStatus, RankingRow } from '../../lib/types'
+import type { ActivityStatus, RankingRow } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 
 export default function Overview() {
@@ -161,25 +162,20 @@ export default function Overview() {
           Aktifkan hanya menu yang dipakai pada kegiatan ini. Menu yang dinonaktifkan tidak tampil bagi panitia maupun peserta (dan ditolak di server);
           datanya tetap tersimpan sehingga bisa diaktifkan lagi. Peserta, Laporan, dan Data pegawai selalu tersedia.
         </p>
-        <div className="menu-grid">
-          {MENUS.map((m) => (
-            <label key={m.key} className={`menu-opt ${flags[m.key] ? 'on' : ''}`}>
-              <input type="checkbox" checked={flags[m.key]} disabled={savingMenu === m.key}
-                onChange={(e) => void toggleMenu(m, e.target.checked)} />
-              <span><b>{m.label}</b><span className="hint" style={{ display: 'block' }}>{m.hint}</span></span>
-            </label>
-          ))}
-        </div>
+        <MenuCards menus={MENUS} isOn={(m) => flags[m.key]} onToggle={(m, on) => void toggleMenu(m, on)} busyKey={savingMenu} />
       </div>
 
       <LettersCard activityId={a.id} />
 
       <form className="card" onSubmit={save}>
         <div className="card-head"><h2>Pengaturan kegiatan</h2></div>
+        <div className="form-section-title">Informasi</div>
         <Field label="Jenis" hint={JENIS_HINT[form.jenis]}>
-          <select className="input" value={form.jenis} onChange={(e) => setForm({ ...form, jenis: e.target.value as ActivityJenis })} aria-label="Jenis kegiatan">
-            <option value="diklat">{JENIS_LABEL.diklat}</option><option value="kegiatan">{JENIS_LABEL.kegiatan}</option>
-          </select>
+          <div className="pills" role="radiogroup" aria-label="Jenis kegiatan">
+            {(['diklat', 'kegiatan'] as const).map((j) => (
+              <button type="button" key={j} role="radio" aria-checked={form.jenis === j} className={`pill ${form.jenis === j ? 'active' : ''}`} onClick={() => setForm({ ...form, jenis: j })}>{JENIS_LABEL[j]}</button>
+            ))}
+          </div>
         </Field>
         <Field label="Nama kegiatan *"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Deskripsi"><textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Tampil di halaman peserta" /></Field>
@@ -194,23 +190,31 @@ export default function Overview() {
           </Field>
         </div>
         {form.jenis === 'diklat' && <>
+        <div className="form-section-title">Nilai dan peringkat</div>
         <Field label={`Bobot nilai akhir: kehadiran ${form.weight_attendance}% · kuis ${100 - form.weight_attendance}%`}
           hint="Dipakai untuk peringkat keseluruhan. Kuis yang dihitung diatur di pengaturan masing-masing kuis.">
           <input type="range" min={0} max={100} step={5} value={form.weight_attendance} onChange={(e) => setForm({ ...form, weight_attendance: Number(e.target.value) })} />
         </Field>
         <Check label="Tampilkan papan peringkat ke peserta" hint="Peserta melihat top 10 dan posisinya sendiri (nama peserta lain terlihat)." checked={form.show_leaderboard} onChange={(v) => setForm({ ...form, show_leaderboard: v })} />
         </>}
+        <div className="form-section-title">Akses publik</div>
         <Check label="Tampilkan di halaman depan (masuk dengan NIP)"
           hint={`Saat status Aktif (Mendatang atau Berjalan), kegiatan ini muncul di halaman depan aplikasi dan peserta bisa membuka halaman pribadinya dengan memasukkan NIP. Matikan bila peserta hanya boleh masuk lewat link/QR. Alamat langsung: ${location.origin}/k/${a.id}`}
           checked={form.public_access} onChange={(v) => setForm({ ...form, public_access: v })} />
         <Check label="Tampilkan foto dokumentasi di galeri publik"
           hint={`Semua foto di menu Dokumentasi kegiatan ini bisa dilihat siapa saja di halaman Galeri (${location.origin}/galeri/${a.id}), tanpa login. Aktifkan hanya bila fotonya layak dipublikasikan.`}
           checked={form.gallery_public} onChange={(v) => setForm({ ...form, gallery_public: v })} />
-        <div className="row between">
+        <div className="form-actions">
           <button className="btn primary" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan perubahan'}</button>
-          <button type="button" className="btn danger" onClick={() => void remove()}><Trash2 size={16} /> Hapus kegiatan</button>
         </div>
       </form>
+
+      <div className="card danger-zone">
+        <div className="row between">
+          <div><b>Hapus kegiatan</b><div className="muted small">Menghapus permanen kegiatan ini beserta peserta, absensi, kuis, notula, dan dokumentasinya.</div></div>
+          <button type="button" className="btn danger" onClick={() => void remove()}><Trash2 size={16} /> Hapus kegiatan</button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronDown, Info, X } from 'lucide-react'
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 /* ---------- Toast ---------- */
@@ -213,4 +213,38 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void run() }, deps)
   return { data, error, loading, reload: run, setData }
+}
+
+
+/** Tombol dengan daftar aksi (menu tarik turun); tertutup saat memilih, menekan Esc, atau mengklik di luar. */
+export function ActionMenu({ label, icon, items, disabled, align = 'right' }: {
+  label: string; icon?: ReactNode; disabled?: boolean; align?: 'left' | 'right'
+  items: { label: string; hint?: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  return (
+    <div className="action-menu" ref={ref}>
+      <button type="button" className="btn sm" disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {icon}{label}<ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className={`action-pop ${align}`} role="menu">
+          {items.map((it) => (
+            <button key={it.label} type="button" role="menuitem" className="action-item" disabled={it.disabled} onClick={() => { setOpen(false); it.onSelect() }}>
+              {it.icon && <span className="ai-ico">{it.icon}</span>}
+              <span><b>{it.label}</b>{it.hint && <small>{it.hint}</small>}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

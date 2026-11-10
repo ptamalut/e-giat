@@ -1,7 +1,9 @@
-import { Contact, Search } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Contact, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
+import { AccessChips, MENU_ICONS } from '../../components/MenuToggles'
+import Stepper from '../../components/Stepper'
+import { Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
 import { activeMenus, type MenuDef } from '../../lib/menus'
 import { employeeRanks } from '../../lib/employeeOrder'
 import { ACCESS_KEYS, defaultAccessFor, rolesForJenis, rolesOf, ROLE_HINT, ROLE_LABEL, sortRoles, type Access } from '../../lib/people'
@@ -10,12 +12,13 @@ import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { Activity, Employee, Participant, PersonRole } from '../../lib/types'
 
 /** Pilihan jenis menurut jenis kegiatan. Boleh lebih dari satu (merangkap); minimal satu. */
-function RolePills({ roles, value, onChange }: { roles: readonly PersonRole[]; value: PersonRole[]; onChange: (r: PersonRole[]) => void }) {
+function RolePills({ roles, value, onChange, keep }: { roles: readonly PersonRole[]; value: PersonRole[]; onChange: (r: PersonRole[]) => void; keep?: { active: boolean; onSelect: () => void } }) {
   const toggle = (r: PersonRole) => {
     if (value.includes(r)) { if (value.length > 1) onChange(sortRoles(value.filter((x) => x !== r))) } else onChange(sortRoles([...value, r]))
   }
   return (
     <div className="pills" role="group" aria-label="Jenis">
+      {keep && <button type="button" aria-pressed={keep.active} className={`pill ${keep.active ? 'active' : ''}`} onClick={keep.onSelect}>Tidak diubah</button>}
       {roles.map((r) => (
         <button type="button" key={r} aria-pressed={value.includes(r)} className={`pill ${value.includes(r) ? 'active' : ''}`} onClick={() => toggle(r)}>{ROLE_LABEL[r]}</button>
       ))}
@@ -27,17 +30,11 @@ const roleHint = (rs: PersonRole[]) => (rs.length > 1
   ? 'Merangkap: bisa dipilih berperan sebagai apa pada tiap sesi absensi. Hak akses menu menggabungkan bawaan tiap jenis.'
   : ROLE_HINT[rs[0]])
 
-/** Kotak hak akses menu: hanya menu yang aktif pada kegiatan (sama dengan daftar di Ringkasan → Menu kegiatan). */
+/** Hak akses menu: hanya menu yang aktif pada kegiatan (sama dengan daftar di Ringkasan → Menu kegiatan). */
 function AccessChecks({ activity, value, onChange }: { activity: Activity; value: Access; onChange: (a: Access) => void }) {
   const menus = activeMenus(activity)
   if (!menus.length) return <p className="muted small">Belum ada menu yang diaktifkan untuk kegiatan ini.</p>
-  return (
-    <div>
-      {menus.map((m) => (
-        <Check key={m.key} label={m.label} hint={m.hint} checked={value[m.access]} onChange={(v) => onChange({ ...value, [m.access]: v })} />
-      ))}
-    </div>
-  )
+  return <AccessChips menus={menus} value={value} onChange={onChange} />
 }
 
 /** Tambah peserta kegiatan dengan memilih dari data pegawai. */
@@ -51,6 +48,7 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
   const [roles, setRoles] = useState<PersonRole[]>(['peserta'])
   const [access, setAccess] = useState<Access>(defaultAccessFor(['peserta']))
   const [busy, setBusy] = useState(false)
+  const [step, setStep] = useState(0)
 
   // urutan yang diatur di Data pegawai dipakai juga di sini
   const { data, error, loading, reload } = useAsync(async () => {
@@ -99,11 +97,21 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
   }
 
   const n = [...picked].filter((id) => all.some((e) => e.id === id && selectable(e))).length
+  const chosenList = all.filter((e) => picked.has(e.id) && selectable(e))
+  const visibleFree = list.filter(selectable)
+  const allVisiblePicked = visibleFree.length > 0 && visibleFree.every((e) => picked.has(e.id))
+  const toggleVisible = () => setPicked((cur) => { const nx = new Set(cur); if (allVisiblePicked) visibleFree.forEach((e) => nx.delete(e.id)); else visibleFree.forEach((e) => nx.add(e.id)); return nx })
 
   return (
     <Modal wide title="Tambah dari data pegawai" onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Batal</button>
-        <button className="btn primary" disabled={busy || n === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${n} orang`}</button></>}>
+      footer={<>
+        <button className="btn ghost" onClick={onClose}>Batal</button>
+        <span className="spacer" />
+        {step === 1 && <button className="btn" onClick={() => setStep(0)} disabled={busy}><ArrowLeft size={15} /> Kembali</button>}
+        {step === 0
+          ? <button className="btn primary" disabled={n === 0} onClick={() => setStep(1)}>{n ? `Lanjut: atur ${n} orang` : 'Pilih pegawai dulu'} {n > 0 && <ArrowRight size={15} />}</button>
+          : <button className="btn primary" disabled={busy || n === 0} onClick={() => void save()}>{busy ? 'Menyimpan…' : `Tambahkan ${n} orang`}</button>}
+      </>}>
       {loading && !data && <Loading />}
       {error && <ErrorBox error={error} onRetry={() => void reload()} />}
       {data && !all.length && (
@@ -113,48 +121,62 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
       )}
       {!!all.length && (
         <>
-          <div className="row" style={{ marginBottom: 10 }}>
-            <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, atau jabatan" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari pegawai" autoFocus /></label>
-            <select className="input" style={{ width: 240 }} value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Filter satuan kerja">
-              <option value="">Semua satuan kerja ({all.length})</option>
-              {allGroups.map((g) => <option key={g.key || NONE_KEY} value={g.key || NONE_KEY}>{g.label} ({g.items.length})</option>)}
-            </select>
-          </div>
+          <Stepper steps={['Pilih pegawai', 'Jenis & hak akses']} current={step} />
 
-          <div className="picker" role="group" aria-label="Daftar pegawai">
-            {groups.map((g) => {
-              const free = g.items.filter(selectable)
-              const allOn = free.length > 0 && free.every((e) => picked.has(e.id))
-              return (
-                <div key={g.key || '__none__'}>
-                  <label className="picker-head">
-                    <input type="checkbox" checked={allOn} disabled={!free.length} onChange={() => toggleGroup(g.items)} aria-label={`Pilih semua di ${g.label}`} />
-                    <b>{g.label}</b><span className="muted small">{g.items.length} pegawai{free.length < g.items.length ? ` · ${g.items.length - free.length} sudah di kegiatan ini` : ''}</span>
-                  </label>
-                  {g.items.map((e) => (
-                    <label key={e.id} className={`picker-row ${selectable(e) ? '' : 'off'}`}>
-                      <input type="checkbox" checked={picked.has(e.id) || !selectable(e)} disabled={!selectable(e)} onChange={() => toggle(e.id)} aria-label={e.name} />
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <b>{e.name}</b>
-                        <span className="muted small" style={{ display: 'block' }}>{[e.identifier && `NIP ${e.identifier}`, e.job_title].filter(Boolean).join(' · ') || '—'}</span>
-                      </span>
-                      {!selectable(e) && <span className="badge">sudah menjadi peserta</span>}
+          {step === 0 && <>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <label className="search"><Search size={16} /><input className="input" placeholder="Cari nama, NIP, atau jabatan" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari pegawai" autoFocus /></label>
+              <select className="input" style={{ width: 240 }} value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Filter satuan kerja">
+                <option value="">Semua satuan kerja ({all.length})</option>
+                {allGroups.map((g) => <option key={g.key || NONE_KEY} value={g.key || NONE_KEY}>{g.label} ({g.items.length})</option>)}
+              </select>
+            </div>
+            <div className="pick-bar">
+              <span className={`badge ${n ? 'primary' : ''}`} aria-live="polite">{n} dipilih</span>
+              <button type="button" className="btn ghost sm" disabled={!visibleFree.length} onClick={toggleVisible}>{allVisiblePicked ? 'Batalkan pilihan hasil ini' : `Pilih semua hasil (${visibleFree.length})`}</button>
+              {n > 0 && <button type="button" className="btn ghost sm" onClick={() => setPicked(new Set())}>Kosongkan</button>}
+            </div>
+
+            <div className="picker" role="group" aria-label="Daftar pegawai">
+              {groups.map((g) => {
+                const free = g.items.filter(selectable)
+                const allOn = free.length > 0 && free.every((e) => picked.has(e.id))
+                return (
+                  <div key={g.key || '__none__'}>
+                    <label className="picker-head">
+                      <input type="checkbox" checked={allOn} disabled={!free.length} onChange={() => toggleGroup(g.items)} aria-label={`Pilih semua di ${g.label}`} />
+                      <b>{g.label}</b><span className="muted small">{g.items.length} pegawai{free.length < g.items.length ? ` · ${g.items.length - free.length} sudah di kegiatan ini` : ''}</span>
                     </label>
-                  ))}
-                </div>
-              )
-            })}
-            {list.length === 0 && <p className="muted center" style={{ padding: 16 }}>Tidak ada hasil.</p>}
-          </div>
+                    {g.items.map((e) => (
+                      <label key={e.id} className={`picker-row ${selectable(e) ? '' : 'off'}`}>
+                        <input type="checkbox" checked={picked.has(e.id) || !selectable(e)} disabled={!selectable(e)} onChange={() => toggle(e.id)} aria-label={e.name} />
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <b>{e.name}</b>
+                          <span className="muted small" style={{ display: 'block' }}>{[e.identifier && `NIP ${e.identifier}`, e.job_title].filter(Boolean).join(' · ') || '—'}</span>
+                        </span>
+                        {!selectable(e) && <span className="badge">sudah menjadi peserta</span>}
+                      </label>
+                    ))}
+                  </div>
+                )
+              })}
+              {list.length === 0 && <p className="muted center" style={{ padding: 16 }}>Tidak ada hasil.</p>}
+            </div>
+          </>}
 
-          <div className="picker-settings">
-            <Field label={`Jenis untuk ${n || 'yang dipilih'} orang`} hint={roleHint(roles)}>
+          {step === 1 && <>
+            <div className="callout" style={{ marginBottom: 16 }}>
+              <b>{n} orang akan ditambahkan</b>
+              <span className="muted small">{chosenList.slice(0, 4).map((e) => e.name).join(', ')}{chosenList.length > 4 ? `, dan ${chosenList.length - 4} lainnya` : ''}</span>
+              <button type="button" className="btn ghost sm" style={{ justifySelf: 'start', marginTop: 4 }} onClick={() => setStep(0)}>Ubah pilihan</button>
+            </div>
+            <Field label="Jenis" hint={roleHint(roles)}>
               <RolePills roles={rolesForJenis(activity.jenis)} value={roles} onChange={(r) => { setRoles(r); setAccess(defaultAccessFor(r)) }} />
             </Field>
-            <Field label="Hak akses menu" hint="Menu yang boleh dipakai orang-orang ini lewat link pribadinya. Bisa diubah lagi per orang.">
+            <Field label="Hak akses menu" hint="Menu yang boleh dipakai lewat link pribadinya. Terisi otomatis menurut jenis; bisa diubah di sini dan lagi per orang nanti.">
               <AccessChecks activity={activity} value={access} onChange={setAccess} />
             </Field>
-          </div>
+          </>}
         </>
       )}
     </Modal>
@@ -198,26 +220,27 @@ export function AccessModal({ activity, people, onClose, onSaved }: {
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" disabled={busy} onClick={() => void save()}>{busy ? 'Menyimpan…' : 'Simpan'}</button></>}>
       {!bulk && <p className="muted small" style={{ marginTop: 0 }}>Data diri (nama, NIP, jabatan, satuan kerja) diubah di <Link to="/admin/pegawai">Data pegawai</Link>.</p>}
       <Field label="Jenis" hint={roles === 'keep' ? 'Jenis tidak diubah.' : roleHint(roles)}>
-        {bulk && (
-          <div className="pills" style={{ marginBottom: 8 }}>
-            <button type="button" aria-pressed={roles === 'keep'} className={`pill ${roles === 'keep' ? 'active' : ''}`} onClick={() => setRoles('keep')}>Tidak diubah</button>
-          </div>
-        )}
-        <RolePills roles={rolesForJenis(activity.jenis)} value={roles === 'keep' ? [] : roles} onChange={(r) => {
+        <RolePills roles={rolesForJenis(activity.jenis)} value={roles === 'keep' ? [] : roles} keep={bulk ? { active: roles === 'keep', onSelect: () => setRoles('keep') } : undefined} onChange={(r) => {
           setRoles(r)
           if (!bulk) setAccess((cur) => ({ ...cur, ...Object.fromEntries(menus.map((m) => [m.access, defaultAccessFor(r)[m.access]])) })) // jenis baru = isian awal baru untuk menu aktif (boleh diubah lagi)
         }} />
       </Field>
       <Field label="Hak akses menu" hint={bulk ? 'Pilih "Tidak diubah" untuk membiarkan pengaturan masing-masing orang.' : 'Menu yang boleh dipakai lewat link pribadinya.'}>
         {bulk
-          ? menus.map((m: MenuDef) => (
-            <div className="row between" key={m.key} style={{ marginBottom: 8 }}>
-              <span>{m.label}</span>
-              <select className="input" style={{ width: 160 }} value={tri[m.access] ?? 'keep'} onChange={(e) => setTri({ ...tri, [m.access]: e.target.value as Tri })} aria-label={m.label}>
-                <option value="keep">Tidak diubah</option><option value="on">Aktif</option><option value="off">Nonaktif</option>
-              </select>
-            </div>
-          ))
+          ? <div className="tri-list">{menus.map((m: MenuDef) => {
+            const Icon = MENU_ICONS[m.key]
+            const cur = tri[m.access] ?? 'keep'
+            return (
+              <div className="tri-row" key={m.key}>
+                <span className="tri-name"><Icon size={16} /> {m.label}</span>
+                <div className="pills" role="radiogroup" aria-label={m.label}>
+                  {([['keep', 'Tidak diubah'], ['on', 'Aktif'], ['off', 'Nonaktif']] as const).map(([v, l]) => (
+                    <button type="button" key={v} role="radio" aria-checked={cur === v} className={`pill ${cur === v ? 'active' : ''}`} onClick={() => setTri({ ...tri, [m.access]: v })}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}</div>
           : <AccessChecks activity={activity} value={access} onChange={setAccess} />}
       </Field>
     </Modal>

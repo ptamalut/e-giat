@@ -53,6 +53,10 @@ Setelah tanggal selesai, kegiatan tetap Berjalan sampai ditandai Selesai (pesert
 
 **Menu per kegiatan, data pegawai, dan hak akses**
 - **Menu kegiatan**: di *Ringkasan → Menu kegiatan* panitia mengaktifkan/menonaktifkan *Absensi, Notula, Kuis, Sertifikat,
+- **Antarmuka admin yang dirapikan**: *Kegiatan baru* berupa **3 langkah** (Informasi dengan kartu Diklat/Kegiatan, Dasar surat opsional, Menu dengan kartu bersakelar); *Tambah dari data pegawai* berupa **2 langkah**
+  (pilih pegawai dengan penghitung terpilih dan "Pilih semua hasil", lalu jenis dan hak akses menu sebagai chip); *Atur jenis & hak akses* massal memakai pilihan Tidak diubah/Aktif/Nonaktif per menu; *Ringkasan* memakai
+  kartu menu bersakelar dan pengaturan yang dikelompokkan (Informasi, Nilai dan peringkat, Akses publik) dengan zona hapus terpisah; toolbar tab Peserta dirangkum menjadi menu *Urutan* dan *Ekspor & cetak*.
+  Semua jendela dialog kini punya kepala dan kaki tetap dengan isi yang bisa digulir.
   Dokumentasi* untuk tiap kegiatan (bawaan: semua aktif). Menu nonaktif hilang dari panitia dan peserta, dan ditolak di server;
   datanya tetap tersimpan. *Peserta*, *Laporan*, dan *Data pegawai* selalu ada.
 - **Data pegawai** (menu di sidebar): induk data orang milik akun panitia, dikelompokkan per **satuan kerja** (penulisan yang
