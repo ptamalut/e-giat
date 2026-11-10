@@ -6,7 +6,7 @@ import { fmtDateRange } from '../../lib/format'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity } from '../../lib/types'
 import { useSidebarActivity } from './AdminShell'
-import { STATUS_LABEL, STATUS_TONE } from './Dashboard'
+import { activityPhase, PHASE_LABEL, PHASE_TONE } from '../../lib/phase'
 import { activityNav } from './nav'
 
 export interface ActivityCtx { activity: Activity; reload: () => Promise<void> }
@@ -23,7 +23,7 @@ export default function ActivityLayout() {
 
   const { pathname } = useLocation()
   const menus = data ? enabledMenus(data) : []
-  useSidebarActivity(data ? { id: data.id, name: data.name, statusLabel: STATUS_LABEL[data.status], menus } : null)
+  useSidebarActivity(data ? { id: data.id, name: data.name, statusLabel: PHASE_LABEL[activityPhase(data)], menus } : null)
 
   if (loading && !data) return <Loading />
   if (error || !data) return <ErrorBox error={error ?? 'Kegiatan tidak ditemukan.'} onRetry={() => void reload()} />
@@ -37,7 +37,7 @@ export default function ActivityLayout() {
         title={data.name}
         subtitle={
           <div className="meta">
-            <span className={`badge dot ${STATUS_TONE[data.status]}`}>{STATUS_LABEL[data.status]}</span>
+            <span className={`badge dot ${PHASE_TONE[activityPhase(data)]}`}>{PHASE_LABEL[activityPhase(data)]}</span>
             <span><Calendar size={15} /> {fmtDateRange(data.start_date, data.end_date)}</span>
             {data.location && <span><MapPin size={15} /> {data.location}</span>}
           </div>

@@ -1,3 +1,4 @@
+import { activityPhase } from './phase'
 import { rpc } from './supabase'
 
 export interface HistoryItem {
@@ -11,4 +12,8 @@ export interface HistoryItem {
 
 export const fetchHistory = () => rpc<HistoryItem[]>('public_history', {})
 
-export const historyStatusLabel = (s: HistoryItem['status']) => (s === 'aktif' ? 'Sedang berjalan' : s === 'selesai' ? 'Selesai' : 'Draf')
+/** Label riwayat: aktif sebelum tanggal mulai = Mendatang, sejak hari H = Sedang berjalan. */
+export const historyStatusLabel = (h: Pick<HistoryItem, 'status' | 'start_date'>) => {
+  const ph = activityPhase(h)
+  return ph === 'berjalan' ? 'Sedang berjalan' : ph === 'mendatang' ? 'Mendatang' : ph === 'selesai' ? 'Selesai' : 'Draf'
+}

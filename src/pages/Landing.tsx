@@ -7,6 +7,7 @@ import InstallDialog, { openInstallDialog } from '../components/InstallDialog'
 import Slider from '../components/Slider'
 import { ThemeToggle } from '../components/theme'
 import { copyright, DEFAULT_HERO_TEXT, DEFAULT_HERO_TITLE, websiteHref } from '../lib/branding'
+import { activityPhase, todayStr } from '../lib/phase'
 import { fmtDateRange } from '../lib/format'
 import { fetchGalleryRecent, galleryPhotoUrl, type GalleryRecent } from '../lib/galleryApi'
 import { JENIS_LABEL } from '../lib/people'
@@ -55,6 +56,21 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: s
   )
 }
 
+function ActivityCard({ a, upcoming = false }: { a: PublicActivity; upcoming?: boolean }) {
+  return (
+    <Link to={`/k/${a.id}`} className="card link landing-card" aria-label={`Masuk ke kegiatan ${a.name}`}>
+      <span className="row tight"><span className={`badge dot ${upcoming ? 'warn' : 'success'}`}>{upcoming ? 'Mendatang' : 'Sedang berjalan'}</span>{a.jenis && <span className="badge primary">{JENIS_LABEL[a.jenis]}</span>}</span>
+      <h3>{a.name}</h3>
+      <div className="meta">
+        {(a.start_date || a.end_date) && <span><CalendarDays size={15} /> {fmtDateRange(a.start_date, a.end_date)}</span>}
+        {a.location && <span><MapPin size={15} /> {a.location}</span>}
+      </div>
+      {a.description && <p className="muted small landing-desc">{a.description}</p>}
+      <span className="landing-go">Masuk dengan NIP <ArrowRight size={16} /></span>
+    </Link>
+  )
+}
+
 export default function Landing() {
   const { session } = useAuth()
   const { settings: brand } = useBrand()
@@ -74,7 +90,9 @@ export default function Landing() {
     return () => { alive = false }
   }, [])
 
-  const running = items ?? []
+  const today = todayStr()
+  const running = (items ?? []).filter((a) => activityPhase({ status: 'aktif', start_date: a.start_date }, today) === 'berjalan')
+  const upcoming = (items ?? []).filter((a) => activityPhase({ status: 'aktif', start_date: a.start_date }, today) === 'mendatang')
   const totalActivities = Math.max(history.length, running.length)
   const photoCount = history.reduce((n, h) => n + h.photo_count, 0)
   const entry = session ? '/admin' : '/login'
@@ -133,6 +151,7 @@ export default function Landing() {
 
       <div className="container landing-stats" role="list" aria-label="Ringkasan">
         <Stat icon={<CalendarCheck size={20} />} value={fmtCount(running.length)} label="Kegiatan berjalan" />
+        {upcoming.length > 0 && <Stat icon={<CalendarDays size={20} />} value={fmtCount(upcoming.length)} label="Kegiatan mendatang" />}
         <Stat icon={<CalendarDays size={20} />} value={fmtCount(totalActivities)} label="Total kegiatan" />
         {photoCount > 0 && <Stat icon={<Images size={20} />} value={fmtCount(photoCount)} label="Foto dokumentasi" />}
         {stats && <Stat icon={<Eye size={20} />} value={fmtCount(stats.today)} label="Kunjungan hari ini" />}
@@ -145,30 +164,22 @@ export default function Landing() {
           {!items && !error && (
             <div className="landing-grid" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="card landing-skel" />)}</div>
           )}
-          {items && items.length === 0 && (
+          {items && running.length === 0 && (
             <div className="card landing-empty">
               <CalendarDays size={28} />
               <h3>Belum ada kegiatan yang sedang berjalan</h3>
-              <p className="muted">Kegiatan akan tampil di sini setelah panitia mengaktifkannya. Silakan kembali lagi nanti.</p>
+              <p className="muted">{upcoming.length ? 'Kegiatan akan tampil di sini pada hari pelaksanaannya; lihat Kegiatan mendatang di bawah.' : 'Kegiatan akan tampil di sini setelah panitia mengaktifkannya. Silakan kembali lagi nanti.'}</p>
             </div>
           )}
-          {items && items.length > 0 && (
-            <div className="landing-grid">
-              {items.map((a) => (
-                <Link key={a.id} to={`/k/${a.id}`} className="card link landing-card" aria-label={`Masuk ke kegiatan ${a.name}`}>
-                  <span className="row tight"><span className="badge dot success">Sedang berjalan</span>{a.jenis && <span className="badge primary">{JENIS_LABEL[a.jenis]}</span>}</span>
-                  <h3>{a.name}</h3>
-                  <div className="meta">
-                    {(a.start_date || a.end_date) && <span><CalendarDays size={15} /> {fmtDateRange(a.start_date, a.end_date)}</span>}
-                    {a.location && <span><MapPin size={15} /> {a.location}</span>}
-                  </div>
-                  {a.description && <p className="muted small landing-desc">{a.description}</p>}
-                  <span className="landing-go">Masuk dengan NIP <ArrowRight size={16} /></span>
-                </Link>
-              ))}
-            </div>
-          )}
+          {running.length > 0 && <div className="landing-grid">{running.map((a) => <ActivityCard key={a.id} a={a} />)}</div>}
         </section>
+
+        {upcoming.length > 0 && (
+          <section id="mendatang" className="container landing-section" aria-labelledby="h-mendatang">
+            <SectionHead id="h-mendatang" eyebrow="Segera" title="Kegiatan mendatang" sub="Kegiatan yang akan dimulai pada tanggal berikutnya. Peserta dapat membuka halaman pribadinya sejak sekarang." />
+            <div className="landing-grid">{upcoming.map((a) => <ActivityCard key={a.id} a={a} upcoming />)}</div>
+          </section>
+        )}
 
         {history.length > 0 && (
           <section id="riwayat" className="container landing-section" aria-labelledby="h-riwayat">
@@ -179,7 +190,7 @@ export default function Landing() {
                   <div className="history-card">
                     <div className="history-cover">
                       {h.cover ? <img src={galleryPhotoUrl(h.cover)} alt="" loading="lazy" /> : <CalendarDays size={40} strokeWidth={1.5} />}
-                      <span className={`badge dot ${h.status === 'aktif' ? 'success' : ''}`}>{historyStatusLabel(h.status)}{h.jenis ? ` · ${JENIS_LABEL[h.jenis]}` : ''}</span>
+                      <span className={`badge dot ${h.status !== 'aktif' ? '' : activityPhase(h, today) === 'mendatang' ? 'warn' : 'success'}`}>{historyStatusLabel(h)}{h.jenis ? ` · ${JENIS_LABEL[h.jenis]}` : ''}</span>
                     </div>
                     <div className="history-body">
                       <h3>{h.name}</h3>

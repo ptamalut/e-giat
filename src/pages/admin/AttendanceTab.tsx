@@ -57,6 +57,8 @@ export default function AttendanceTab() {
   }, [reload])
 
   const sessions = data?.sessions ?? []
+  // jenis Kegiatan: absensi otomatis (satu sesi untuk semua orang di kegiatan); tidak ada tambah/duplikat sesi
+  const single = activity.jenis === 'kegiatan'
   const current = sessions.find((s) => s.id === sel) ?? sessions.find((s) => timeState(s.start_at, s.end_at, Date.now()) === 'open') ?? sessions[0]
   const attByP = useMemo(() => {
     const m = new Map<string, Attendance>()
@@ -165,20 +167,24 @@ export default function AttendanceTab() {
 
   return (
     <div className="stack">
-      <div className="card">
-        <div className="card-head">
-          <h2>Sesi absensi</h2><span className="spacer" />
-          <button className="btn primary sm" onClick={() => {
-            const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1)
-            setEditing({ value: { title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15, require_selfie: true, require_location: true, custom_members: false }, members: null })
-          }}><Plus size={16} /> Tambah sesi</button>
+      {(!single || sessions.length !== 1) && (
+        <div className="card">
+          <div className="card-head">
+            <h2>Sesi absensi</h2><span className="spacer" />
+            {!single && <button className="btn primary sm" onClick={() => {
+              const start = new Date(); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1)
+              setEditing({ value: { title: `Hari ${sessions.length + 1}`, start_at: start.toISOString(), end_at: new Date(start.getTime() + 3 * 3600000).toISOString(), late_minutes: 15, require_selfie: true, require_location: true, custom_members: false }, members: null })
+            }}><Plus size={16} /> Tambah sesi</button>}
+          </div>
+          {sessions.length === 0
+            ? (single
+              ? <Empty icon={<CalendarX size={26} />} title="Absensi belum aktif">Absensi kegiatan dibuat otomatis oleh database. Jalankan <code>supabase/migrations/021_absensi_otomatis_kegiatan.sql</code> di Supabase SQL Editor, lalu muat ulang halaman ini.</Empty>
+              : <Empty icon={<CalendarX size={26} />} title="Belum ada sesi absensi">Buat sesi (mis. Hari 1) lengkap dengan jam buka &amp; tutup. Peserta hanya bisa absen pada rentang waktu itu.</Empty>)
+            : <div className="pills">{sessions.map((s) => (
+                <button key={s.id} className={`pill ${s.id === current?.id ? 'active' : ''}`} onClick={() => setSel(s.id)}>{s.title}</button>
+              ))}</div>}
         </div>
-        {sessions.length === 0
-          ? <Empty icon={<CalendarX size={26} />} title="Belum ada sesi absensi">Buat sesi (mis. Hari 1) lengkap dengan jam buka &amp; tutup. Peserta hanya bisa absen pada rentang waktu itu.</Empty>
-          : <div className="pills">{sessions.map((s) => (
-              <button key={s.id} className={`pill ${s.id === current?.id ? 'active' : ''}`} onClick={() => setSel(s.id)}>{s.title}</button>
-            ))}</div>}
-      </div>
+      )}
 
       {current && counts && (
         <>
@@ -189,13 +195,13 @@ export default function AttendanceTab() {
                 <div className="meta"><span><Clock size={15} /> {fmtDateTime(current.start_at)} → {fmtDateTime(current.end_at)}</span><span>Terlambat bila absen lewat {current.late_minutes} menit dari jam mulai</span>
                   <span><Camera size={15} /> {current.require_selfie ? 'Selfie wajib' : 'Selfie tidak diminta'}</span>
                   <span><MapPin size={15} /> {current.require_location ? 'Lokasi wajib' : 'Lokasi tidak diminta'}</span>
-                  <span><Users size={15} /> {current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan (sesuai jenis utamanya)'}</span></div>
+                  <span><Users size={15} /> {current.auto ? 'Otomatis: semua orang di kegiatan yang berhak absen (peserta dan petugas yang ditambahkan langsung tampil)' : current.custom_members ? `Diatur per sesi · ${summaryText(assignSummary(orderedAll, Object.fromEntries(orderedAll.map((p) => [p.id, p.role]))).counts) || 'belum ada anggota'}` : 'Semua orang di kegiatan (sesuai jenis utamanya)'}</span></div>
               </div>
               <div className="row tight">
                 <button className="btn sm" onClick={() => setEditing({ value: current, members: current.custom_members ? data.members.filter((m) => m.session_id === current.id) : null })}><Pencil size={14} /> Ubah</button>
-                <button className="btn sm" onClick={() => duplicateNextDay(current)}><Copy size={14} /> Duplikat +1 hari</button>
+                {!single && <button className="btn sm" onClick={() => duplicateNextDay(current)}><Copy size={14} /> Duplikat +1 hari</button>}
                 {photoPaths.length > 0 && <button className="btn sm" onClick={() => void removePhotos(current)}><ImageOff size={14} /> Hapus foto</button>}
-                <button className="btn sm danger" onClick={() => void removeSession(current)}><Trash2 size={14} /> Hapus</button>
+                {!current.auto && <button className="btn sm danger" onClick={() => void removeSession(current)}><Trash2 size={14} /> Hapus</button>}
               </div>
             </div>
           </div>
@@ -295,7 +301,7 @@ export default function AttendanceTab() {
 
       {exporting && <AttendanceExport activity={activity} people={data.participants.filter((p) => p.access_attendance)} sessions={data.sessions} attendances={data.attendances} members={data.members}
         currentId={current?.id} onClose={() => setExporting(false)} />}
-      {editing && <SessionForm value={editing.value} members={editing.members} activityId={activity.id} roles={rolesForJenis(activity.jenis)}
+      {editing && <SessionForm auto={!!editing.value.auto} value={editing.value} members={editing.members} activityId={activity.id} roles={rolesForJenis(activity.jenis)}
         people={data.participants.filter((p) => p.access_attendance)} satkerOrder={activity.satker_order}
         attendedIds={new Set(data.attendances.filter((a) => editing.value.id && a.session_id === editing.value.id).map((a) => a.participant_id))}
         onClose={() => setEditing(null)}
@@ -304,8 +310,8 @@ export default function AttendanceTab() {
   )
 }
 
-function SessionForm({ value, members, activityId, roles, people, satkerOrder, attendedIds, onClose, onSaved }: {
-  roles: PersonRole[]
+function SessionForm({ auto, value, members, activityId, roles, people, satkerOrder, attendedIds, onClose, onSaved }: {
+  auto: boolean; roles: PersonRole[]
   value: Partial<AttendanceSession>; members: SessionMember[] | null; activityId: string; people: Participant[]
   satkerOrder: readonly string[] | null; attendedIds: Set<string>; onClose: () => void; onSaved: (id: string) => void
 }) {
@@ -357,10 +363,11 @@ function SessionForm({ value, members, activityId, roles, people, satkerOrder, a
   }
 
   return (
-    <Modal wide title={value.id ? 'Ubah sesi absensi' : 'Sesi absensi baru'} onClose={onClose}
+    <Modal wide title={auto ? 'Ubah absensi kegiatan' : value.id ? 'Ubah sesi absensi' : 'Sesi absensi baru'} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Batal</button><button className="btn primary" form="sform" disabled={busy}>Simpan</button></>}>
       <form id="sform" onSubmit={submit}>
         <Field label="Nama sesi *"><input className="input" required autoFocus value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="mis. Hari 1 — Pagi" /></Field>
+        {auto && <p className="hint" style={{ marginTop: 0 }}>Absensi kegiatan dibuat otomatis dan mengikuti tanggal kegiatan (berubah bila tanggal kegiatan diubah). Atur jam buka/tutup, batas terlambat, selfie, dan lokasi di sini bila perlu.</p>}
         <div className="form-grid">
           <Field label="Absensi dibuka *"><input className="input" type="datetime-local" required value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} /></Field>
           <Field label="Absensi ditutup *"><input className="input" type="datetime-local" required value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} /></Field>
@@ -372,15 +379,15 @@ function SessionForm({ value, members, activityId, roles, people, satkerOrder, a
         <Check label="Wajib lokasi" hint="Peserta diminta izin lokasi; koordinat dan akurasinya dicatat. Tanpa lokasi, absen ditolak." checked={f.loc} onChange={(v) => setF({ ...f, loc: v })} />
         <p className="hint">Foto dan lokasi hanya dapat dilihat admin kegiatan ini. Jika keduanya dimatikan, peserta langsung absen satu ketukan.</p>
 
-        <Field label="Siapa yang ikut sesi ini" hint={custom
+        {!auto && <Field label="Siapa yang ikut sesi ini" hint={custom
           ? `Tentukan kedudukan tiap orang pada sesi ini: ${roles.map((r) => ROLE_LABEL[r].toLowerCase()).join(', ')}. Orang yang merangkap tinggal dipilihkan salah satu kedudukannya. "Tidak ikut" = tidak tampil di absensi sesi ini dan tidak dihitung kehadirannya.`
           : 'Semua orang yang berhak absen di kegiatan ini ikut sesi ini, dengan jenis masing-masing. Yang merangkap mengikuti jenis utamanya (jenis pertama); pilih "Atur per sesi" bila ingin menentukan kedudukannya pada sesi ini.'}>
           <div className="pills" role="radiogroup" aria-label="Siapa yang ikut sesi ini">
             <button type="button" role="radio" aria-checked={!custom} className={`pill ${!custom ? 'active' : ''}`} onClick={() => setCustom(false)}>Semua orang di kegiatan</button>
             <button type="button" role="radio" aria-checked={custom} className={`pill ${custom ? 'active' : ''}`} onClick={() => setCustom(true)}>Atur per sesi</button>
           </div>
-        </Field>
-        {custom && (
+        </Field>}
+        {custom && !auto && (
           <>
             <MembersEditor roles={roles} people={people} assign={assign} onChange={setAssign} satkerOrder={satkerOrder} />
             <p className="hint" style={{ marginTop: 8 }}>

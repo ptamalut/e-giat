@@ -4,20 +4,18 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
 import { MENUS } from '../../lib/menus'
+import { activityPhase, PHASE_LABEL, PHASE_TONE, type Phase } from '../../lib/phase'
 import LetterFields from '../../components/LetterFields'
 import { checkLetterFile, emptyLetter, hasLetterText, saveLetter, type LetterInput } from '../../lib/lettersApi'
 import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
 import { errMsg, supabase } from '../../lib/supabase'
-import type { Activity, ActivityJenis, ActivityStatus } from '../../lib/types'
+import type { Activity, ActivityJenis } from '../../lib/types'
 
 type Row = Activity & {
   participants: { count: number }[]
   attendance_sessions: { count: number }[]
   quizzes: { count: number }[]
 }
-
-export const STATUS_LABEL: Record<ActivityStatus, string> = { draft: 'Draft', aktif: 'Berjalan', selesai: 'Selesai' }
-export const STATUS_TONE: Record<ActivityStatus, string> = { draft: '', aktif: 'success', selesai: 'info' }
 
 export default function Dashboard() {
   const toast = useToast()
@@ -28,7 +26,7 @@ export default function Dashboard() {
   const [letter, setLetter] = useState<LetterInput>(emptyLetter())
   const [letterFile, setLetterFile] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
-  const [filter, setFilter] = useState<'semua' | ActivityStatus>('semua')
+  const [filter, setFilter] = useState<'semua' | Phase>('semua')
   const { data, error, loading, reload } = useAsync(async () => {
     const { data, error } = await supabase
       .from('activities')
@@ -39,7 +37,7 @@ export default function Dashboard() {
     return data as Row[]
   }, [])
 
-  const list = (data ?? []).filter((a) => filter === 'semua' || a.status === filter)
+  const list = (data ?? []).filter((a) => filter === 'semua' || activityPhase(a) === filter)
 
   /** Ubah status dari daftar kegiatan: selesai (pindah ke Riwayat) atau dibuka kembali (Berjalan). */
   async function setStatus(a: Row, status: 'selesai' | 'aktif') {
@@ -84,6 +82,7 @@ export default function Dashboard() {
   }
 
   const all = data ?? []
+  const upcoming = all.filter((a) => activityPhase(a) === 'mendatang').length
   const totalParticipants = all.reduce((s, a) => s + (a.participants[0]?.count ?? 0), 0)
 
   return (
@@ -97,16 +96,16 @@ export default function Dashboard() {
       {!loading && all.length > 0 && (
         <div className="grid cols-4" style={{ marginBottom: 24 }}>
           <Stat icon={<CalendarDays size={20} />} value={all.length} label="Total kegiatan" />
-          <Stat icon={<CalendarCheck size={20} />} tone="success" value={all.filter((a) => a.status === 'aktif').length} label="Sedang berjalan" />
+          <Stat icon={<CalendarCheck size={20} />} tone="success" value={all.filter((a) => activityPhase(a) === 'berjalan').length} label="Sedang berjalan" sub={upcoming ? `${upcoming} mendatang` : undefined} />
           <Stat icon={<Users size={20} />} tone="info" value={totalParticipants} label="Total peserta" />
           <Stat icon={<ClipboardList size={20} />} tone="warn" value={all.reduce((s, a) => s + (a.quizzes[0]?.count ?? 0), 0)} label="Total kuis" />
         </div>
       )}
 
       <div className="pills" style={{ marginBottom: 20 }}>
-        {(['semua', 'aktif', 'draft', 'selesai'] as const).map((s) => (
+        {(['semua', 'berjalan', 'mendatang', 'draft', 'selesai'] as const).map((s) => (
           <button key={s} className={`pill ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>
-            {s === 'semua' ? 'Semua' : STATUS_LABEL[s]}
+            {s === 'semua' ? 'Semua' : PHASE_LABEL[s]}
           </button>
         ))}
       </div>
@@ -124,7 +123,7 @@ export default function Dashboard() {
           <div key={a.id} className="card link act-card">
             <Link to={`/admin/kegiatan/${a.id}`} className="act-link" aria-label={`Buka kegiatan ${a.name}`}>
               <div className="row between" style={{ marginBottom: 12 }}>
-                <span className="row tight"><span className={`badge dot ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span><span className="badge primary">{JENIS_LABEL[a.jenis ?? 'diklat']}</span></span>
+                <span className="row tight"><span className={`badge dot ${PHASE_TONE[activityPhase(a)]}`}>{PHASE_LABEL[activityPhase(a)]}</span><span className="badge primary">{JENIS_LABEL[a.jenis ?? 'diklat']}</span></span>
                 <span className="muted small">{fmtDateRange(a.start_date, a.end_date)}</span>
               </div>
               <h3 style={{ fontSize: '1.08rem', marginBottom: 4 }}>{a.name}</h3>
