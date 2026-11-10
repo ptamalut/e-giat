@@ -102,27 +102,40 @@ export default function Portal() {
 
   return (
     <>
-      <div className="portal-hero">
-        <div className="container narrow">
-          <div className="top"><BrandMark size={16} />{brand.app_name}<span className="spacer" /><ThemeToggle onDark /></div>
-          <h1>{a.name}</h1>
-          <div className="meta">
-            <span><Calendar size={15} /> {fmtDateRange(a.start_date, a.end_date)}</span>
-            {a.location && <span><MapPin size={15} /> {a.location}</span>}
+      {noteEditing ? (
+        // saat mengisi notula: bilah ringkas, halaman lebar seperti di panel admin
+        <div className="portal-editbar">
+          <div className="container wide">
+            <BrandMark size={16} />
+            <span className="eb-act"><b>{a.name}</b><small>{[fmtDateRange(a.start_date, a.end_date), a.location].filter(Boolean).join(' · ')}</small></span>
+            <span className="spacer" />
+            <span className="eb-me">{p.name}</span>
+            <ThemeToggle onDark />
           </div>
-          <div className="me">
-            <span className="avatar" aria-hidden>{nameInitial(p.name)}</span>
-            <div>
-              <b>{p.name}</b>
-              <span><span className="role-chip" aria-label={`Kedudukan Anda: ${rolesLabel(p)}`}>Kedudukan: {rolesLabel(p)}</span></span>
-              {(p.identifier || p.grade) && <span>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</span>}
-              {roleLine(p) && <span>{roleLine(p)}</span>}
+        </div>
+      ) : (
+        <div className="portal-hero">
+          <div className="container narrow">
+            <div className="top"><BrandMark size={16} />{brand.app_name}<span className="spacer" /><ThemeToggle onDark /></div>
+            <h1>{a.name}</h1>
+            <div className="meta">
+              <span><Calendar size={15} /> {fmtDateRange(a.start_date, a.end_date)}</span>
+              {a.location && <span><MapPin size={15} /> {a.location}</span>}
+            </div>
+            <div className="me">
+              <span className="avatar" aria-hidden>{nameInitial(p.name)}</span>
+              <div>
+                <b>{p.name}</b>
+                <span><span className="role-chip" aria-label={`Kedudukan Anda: ${rolesLabel(p)}`}>Kedudukan: {rolesLabel(p)}</span></span>
+                {(p.identifier || p.grade) && <span>{[p.identifier && `NIP ${p.identifier}`, p.grade].filter(Boolean).join(' · ')}</span>}
+                {roleLine(p) && <span>{roleLine(p)}</span>}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className={`container narrow portal-body stack${noteEditing ? ' is-editing' : ''}`} style={{ paddingBottom: 48 }}>
+      <div className={`container ${noteEditing ? 'wide' : 'narrow'} portal-body stack${noteEditing ? ' is-editing' : ''}`} style={{ paddingBottom: 48 }}>
         <InstallDialog />
         {error && <div className="alert warn">Koneksi bermasalah, data mungkin tidak terbaru. {error}</div>}
         {closed && <div className="alert warn">Kegiatan ini belum dibuka oleh panitia. Absensi dan kuis belum tersedia.</div>}

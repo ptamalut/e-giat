@@ -149,6 +149,7 @@ svg.ic { flex: none; vertical-align: -0.17em; }
 /* ---------- layout dasar ---------- */
 .container { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 20px; }
 .container.narrow { max-width: 780px; }
+.container.wide { max-width: 980px; }
 .page { padding-top: 28px; padding-bottom: 72px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .row.tight { gap: 6px; }
@@ -627,7 +628,15 @@ button.tab.active { border-bottom-color: var(--gold); }
 .np-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 6px; }
 .np-add .input { flex: 1; min-width: 180px; }
 .np-add .np-nip { flex: 0 1 170px; min-width: 130px; }
-.portal-body.is-editing { margin-top: 18px; }
+.portal-body.is-editing { margin-top: 20px; }
+.portal-editbar { background: var(--hero-bg); color: #fff; padding: 10px 0; }
+.portal-editbar .container { display: flex; align-items: center; gap: 10px; }
+.portal-editbar .brand-mark { width: 28px; height: 28px; border-radius: 8px; flex: none; }
+.eb-act { display: grid; min-width: 0; line-height: 1.25; }
+.eb-act b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eb-act small { color: rgb(255 255 255 / 85%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eb-me { font-size: .85rem; color: rgb(255 255 255 / 90%); white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .eb-me { display: none; } }
 @media (max-width: 600px) {
   .note-bar { bottom: 8px; padding: 8px; gap: 6px; }
   .note-bar .btn { padding-inline: 12px; }
