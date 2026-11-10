@@ -23,23 +23,25 @@ const noBorders = { top: none, bottom: none, left: none, right: none }
 const line = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
 const box = { top: line, bottom: line, left: line, right: line }
 
-/** Kop: logo di kiri, judul tebal dan alamat di tengah, garis ganda di bawahnya. */
-function kop(d: NoteDoc, logo: NoteLogo | null): (Paragraph | Table)[] {
-  const { title, address } = d.kop
+/** Kop: logo di kiri, judul tebal dan alamat di tengah, garis ganda di bawahnya. `font` dan `contentW` (twip) menyesuaikan dokumen lain yang memakai kop yang sama. */
+export function kopBlocks(kop: { title: string[]; address: string[] }, logo: NoteLogo | null, opts: { font?: string; contentW?: number } = {}): (Paragraph | Table)[] {
+  const { title, address } = kop
+  const font = opts.font ?? FONT, contentW = opts.contentW ?? CONTENT_W
   if (!title.length && !address.length && !logo) return []
+  const t = (text: string, o: { bold?: boolean; size?: number }) => new TextRun({ text, bold: o.bold, font, size: o.size ?? SIZE })
   const center = (children: ParagraphChild[], after = 0) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after }, children })
-  const text = [...title.map((t) => center([txt(t.toUpperCase(), { bold: true, size: 28 })])), ...address.map((t, i) => center([txt(t, { size: 18 })], i === address.length - 1 ? 60 : 0))]
+  const text = [...title.map((x) => center([t(x.toUpperCase(), { bold: true, size: 28 })])), ...address.map((x, i) => center([t(x, { size: 18 })], i === address.length - 1 ? 60 : 0))]
   let body: (Paragraph | Table)[] = text
   if (logo) {
     const h = 84, w = Math.max(1, Math.round((logo.w / logo.h) * h))
     const LOGO_COL = 1500
     body = [new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA }, columnWidths: [LOGO_COL, CONTENT_W - LOGO_COL], layout: TableLayoutType.FIXED,
+      width: { size: contentW, type: WidthType.DXA }, columnWidths: [LOGO_COL, contentW - LOGO_COL], layout: TableLayoutType.FIXED,
       borders: { ...noBorders, insideHorizontal: none, insideVertical: none },
       rows: [new TableRow({ children: [
         new TableCell({ width: { size: LOGO_COL, type: WidthType.DXA }, borders: noBorders, verticalAlign: VerticalAlign.CENTER,
           children: [new Paragraph({ children: [new ImageRun({ type: 'png', data: logo.data, transformation: { width: w, height: h } })] })] }),
-        new TableCell({ width: { size: CONTENT_W - LOGO_COL, type: WidthType.DXA }, borders: noBorders, verticalAlign: VerticalAlign.CENTER, children: text.length ? text : [new Paragraph({})] }),
+        new TableCell({ width: { size: contentW - LOGO_COL, type: WidthType.DXA }, borders: noBorders, verticalAlign: VerticalAlign.CENTER, children: text.length ? text : [new Paragraph({})] }),
       ] })],
     })]
   }
@@ -48,6 +50,8 @@ function kop(d: NoteDoc, logo: NoteLogo | null): (Paragraph | Table)[] {
     new Paragraph({ spacing: { before: 40, after: 240 }, border: { bottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 12, color: '000000', space: 1 } }, children: [] }),
   ]
 }
+
+const kop = (d: NoteDoc, logo: NoteLogo | null) => kopBlocks(d.kop, logo)
 
 function headerTable(d: NoteDoc): Table | null {
   if (!d.header.length) return null
