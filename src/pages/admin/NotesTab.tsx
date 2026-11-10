@@ -4,7 +4,7 @@ import NoteEditor, { type NoteApi, type NoteDraft } from '../../components/NoteE
 import { Empty, ErrorBox, Loading, PageHeader, useAsync } from '../../components/ui'
 import { fmtDateTime } from '../../lib/format'
 import { fetchLetters } from '../../lib/lettersApi'
-import { emptyNote, followUpProgress, overdue } from '../../lib/notes'
+import { emptyNote, followUpProgress, noteBody, overdue } from '../../lib/notes'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { AttendanceSession, MeetingNote } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
@@ -12,8 +12,8 @@ import { useActivity } from './ActivityLayout'
 type Draft = NoteDraft
 const today = () => new Date().toISOString().slice(0, 10)
 const clip = (t: string) => (t.length > 140 ? t.slice(0, 140) + '…' : t)
-/** Cuplikan kartu: acara; bila kosong, judul bagian-bagian jalannya kegiatan; untuk notula lama, keputusannya. */
-const snippet = (n: MeetingNote) => clip(n.agenda ?? (n.sections ?? []).map((s) => s.title).filter(Boolean).join(' · ') ?? n.decisions ?? '') || (n.decisions ? clip(n.decisions) : '')
+/** Cuplikan kartu: awal narasi; bila kosong, butir-butirnya, lalu acara. */
+const snippet = (n: MeetingNote) => { const b = noteBody(n); return clip(b.text.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim() || b.items.map((i) => `${i.lead} ${i.text}`.trim()).join('; ') || n.agenda || '') }
 
 export default function NotesTab() {
   const { activity } = useActivity()

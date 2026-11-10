@@ -15,7 +15,7 @@ const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${St
 
 /**
  * Rekam suara dan ubah menjadi teks menjadi teks (gratis, memakai pengenalan suara bawaan browser).
- * Hasilnya bisa dimasukkan ke Pembahasan, dan kalimat keputusan/tindak lanjut disarankan berdasarkan kata kunci.
+ * Hasilnya langsung masuk ke narasi isi notula, dan kalimat keputusan/tindak lanjut disarankan berdasarkan kata kunci.
  */
 export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
   refDate: Date
@@ -84,7 +84,7 @@ export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
     if (!text.trim()) return
     onDiscussion(text)
     setBase(''); setSegments([]); setSuggest(null)
-    toast('Transkrip dimasukkan ke Pembahasan.', 'success')
+    toast('Transkrip dimasukkan ke isi notula.', 'success')
   }
 
   function analyse() {
@@ -127,7 +127,7 @@ export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
             <span className="badge dot danger">Merekam</span> {interim ? <i>{interim}</i> : 'Mendengarkan…'}</p>}
           {!listening && (
             <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn primary" onClick={insert} disabled={!text.trim()}><FileText size={15} /> Masukkan ke Pembahasan</button>
+              <button className="btn primary" onClick={insert} disabled={!text.trim()}><FileText size={15} /> Masukkan ke isi notula</button>
               <button className="btn" onClick={analyse} disabled={!text.trim()}><Sparkles size={15} /> Cari keputusan &amp; tindak lanjut</button>
               <button className="btn ghost" onClick={() => downloadBlob('transkrip.txt', new Blob([text], { type: 'text/plain;charset=utf-8' }))} disabled={!text.trim()}><Download size={15} /> Unduh .txt</button>
               <span className="spacer" />
