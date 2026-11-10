@@ -1029,3 +1029,4 @@ button.landing-navlink { background: none; border: 0; font: inherit; font-weight
 .rec-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rec-audio { display: block; width: 100%; margin-top: 10px; height: 40px; }
 .callout.warn { border-left-color: var(--warn, #d97706); }
+.slider-item > .landing-card { height: 100%; }

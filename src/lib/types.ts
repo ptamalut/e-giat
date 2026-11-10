@@ -504,6 +504,8 @@ export interface Material {
   url: string | null
   /** false = draf, belum terlihat oleh peserta */
   published: boolean
+  /** peserta (petugas/panitia) pembuat lewat link pribadi; null = dibuat admin */
+  added_by?: string | null
   created_at: string
   updated_at: string
 }
@@ -512,4 +514,6 @@ export interface Material {
 export interface PortalMaterial {
   id: string; title: string; speaker: string | null; description: string | null; kind: 'berkas' | 'tautan'
   path: string | null; file_name: string | null; mime_type: string | null; size_bytes: number | null; url: string | null; created_at: string
+  /** hanya dari petugas/panitia: status terbit dan apakah buatan sendiri (boleh diubah/dihapus) */
+  published?: boolean; mine?: boolean
 }
