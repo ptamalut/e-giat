@@ -14,13 +14,15 @@ export interface AppSettings {
   /** kop surat pada dokumen (notula): baris judul tebal dan baris alamat/kontak, satu baris per baris teks */
   kop_title: string | null
   kop_address: string | null
+  /** logo khusus kop surat (PNG yang diunggah); terpisah dari logo aplikasi */
+  kop_logo_path: string | null
   logo_path: string | null
   favicon_path: string | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   app_name: 'LAKSANA', tagline: 'Pelaksanaan Kegiatan PTA Malut', org_name: null, hero_title: null, hero_text: null,
-  address: null, phone: null, email: null, website: null, footer_text: null, kop_title: null, kop_address: null, logo_path: null, favicon_path: null,
+  address: null, phone: null, email: null, website: null, footer_text: null, kop_title: null, kop_address: null, kop_logo_path: null, logo_path: null, favicon_path: null,
 }
 
 export const DEFAULT_HERO_TITLE = 'Satu pintu untuk semua pelaksanaan kegiatan.'
@@ -73,7 +75,7 @@ export function normalizeSettings(raw: unknown): AppSettings {
     tagline: typeof r.tagline === 'string' ? r.tagline.trim().slice(0, 120) : DEFAULT_SETTINGS.tagline,
     org_name: str(r.org_name, 160), hero_title: str(r.hero_title, 160), hero_text: str(r.hero_text, 400),
     address: str(r.address, 300), phone: str(r.phone, 60), email: str(r.email, 120), website: str(r.website, 160),
-    footer_text: str(r.footer_text, 200), kop_title: multi(r.kop_title, 400), kop_address: multi(r.kop_address, 400), logo_path: str(r.logo_path, 200), favicon_path: str(r.favicon_path, 200),
+    footer_text: str(r.footer_text, 200), kop_title: multi(r.kop_title, 400), kop_address: multi(r.kop_address, 400), kop_logo_path: str(r.kop_logo_path, 200), logo_path: str(r.logo_path, 200), favicon_path: str(r.favicon_path, 200),
   }
 }
 

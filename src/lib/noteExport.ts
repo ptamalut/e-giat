@@ -4,10 +4,10 @@ import { publicBrandUrl, rasterizeLogo } from './brandApi'
 import type { NoteLogo } from './exportNote'
 import { buildNoteDoc, kopFromSettings, noteFileName, type NoteDocInput } from './noteDoc'
 
-/** Logo kop dari Pengaturan aplikasi (PNG). Bila tidak ada atau gagal dimuat, notula tetap dibuat tanpa logo. */
-export async function loadLogo(s: Pick<AppSettings, 'logo_path'>): Promise<NoteLogo | null> {
+/** Logo kop surat dari Pengaturan aplikasi (unggahan khusus kop, bukan logo aplikasi). Bila tidak ada atau gagal dimuat, notula tetap dibuat tanpa logo. */
+export async function loadLogo(s: Pick<AppSettings, 'kop_logo_path'>): Promise<NoteLogo | null> {
   try {
-    const url = assetUrl(s.logo_path, publicBrandUrl)
+    const url = assetUrl(s.kop_logo_path, publicBrandUrl)
     if (!url) return null
     const res = await fetch(url)
     if (!res.ok) return null
