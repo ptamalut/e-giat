@@ -412,3 +412,18 @@ export interface PublicActivity {
   end_date: string | null
   jenis?: ActivityJenis
 }
+
+/** Surat yang menjadi dasar pelaksanaan kegiatan. */
+export interface ActivityLetter {
+  id: string
+  activity_id: string
+  issuer: string | null
+  number: string | null
+  letter_date: string | null
+  subject: string | null
+  storage_path: string | null
+  file_name: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  created_at: string
+}

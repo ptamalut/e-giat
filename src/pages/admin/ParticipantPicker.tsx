@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Empty, ErrorBox, Field, Loading, Modal, useAsync, useToast } from '../../components/ui'
 import { activeMenus, type MenuDef } from '../../lib/menus'
+import { employeeRanks } from '../../lib/employeeOrder'
 import { ACCESS_KEYS, defaultAccessFor, rolesForJenis, rolesOf, ROLE_HINT, ROLE_LABEL, sortRoles, type Access } from '../../lib/people'
 import { groupBySatker, matchesUnit, NONE_KEY, sortPeople } from '../../lib/satker'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
@@ -81,10 +82,16 @@ export function PickEmployees({ activity, taken, onClose, onSaved }: {
     const chosen = all.filter((e) => picked.has(e.id) && selectable(e))
     if (!chosen.length) return
     setBusy(true)
+    // urutan peserta mengikuti Data pegawai: sort_order = peringkat pegawai (urutan satker disalin bila kegiatan belum punya urutan sendiri)
+    const ranks = employeeRanks(all)
     const { error } = await supabase.from('participants').insert(chosen.map((e) => ({
       activity_id: activity.id, employee_id: e.id, name: e.name, identifier: e.identifier, grade: e.grade,
       job_title: e.job_title, institution: e.institution, phone: e.phone, role: roles[0], roles, ...access,
+      sort_order: ranks.get(e.id) ?? null,
     })))
+    if (!error && !activity.satker_order && satkerOrder) {
+      await supabase.from('activities').update({ satker_order: satkerOrder }).eq('id', activity.id)
+    }
     setBusy(false)
     if (error) return toast(errMsg(error), 'error')
     toast(`${chosen.length} orang ditambahkan sebagai ${roles.map((r) => ROLE_LABEL[r].toLowerCase()).join(' + ')}.`, 'success')
