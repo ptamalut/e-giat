@@ -569,14 +569,37 @@ button.thumb-btn { padding: 0; border: 0; background: none; cursor: zoom-in; bor
 .note-card { text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .fu-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
 .fu-row .input { min-width: 140px; }
-.print-note-wrap { display: none; }
-.note-print { color: #000; font-size: 13px; line-height: 1.5; }
-.note-print h3 { margin: 14px 0 4px; font-size: 14px; }
-.note-print table { border-collapse: collapse; }
-.note-print td { padding: 1px 8px 1px 0; vertical-align: top; }
-.note-print .grid-table { width: 100%; }
-.note-print .grid-table th, .note-print .grid-table td { border: 1px solid #888; padding: 4px 6px; text-align: left; }
-@media print { body.printing-note .page > *:not(.print-note-wrap):not(.stack) { display: none !important; } body.printing-note .stack > *:not(.print-note-wrap) { display: none !important; } body.printing-note .print-note-wrap { display: block !important; } }
+/* editor notula: bagian A, B, C … */
+.ns-sec { border-left: 3px solid var(--gold); }
+.ns-letter { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--primary-50); color: var(--primary); font-weight: 750; }
+.ns-item { margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.ns-row, .ns-sub { display: flex; align-items: flex-start; gap: 6px; }
+.ns-sub { margin: 8px 0 0 22px; padding-left: 10px; border-left: 2px solid var(--border-strong); }
+.ns-mark { flex: none; width: 22px; padding-top: 8px; color: var(--muted); text-align: right; }
+.ns-body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.ns-addsub { margin: 6px 0 0 22px; }
+.ns-paste { margin-top: 8px; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-2); }
+.ns-fu { margin-top: 10px; }
+/* pratinjau kop surat (Pengaturan) */
+.kop-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-bottom: 3px double var(--text-2); background: #fff; color: #111; border-radius: 4px 4px 0 0; }
+.kop-preview > div { flex: 1; display: grid; text-align: center; font-family: 'Times New Roman', Times, serif; }
+.kop-preview b { font-size: .92rem; }
+.kop-preview small { font-size: .72rem; }
+/* tampilan baca notula */
+.nv { color: var(--text-2); font-size: .95rem; line-height: 1.55; }
+.nv-meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 8px; }
+.nv-meta dt { color: var(--muted); }
+.nv-meta dd { margin: 0; }
+.nv-h { margin: 14px 0 4px; color: var(--text); }
+.nv-p { margin: 4px 0 4px 14px; }
+.nv-item { display: flex; gap: 8px; margin: 3px 0 3px 14px; }
+.nv-item.sub { margin-left: 36px; }
+.nv-mark { flex: none; min-width: 1.4em; }
+.nv-table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.nv-table th, .nv-table td { border: 1px solid var(--border-strong); padding: 5px 8px; text-align: left; vertical-align: top; }
+.nv-table th { background: var(--surface-3); text-align: center; }
+.nv-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.nv-name { margin-top: 44px; }
 
 /* ---------- halaman depan ---------- */
 .landing { min-height: 100vh; background: var(--bg); }

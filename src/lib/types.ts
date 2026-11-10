@@ -64,6 +64,16 @@ export interface MeetingNote {
   decisions: string | null
   follow_ups: FollowUp[]
   status: 'draft' | 'final'
+  /** Dasar pelaksanaan rapat (mis. nomor dan tanggal undangan) */
+  basis: string | null
+  /** Pukul selesai: "selesai" atau jam (mis. 12.00); kosong = selesai */
+  held_until: string | null
+  /** Jabatan pimpinan rapat dan NIP pimpinan/notulis, untuk baris tanda tangan */
+  leader_role: string | null
+  leader_nip: string | null
+  notetaker_nip: string | null
+  /** Jalannya rapat: bagian A, B, C … beserta butir-butirnya */
+  sections: NoteSection[]
   /** peserta (petugas/panitia) yang membuatnya lewat link pribadi; null = dibuat admin */
   added_by?: string | null
   created_at: string
@@ -71,6 +81,15 @@ export interface MeetingNote {
 }
 
 export interface FollowUp { id: string; task: string; pic: string; due: string; done: boolean }
+
+/** Butir bernomor pada sebuah bagian: `lead` (huruf tebal) + `text`, dengan anak butir a, b, c. */
+export interface NoteItem { id: string; lead: string; text: string; subs: NoteSub[] }
+export interface NoteSub { id: string; lead: string; text: string }
+/**
+ * Satu bagian "Jalannya Rapat". Berjenis 'teks' (pengantar + butir) atau 'tindak_lanjut'
+ * (pengantar + tabel Rencana Tindak Lanjut dari `follow_ups`). Hurufnya (A, B, …) mengikuti urutan.
+ */
+export interface NoteSection { id: string; type: 'teks' | 'tindak_lanjut'; title: string; intro: string; items: NoteItem[] }
 
 export interface DocItem {
   id: string
@@ -386,6 +405,12 @@ export interface PortalNote {
   discussion: string | null
   decisions: string | null
   follow_ups: FollowUp[]
+  basis?: string | null
+  held_until?: string | null
+  leader_role?: string | null
+  leader_nip?: string | null
+  notetaker_nip?: string | null
+  sections?: NoteSection[]
   /** hanya terisi untuk petugas/panitia: status notula dan apakah buatan orang ini */
   status?: 'draft' | 'final'
   mine?: boolean

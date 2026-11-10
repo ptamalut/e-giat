@@ -10,6 +10,9 @@ import { useActivity } from './ActivityLayout'
 
 type Draft = NoteDraft
 const today = () => new Date().toISOString().slice(0, 10)
+const clip = (t: string) => (t.length > 140 ? t.slice(0, 140) + '…' : t)
+/** Cuplikan kartu: acara; bila kosong, judul bagian-bagian jalannya rapat; untuk notula lama, keputusannya. */
+const snippet = (n: MeetingNote) => clip(n.agenda ?? (n.sections ?? []).map((s) => s.title).filter(Boolean).join(' · ') ?? n.decisions ?? '') || (n.decisions ? clip(n.decisions) : '')
 
 export default function NotesTab() {
   const { activity } = useActivity()
@@ -71,7 +74,7 @@ export default function NotesTab() {
               </div>
               <h3 style={{ margin: '0 0 4px' }}>{n.title}</h3>
               <div className="muted small">{n.held_at ? fmtDateTime(n.held_at) : 'Waktu belum diisi'}{n.location ? ` · ${n.location}` : ''}</div>
-              {n.decisions && <p className="small" style={{ margin: '10px 0 0', color: 'var(--text-2)' }}>{n.decisions.length > 140 ? n.decisions.slice(0, 140) + '…' : n.decisions}</p>}
+              {snippet(n) && <p className="small" style={{ margin: '10px 0 0', color: 'var(--text-2)' }}>{snippet(n)}</p>}
               <div className="muted small" style={{ marginTop: 10 }}><CheckCircle2 size={13} /> {pr.label}</div>
             </button>
           )

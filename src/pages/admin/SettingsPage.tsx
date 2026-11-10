@@ -16,7 +16,7 @@ import { errMsg } from '../../lib/supabase'
 type Pick = { path: string | null } | { blob: Blob; url: string }
 const isNew = (p: Pick): p is { blob: Blob; url: string } => 'blob' in p
 
-const TEXT_KEYS = ['app_name', 'tagline', 'org_name', 'hero_title', 'hero_text', 'address', 'phone', 'email', 'website', 'footer_text'] as const
+const TEXT_KEYS = ['app_name', 'tagline', 'org_name', 'hero_title', 'hero_text', 'address', 'phone', 'email', 'website', 'footer_text', 'kop_title', 'kop_address'] as const
 type TextForm = Record<(typeof TEXT_KEYS)[number], string>
 const toForm = (s: AppSettings): TextForm => Object.fromEntries(TEXT_KEYS.map((k) => [k, s[k] ?? ''])) as TextForm
 
@@ -182,6 +182,22 @@ export default function SettingsPage() {
             <Field label="Email"><input className="input" type="email" value={form.email} maxLength={120} disabled={ro} onChange={set('email')} /></Field>
           </div>
           <Field label="Situs web"><input className="input" value={form.website} maxLength={160} disabled={ro} onChange={set('website')} placeholder="mis. pta-malut.go.id" /></Field>
+        </div>
+
+        <div className="card">
+          <h2>Kop surat (dokumen notula)</h2>
+          <p className="muted small" style={{ marginTop: 0 }}>Dipakai pada hasil unduhan Word dan PDF notula, bersama logo di bawah. Satu baris teks = satu baris pada kop. Bila dikosongkan, kop memakai nama instansi dan kontak.</p>
+          <Field label="Judul kop (tebal, huruf kapital)"><textarea className="input" rows={3} value={form.kop_title} maxLength={400} disabled={ro} onChange={set('kop_title')}
+            placeholder={'Mahkamah Agung Republik Indonesia\nDirektorat Jenderal Badan Peradilan Agama\nPengadilan Tinggi Agama Maluku Utara'} /></Field>
+          <Field label="Alamat dan kontak (huruf kecil)"><textarea className="input" rows={2} value={form.kop_address} maxLength={400} disabled={ro} onChange={set('kop_address')}
+            placeholder={'Jalan Raya Kilometer 40, Balbar, Oba Utara\nKota Sofifi, Maluku Utara 97852, www.pta-malut.go.id, ptamalut@gmail.com'} /></Field>
+          <div className="kop-preview" aria-label="Pratinjau kop surat">
+            {logoShown && <img src={logoShown} alt="" height={44} />}
+            <div>
+              {(form.kop_title.trim() ? form.kop_title.split('\n') : form.org_name ? [form.org_name] : []).filter((l) => l.trim()).map((l, i) => <b key={i}>{l.trim().toUpperCase()}</b>)}
+              {form.kop_address.split('\n').filter((l) => l.trim()).map((l, i) => <small key={i}>{l.trim()}</small>)}
+            </div>
+          </div>
         </div>
 
       </div>
