@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import NoteEditor, { type NoteApi, type NoteDraft } from '../../components/NoteEditor'
 import { Empty, ErrorBox, Loading, PageHeader, useAsync } from '../../components/ui'
 import { fmtDateTime } from '../../lib/format'
+import { fetchLetters } from '../../lib/lettersApi'
 import { emptyNote, followUpProgress, overdue } from '../../lib/notes'
 import { errMsg, fetchAll, supabase } from '../../lib/supabase'
 import type { AttendanceSession, MeetingNote } from '../../lib/types'
@@ -36,16 +37,20 @@ export default function NotesTab() {
       ? (await fetchAll<AttendanceSession>((a, b) => supabase.from('attendance_sessions').select('*').eq('activity_id', activity.id).order('start_at').order('id').range(a, b))).map((s) => ({ id: s.id, title: s.title }))
       : [],
     people: async (sessionId) => {
-      const people = await fetchAll<{ id: string; name: string; institution: string | null }>((a, b) => supabase.from('participants').select('id, name, institution').eq('activity_id', activity.id).order('name').order('id').range(a, b))
-      if (!sessionId) return people
-      const att = await fetchAll<{ participant_id: string }>((a, b) => supabase.from('attendances').select('participant_id').eq('session_id', sessionId).in('status', ['hadir', 'terlambat']).order('id').range(a, b))
-      const here = new Set(att.map((x) => x.participant_id))
-      return people.filter((p) => here.has(p.id))
+      const people = await fetchAll<{ id: string; name: string; identifier: string | null; job_title: string | null; institution: string | null }>((a, b) => supabase.from('participants').select('id, name, identifier, job_title, institution').eq('activity_id', activity.id).order('sort_order', { nullsFirst: false }).order('name').order('id').range(a, b))
+      let list = people
+      if (sessionId) {
+        const att = await fetchAll<{ participant_id: string }>((a, b) => supabase.from('attendances').select('participant_id').eq('session_id', sessionId).in('status', ['hadir', 'terlambat']).order('id').range(a, b))
+        const here = new Set(att.map((x) => x.participant_id))
+        list = people.filter((p) => here.has(p.id))
+      }
+      return list.map((p) => ({ name: p.name, nip: p.identifier, job_title: p.job_title, institution: p.institution }))
     },
+    letters: async () => (await fetchLetters(activity.id)).slice().reverse().map((l) => ({ issuer: l.issuer, number: l.number, letter_date: l.letter_date, subject: l.subject })),
   }), [activity.id, activity.enable_attendance])
 
   if (editing) {
-    return <NoteEditor key={editing.id ?? 'baru'} draft={editing} activityId={activity.id} activityName={activity.name} api={api}
+    return <NoteEditor key={editing.id ?? 'baru'} draft={editing} activityId={activity.id} context={{ name: activity.name, location: activity.location, start_date: activity.start_date, end_date: activity.end_date }} api={api}
       onBack={() => { setEditing(null); void reload(true) }} />
   }
 

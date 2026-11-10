@@ -167,7 +167,7 @@ export default function Portal() {
           {data.quizzes.map((q) => <QuizItem key={q.id} q={q} token={token} now={now} closed={closed} hasAttendance={!f.attendance || data.sessions.some((s) => s.attendance && ['hadir', 'terlambat'].includes(s.attendance.status))} />)}
         </section>}
 
-        {f.notes && <NotesSection token={token} canManage={!!f.notes_manage} activityId={a.id} activityName={a.name} location={a.location}
+        {f.notes && <NotesSection token={token} canManage={!!f.notes_manage} activityId={a.id} context={{ name: a.name, location: a.location, start_date: a.start_date, end_date: a.end_date }}
           sessions={data.sessions.map((s) => ({ id: s.id, title: s.title }))} onEditing={setNoteEditing} />}
         {f.documentation && <DocsSection token={token} canManage={!!f.documentation_manage} />}
 
