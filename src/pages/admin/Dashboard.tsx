@@ -1,9 +1,11 @@
-import { CalendarCheck, CalendarDays, ClipboardList, MapPin, Plus, Users } from 'lucide-react'
+import { CalendarCheck, CalendarDays, CheckCircle2, ClipboardList, MapPin, Plus, RotateCcw, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useToast } from '../../components/ui'
+import { Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAsync, useConfirm, useToast } from '../../components/ui'
 import { fmtDateRange } from '../../lib/format'
 import { MENUS } from '../../lib/menus'
+import LetterFields from '../../components/LetterFields'
+import { checkLetterFile, emptyLetter, hasLetterText, saveLetter, type LetterInput } from '../../lib/lettersApi'
 import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
 import { errMsg, supabase } from '../../lib/supabase'
 import type { Activity, ActivityJenis, ActivityStatus } from '../../lib/types'
@@ -19,9 +21,13 @@ export const STATUS_TONE: Record<ActivityStatus, string> = { draft: '', aktif: '
 
 export default function Dashboard() {
   const toast = useToast()
+  const confirm = useConfirm()
   const nav = useNavigate()
   const [adding, setAdding] = useState(false)
   const [newJenis, setNewJenis] = useState<ActivityJenis>('diklat')
+  const [letter, setLetter] = useState<LetterInput>(emptyLetter())
+  const [letterFile, setLetterFile] = useState<File | null>(null)
+  const [creating, setCreating] = useState(false)
   const [filter, setFilter] = useState<'semua' | ActivityStatus>('semua')
   const { data, error, loading, reload } = useAsync(async () => {
     const { data, error } = await supabase
@@ -35,8 +41,27 @@ export default function Dashboard() {
 
   const list = (data ?? []).filter((a) => filter === 'semua' || a.status === filter)
 
+  /** Ubah status dari daftar kegiatan: selesai (pindah ke Riwayat) atau dibuka kembali (Berjalan). */
+  async function setStatus(a: Row, status: 'selesai' | 'aktif') {
+    if (status === 'selesai') {
+      const ok = await confirm({
+        title: 'Tandai kegiatan selesai?', confirmText: 'Ya, tandai selesai',
+        message: <>Kegiatan <b>{a.name}</b> tidak lagi tampil di <i>Kegiatan berjalan</i> pada halaman depan dan pindah ke <i>Riwayat</i>. Semua data tetap tersimpan dan statusnya bisa dikembalikan kapan saja.</>,
+      })
+      if (!ok) return
+    }
+    const { error } = await supabase.from('activities').update({ status }).eq('id', a.id)
+    if (error) return toast(errMsg(error), 'error')
+    toast(status === 'selesai' ? `"${a.name}" ditandai selesai.` : `"${a.name}" dibuka kembali.`, 'success')
+    void reload(true)
+  }
+
   async function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    // berkas surat diperiksa dulu agar kegiatan tidak terbentuk setengah jadi
+    const badFile = letterFile ? checkLetterFile(letterFile) : null
+    if (badFile) return toast(badFile, 'error')
+    setCreating(true)
     const f = new FormData(e.currentTarget)
     const { data, error } = await supabase.from('activities').insert({
       name: String(f.get('name')).trim(),
@@ -46,8 +71,15 @@ export default function Dashboard() {
       end_date: String(f.get('end_date') || '') || null,
       ...Object.fromEntries(MENUS.map((m) => [m.flag, f.get(m.flag) === 'on'])), // menu yang dicentang
     }).select('id').single()
-    if (error) return toast(errMsg(error), 'error')
-    toast('Kegiatan dibuat. Lanjut tambahkan peserta.', 'success')
+    if (error) { setCreating(false); return toast(errMsg(error), 'error') }
+    // dasar surat (opsional diisi saat membuat kegiatan; berkas bisa menyusul di Ringkasan)
+    let letterFailed = ''
+    if (hasLetterText(letter) || letterFile) {
+      try { await saveLetter(data.id, letter, letterFile) } catch (err) { letterFailed = errMsg(err) }
+    }
+    setCreating(false); setAdding(false); setLetter(emptyLetter()); setLetterFile(null)
+    if (letterFailed) toast(`Kegiatan dibuat, tetapi dasar surat belum tersimpan (${letterFailed}). Tambahkan lagi di Ringkasan kegiatan.`, 'error')
+    else toast('Kegiatan dibuat. Lanjut tambahkan peserta.', 'success')
     nav(`/admin/kegiatan/${data.id}/peserta`)
   }
 
@@ -89,27 +121,34 @@ export default function Dashboard() {
 
       <div className="grid cols-3">
         {list.map((a) => (
-          <Link key={a.id} to={`/admin/kegiatan/${a.id}`} className="card link">
-            <div className="row between" style={{ marginBottom: 12 }}>
-              <span className="row tight"><span className={`badge dot ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span><span className="badge primary">{JENIS_LABEL[a.jenis ?? 'diklat']}</span></span>
-              <span className="muted small">{fmtDateRange(a.start_date, a.end_date)}</span>
+          <div key={a.id} className="card link act-card">
+            <Link to={`/admin/kegiatan/${a.id}`} className="act-link" aria-label={`Buka kegiatan ${a.name}`}>
+              <div className="row between" style={{ marginBottom: 12 }}>
+                <span className="row tight"><span className={`badge dot ${STATUS_TONE[a.status]}`}>{STATUS_LABEL[a.status]}</span><span className="badge primary">{JENIS_LABEL[a.jenis ?? 'diklat']}</span></span>
+                <span className="muted small">{fmtDateRange(a.start_date, a.end_date)}</span>
+              </div>
+              <h3 style={{ fontSize: '1.08rem', marginBottom: 4 }}>{a.name}</h3>
+              <p className="muted small" style={{ margin: 0, minHeight: 20, display: 'flex', gap: 6, alignItems: 'center' }}>
+                {a.location ? <><MapPin size={14} /> {a.location}</> : <span>&nbsp;</span>}
+              </p>
+              <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', gap: 20 }}>
+                <span className="muted small row tight" title="Peserta"><Users size={15} /> <b style={{ color: 'var(--text)' }}>{a.participants[0]?.count ?? 0}</b> peserta</span>
+                <span className="muted small row tight" title="Sesi absensi"><CalendarCheck size={15} /> <b style={{ color: 'var(--text)' }}>{a.attendance_sessions[0]?.count ?? 0}</b></span>
+                <span className="muted small row tight" title="Kuis"><ClipboardList size={15} /> <b style={{ color: 'var(--text)' }}>{a.quizzes[0]?.count ?? 0}</b></span>
+              </div>
+            </Link>
+            <div className="act-actions">
+              {a.status !== 'selesai'
+                ? <button className="btn sm" onClick={() => void setStatus(a, 'selesai')} aria-label={`Tandai selesai: ${a.name}`}><CheckCircle2 size={14} /> Tandai selesai</button>
+                : <button className="btn sm ghost" onClick={() => void setStatus(a, 'aktif')} aria-label={`Buka kembali: ${a.name}`}><RotateCcw size={14} /> Buka kembali</button>}
             </div>
-            <h3 style={{ fontSize: '1.08rem', marginBottom: 4 }}>{a.name}</h3>
-            <p className="muted small" style={{ margin: 0, minHeight: 20, display: 'flex', gap: 6, alignItems: 'center' }}>
-              {a.location ? <><MapPin size={14} /> {a.location}</> : <span>&nbsp;</span>}
-            </p>
-            <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', gap: 20 }}>
-              <span className="muted small row tight" title="Peserta"><Users size={15} /> <b style={{ color: 'var(--text)' }}>{a.participants[0]?.count ?? 0}</b> peserta</span>
-              <span className="muted small row tight" title="Sesi absensi"><CalendarCheck size={15} /> <b style={{ color: 'var(--text)' }}>{a.attendance_sessions[0]?.count ?? 0}</b></span>
-              <span className="muted small row tight" title="Kuis"><ClipboardList size={15} /> <b style={{ color: 'var(--text)' }}>{a.quizzes[0]?.count ?? 0}</b></span>
-            </div>
-          </Link>
+          </div>
         ))}
       </div>
 
       {adding && (
         <Modal title="Kegiatan baru" onClose={() => setAdding(false)}
-          footer={<><button className="btn" onClick={() => setAdding(false)}>Batal</button><button className="btn primary" form="new-act">Simpan &amp; lanjut</button></>}>
+          footer={<><button className="btn" onClick={() => setAdding(false)}>Batal</button><button className="btn primary" form="new-act" disabled={creating}>{creating ? 'Menyimpan…' : 'Simpan & lanjut'}</button></>}>
           <form id="new-act" onSubmit={create}>
             <Field label="Jenis *" hint={JENIS_HINT[newJenis]}>
               <div className="pills" role="radiogroup" aria-label="Jenis kegiatan">
@@ -124,6 +163,9 @@ export default function Dashboard() {
               <Field label="Tanggal mulai"><input className="input" type="date" name="start_date" /></Field>
               <Field label="Tanggal selesai"><input className="input" type="date" name="end_date" /></Field>
             </div>
+            <div className="label" style={{ margin: '4px 0 8px' }}>Dasar surat</div>
+            <p className="muted small" style={{ marginTop: 0 }}>Surat yang menjadi dasar pelaksanaan kegiatan. Boleh diisi sekarang atau nanti di Ringkasan kegiatan.</p>
+            <LetterFields value={letter} onChange={setLetter} file={letterFile} onFile={setLetterFile} idPrefix="new" />
             <Field label="Menu yang dipakai" hint="Bisa diubah kapan saja di Ringkasan kegiatan. Menu nonaktif tidak tampil bagi panitia maupun peserta.">
               <div className="menu-grid">
                 {MENUS.map((m) => (

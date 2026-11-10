@@ -1,12 +1,11 @@
-import { BarChart3, ClipboardList, QrCode } from 'lucide-react'
+import { ArrowLeft, BarChart3, ClipboardList, QrCode } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark, useBrand } from '../components/brand'
 import { ThemeToggle } from '../components/theme'
 import { Field } from '../components/ui'
-import { isValidUsername, normalizeUsername, USERNAME_HELP } from '../lib/account'
-import { resolveLoginEmail, usernameAvailable } from '../lib/accountApi'
+import { resolveLoginEmail } from '../lib/accountApi'
 import { copyright } from '../lib/branding'
 import { errMsg, supabase } from '../lib/supabase'
 
@@ -20,32 +19,20 @@ export default function Login() {
   const { session, loading } = useAuth()
   const { settings: brand } = useBrand()
   const loc = useLocation()
-  const [mode, setMode] = useState<'in' | 'up'>('in')
   const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
-
   if (!loading && session) return <Navigate to={(loc.state as { from?: string } | null)?.from ?? '/admin'} replace />
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    setBusy(true); setError(''); setInfo('')
+    setBusy(true); setError('')
     try {
-      if (mode === 'in') {
-        const login = await resolveLoginEmail(username)
-        if (!login) throw new Error('Nama pengguna atau kata sandi salah.')
-        const { error } = await supabase.auth.signInWithPassword({ email: login, password })
-        if (error) throw error
-      } else {
-        if (!isValidUsername(username)) throw new Error(USERNAME_HELP)
-        if (!(await usernameAvailable(username))) throw new Error('Nama pengguna sudah dipakai. Pilih yang lain.')
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { username: normalizeUsername(username) } } })
-        if (error) throw error
-        if (!data.session) setInfo('Pendaftaran berhasil. Cek email Anda untuk konfirmasi, lalu masuk.')
-      }
+      const login = await resolveLoginEmail(username)
+      if (!login) throw new Error('Nama pengguna atau kata sandi salah.')
+      const { error } = await supabase.auth.signInWithPassword({ email: login, password })
+      if (error) throw error
     } catch (err) {
       const m = errMsg(err)
       setError(/invalid login credentials/i.test(m) ? 'Nama pengguna atau kata sandi salah.' : m)
@@ -76,33 +63,22 @@ export default function Login() {
       </aside>
 
       <div className="auth-main">
+        <Link to="/" className="auth-back"><ArrowLeft size={16} /> Kembali ke beranda</Link>
         <div className="auth-card">
           <div className="only-mobile" style={{ marginBottom: 28 }}><div className="brand"><BrandMark size={18} />{brand.app_name}</div>{brand.tagline && <div className="brand-sub">{brand.tagline}</div>}</div>
-          <h1 style={{ marginBottom: 6 }}>{mode === 'in' ? 'Selamat datang kembali' : 'Buat akun'}</h1>
-          <p className="muted" style={{ marginBottom: 24 }}>{mode === 'in' ? 'Masuk untuk mengelola kegiatan Anda.' : 'Daftar untuk mulai membuat kegiatan.'}</p>
+          <h1 style={{ marginBottom: 6 }}>Selamat datang kembali</h1>
+          <p className="muted" style={{ marginBottom: 24 }}>Masuk untuk mengelola kegiatan Anda.</p>
           {error && <div className="alert error">{error}</div>}
-          {info && <div className="alert success">{info}</div>}
           <form onSubmit={submit}>
-            <Field label="Nama pengguna" hint={mode === 'up' ? USERNAME_HELP : undefined}>
+            <Field label="Nama pengguna">
               <input className="input" required autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="mis. budi.santoso" value={username} onChange={(e) => setUsername(e.target.value)} />
             </Field>
-            {mode === 'up' && (
-              <Field label="Email" hint="Dipakai Supabase untuk akun dan pemulihan; tidak dipakai untuk masuk.">
-                <input className="input" type="email" required autoComplete="email" placeholder="nama@instansi.id" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </Field>
-            )}
-            <Field label="Kata sandi" hint={mode === 'up' ? 'Minimal 6 karakter' : undefined}>
-              <input className="input" type="password" required minLength={6} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Field label="Kata sandi">
+              <input className="input" type="password" required minLength={6} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </Field>
-            <button className="btn primary block lg" disabled={busy}>{busy ? 'Memproses…' : mode === 'in' ? 'Masuk' : 'Daftar'}</button>
+            <button className="btn primary block lg" disabled={busy}>{busy ? 'Memproses…' : 'Masuk'}</button>
           </form>
-          <p className="center small" style={{ marginTop: 20 }}>
-            {mode === 'in' ? 'Belum punya akun? ' : 'Sudah punya akun? '}
-            <a href="#" onClick={(e) => { e.preventDefault(); setMode(mode === 'in' ? 'up' : 'in'); setError(''); setInfo('') }}>
-              <b>{mode === 'in' ? 'Daftar' : 'Masuk'}</b>
-            </a>
-          </p>
-          <p className="center muted small">Peserta tidak perlu login. Cukup buka link yang dikirim panitia.</p>
+          <p className="center muted small" style={{ marginTop: 20 }}>Akun dibuat oleh admin aplikasi. Peserta tidak perlu login: cukup buka link yang dikirim panitia atau masukkan NIP di beranda.</p>
         </div>
       </div>
     </div>

@@ -151,6 +151,17 @@ Orang yang berkedudukan **Petugas** (jenis Kegiatan) atau **Panitia** (jenis Dik
 - **Dokumentasi**: tombol *Tambah foto* (dikompres otomatis, per album dan tanggal) dan *Tambah tautan*. Foto diunggah ke path yang dicadangkan server (sekali pakai, 30 menit) sehingga tidak bisa mengunggah sembarang berkas. Penghapusan foto tetap oleh admin.
 - Peserta, narasumber, dan moderator tetap hanya melihat. Admin melihat penanda **"Dari petugas"** pada notula dan foto yang dibuat lewat link pribadi dan tetap bisa mengelola semuanya (migrasi 017).
 
+## Dasar surat, urutan peserta, dan status kegiatan
+- **Dasar surat**: saat membuat kegiatan ada bagian *Dasar surat* (asal, nomor, tanggal, perihal, dan berkas surat PDF/gambar maks. 10 MB). Berkas boleh menyusul: kartu **Dasar surat** di *Ringkasan* bisa
+  menambah, mengubah, menghapus, dan membuka (*Lihat berkas*) surat; satu kegiatan boleh punya beberapa surat. Berkas disimpan di bucket **privat** `surat` (hanya pemilik kegiatan; dibuka lewat alamat bertanda tangan berumur pendek) (migrasi 018).
+- **Urutan peserta mengikuti Data pegawai**: saat memilih peserta dari Data pegawai, urutan satuan kerja (bila kegiatan belum punya urutan sendiri) dan urutan orang di dalamnya disalin dari Data pegawai.
+  Tombol **Samakan dengan Data pegawai** di tab Peserta menyamakan ulang kapan saja (menimpa urutan yang pernah diatur di kegiatan itu). Urutan tetap bisa diubah di *Atur urutan*.
+- **Status dari daftar kegiatan**: kartu kegiatan di dasbor punya tombol **Tandai selesai** (dengan konfirmasi; kegiatan pindah ke Riwayat di halaman depan) dan **Buka kembali** untuk yang sudah selesai.
+
+## Halaman depan
+Hero dengan kartu *Sedang berjalan*, strip statistik (kegiatan berjalan, total kegiatan, foto dokumentasi, kunjungan hari ini), kegiatan berjalan, riwayat dan galeri (slider), panduan masuk, ajakan untuk panitia,
+dan footer lengkap (nama instansi, tautan jelajah, kontak dari *Pengaturan aplikasi*, statistik kunjungan, tombol pasang aplikasi).
+
 ## Pengaturan aplikasi (nama, logo, favicon)
 Menu **Pengaturan aplikasi** di sidebar panitia mengatur identitas yang tampil di halaman depan, login, halaman pribadi peserta, dan tab browser:
 nama aplikasi, slogan, nama instansi, judul dan teks pengantar halaman depan, footer, kontak (alamat, telepon, email, situs), **logo**, dan **favicon**
@@ -161,8 +172,9 @@ Hanya **pemilik aplikasi** yang boleh mengubah (akun yang pertama terdaftar saat
 lewat tombol *Jadikan saya pemilik*). Akun panitia lain hanya melihat. Pengaturan dibaca publik lewat fungsi `public_app_settings()` dan di-cache di browser agar tidak berkedip.
 
 ## Masuk, kunjungan, galeri, dan pemasangan (PWA)
-- **Masuk dengan nama pengguna**: halaman *Masuk* memakai nama pengguna (bukan email). Saat mendaftar, isi nama pengguna (3–30 karakter: huruf kecil, angka, titik, garis bawah, strip),
-  email, dan kata sandi; email tetap dibutuhkan Supabase Auth untuk akun dan pemulihan. Akun lama otomatis dibuatkan nama pengguna dari bagian depan emailnya
+- **Masuk dengan nama pengguna**: halaman *Masuk* memakai nama pengguna (bukan email) dan punya tombol *Kembali ke beranda*. **Tidak ada pendaftaran mandiri**: akun dibuat admin lewat
+  Supabase Dashboard → Authentication → Users → *Add user* (isi email dan kata sandi; nama penggunanya otomatis dari bagian depan email dan bisa diubah di *Akun saya*).
+  Agar orang lain tidak bisa mendaftar lewat API, matikan juga *Allow new users to sign up* di Supabase → Authentication → Providers/Sign In. Akun lama otomatis dibuatkan nama pengguna dari bagian depan emailnya
   (migrasi 014) dan boleh tetap masuk dengan email di kolom yang sama; nama penggunanya bisa dilihat dan diubah di *Pengaturan aplikasi → Akun saya*.
   Catatan: halaman login mencari email dari nama pengguna lewat fungsi `login_email()` yang bisa dipanggil tanpa login, jadi email sebuah akun dapat diketahui oleh orang yang menebak nama penggunanya.
 - **Statistik kunjungan**: footer halaman depan menampilkan *Kunjungan hari ini* dan *Total kunjungan*. Satu kunjungan = satu browser yang membuka website pada satu hari (zona WIT);
@@ -174,7 +186,8 @@ lewat tombol *Jadikan saya pemilik*). Akun panitia lain hanya melihat. Pengatura
   *Galeri kegiatan* berupa slider foto terbaru yang berputar otomatis tiap 5 detik (berhenti saat kursor di atasnya atau bila perangkat memilih gerak minimal). Keduanya bisa digeser dengan sentuhan,
   tombol panah, atau titik halaman. Kegiatan yang disembunyikan dari halaman depan juga tidak muncul di riwayat (migrasi 015).
 - **PWA**: aplikasi bisa dipasang di layar utama HP atau komputer (manifest `public/manifest.webmanifest`, ikon di `public/icons/`, service worker `public/sw.js`).
-  Bagian *Pasang di perangkat Anda* di halaman depan (dan ajakan singkat di halaman peserta) menampilkan tombol Pasang atau langkahnya per perangkat (Android, iPhone/Safari, Chrome/Edge).
+  Informasi pemasangan berupa **pop up** (bukan bagian halaman): muncul sekali beberapa detik setelah halaman depan atau halaman peserta dibuka, bisa ditunda (*Nanti*, 7 hari) atau dimatikan (*Jangan tampilkan lagi*),
+  dan selalu bisa dibuka lewat tombol *Pasang* di navigasi dan footer. Isinya tombol Pasang atau langkahnya per perangkat (Android, iPhone/Safari, Chrome/Edge); tidak muncul bila aplikasi sudah terpasang.
   Service worker hanya menyimpan berkas aplikasi sendiri; permintaan ke Supabase tidak disimpan, sehingga data selalu terbaru dan tampilan dasar tetap terbuka saat offline.
 
 ## Tema tampilan
@@ -193,7 +206,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, lalu `017_isi_notula_dokumentasi.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, lalu `018_dasar_surat.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.
@@ -206,7 +219,7 @@ npm install
 cp .env.example .env        # isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY
 npm run dev                 # http://localhost:5173
 ```
-Buka `/login`, daftar akun panitia, lalu buat kegiatan pertama.
+Buat akun admin di Supabase Dashboard → Authentication → Users → *Add user*, buka `/login`, masuk, lalu buat kegiatan pertama.
 
 ### 3. Deploy
 ```bash

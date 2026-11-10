@@ -7,6 +7,8 @@ import { MENUS, menuOn, type MenuDef } from '../../lib/menus'
 import { removeActivityCertificateFiles } from '../../lib/certificateApi'
 import { removeSelfiesOf } from '../../lib/selfieApi'
 import { removeActivityDocFiles } from '../../lib/docsApi'
+import { removeActivityLetterFiles } from '../../lib/lettersApi'
+import LettersCard from './LettersCard'
 import { errMsg, supabase } from '../../lib/supabase'
 import { JENIS_HINT, JENIS_LABEL } from '../../lib/people'
 import type { ActivityJenis, ActivityStatus, RankingRow } from '../../lib/types'
@@ -92,6 +94,7 @@ export default function Overview() {
     await removeActivityCertificateFiles(a.id) // bersihkan berkas sertifikat di Storage
     await removeSelfiesOf({ activityId: a.id }) // dan foto selfie absensi
     await removeActivityDocFiles(a.id) // dan foto dokumentasi
+    await removeActivityLetterFiles(a.id) // dan berkas dasar surat
     const { error } = await supabase.from('activities').delete().eq('id', a.id)
     if (error) return toast(errMsg(error), 'error')
     toast('Kegiatan dihapus.', 'success')
@@ -166,6 +169,8 @@ export default function Overview() {
           ))}
         </div>
       </div>
+
+      <LettersCard activityId={a.id} />
 
       <form className="card" onSubmit={save}>
         <div className="card-head"><h2>Pengaturan kegiatan</h2></div>

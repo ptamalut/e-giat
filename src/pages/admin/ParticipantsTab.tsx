@@ -18,6 +18,7 @@ import type { Activity, Participant, PersonRole } from '../../lib/types'
 import { useActivity } from './ActivityLayout'
 import ExportModal from './ExportModal'
 import OrderModal from './OrderModal'
+import { employeeRanks, orderByEmployees } from '../../lib/employeeOrder'
 import { AccessModal, PickEmployees } from './ParticipantPicker'
 
 /** Menu yang boleh dipakai orang ini lewat link pribadinya (menu aktif di kegiatan DAN hak akses orang ini). */
@@ -71,6 +72,26 @@ export default function ParticipantsTab() {
     const m = allowedMenus(p, activity)
     const what = m.length ? `untuk ${m.join(', ').toLowerCase()}` : 'kegiatan'
     return `Yth. ${p.name}, berikut link pribadi Anda ${what} pada kegiatan "${activity.name}"${rolesOf(p).some((r) => r !== 'peserta') ? ` (sebagai ${rolesLabel(p, ' / ').toLowerCase()})` : ''}:\n${participantLink(p.token)}\n\nJangan dibagikan ke orang lain.`
+  }
+
+  /** Samakan urutan satuan kerja dan urutan peserta dengan Data pegawai (menimpa urutan yang diatur di kegiatan ini). */
+  async function syncOrder() {
+    if (!data?.length) return
+    const ok = await confirm({ title: 'Samakan urutan dengan Data pegawai?', confirmText: 'Samakan',
+      message: 'Urutan satuan kerja dan urutan peserta di kegiatan ini diganti mengikuti urutan di Data pegawai. Urutan yang pernah Anda atur di kegiatan ini akan tertimpa.' })
+    if (!ok) return
+    try {
+      const [employees, settings] = await Promise.all([
+        fetchAll<{ id: string; name: string; sort_order: number | null }>((a, b) => supabase.from('employees').select('id, name, sort_order').order('name').order('id').range(a, b)),
+        supabase.from('employee_settings').select('satker_order').maybeSingle(),
+      ])
+      const ordered = orderByEmployees(data, employeeRanks(employees))
+      const satker = (settings.data as { satker_order: string[] | null } | null)?.satker_order ?? null
+      const { error } = await supabase.rpc('save_activity_order', { p_activity: activity.id, p_satker_order: satker, p_participants: ordered.map((p) => p.id) })
+      if (error) throw new Error(errMsg(error))
+      toast('Urutan disamakan dengan Data pegawai.', 'success')
+      void reloadActivity(); void reload(true)
+    } catch (e) { toast(errMsg(e), 'error') }
   }
 
   async function remove(p: Participant) {  // mengeluarkan dari kegiatan (data pegawainya tidak terhapus)
@@ -189,6 +210,7 @@ export default function ParticipantsTab() {
           </div>
           <div className="row tight">
             <button className="btn sm" onClick={() => setOrdering(roleFilter)} disabled={!data?.length}><ArrowUpDown size={15} /> Atur urutan</button>
+            <button className="btn sm" onClick={() => void syncOrder()} disabled={!data?.length} title="Ikuti urutan satuan kerja dan pegawai di Data pegawai"><Users size={15} /> Samakan dengan Data pegawai</button>
             <button className="btn sm" onClick={() => setExporting(true)} disabled={!data?.length}><FileDown size={15} /> Ekspor Word / PDF</button>
             <button className="btn sm" onClick={exportLinks} disabled={!data?.length}><Download size={15} /> Link (CSV)</button>
             <button className="btn sm" onClick={() => void printCards()} disabled={!data?.length}><Printer size={15} /> Kartu QR</button>
@@ -245,7 +267,7 @@ export default function ParticipantsTab() {
         )}
       </div>
 
-      {picking && <PickEmployees activity={activity} taken={taken} onClose={() => setPicking(false)} onSaved={() => { setPicking(false); void reload(true) }} />}
+      {picking && <PickEmployees activity={activity} taken={taken} onClose={() => setPicking(false)} onSaved={() => { setPicking(false); void reloadActivity(); void reload(true) }} />}
       {access && <AccessModal activity={activity} people={access} onClose={() => setAccess(null)} onSaved={() => { setAccess(null); setSel(new Set()); void reload(true) }} />}
       {ordering && data && (
         <OrderModal people={ordering === 'semua' ? data : data.filter((p) => hasRole(p, ordering))} satkerOrder={activity.satker_order}
