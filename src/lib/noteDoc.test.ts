@@ -23,18 +23,18 @@ describe('buildNoteDoc', () => {
   const labels = d.header.map((h) => h.label)
 
   it('baris keterangan berurutan seperti format notula', () => {
-    expect(labels).toEqual(['Dasar', 'Hari', 'Tanggal', 'Pukul', 'Tempat', 'Acara', 'Pimpinan Rapat', 'Notulis', 'Peserta Rapat'])
+    expect(labels).toEqual(['Dasar', 'Hari', 'Tanggal', 'Pukul', 'Tempat', 'Acara', 'Pimpinan', 'Notulis', 'Peserta'])
     const v = Object.fromEntries(d.header.map((h) => [h.label, h.value]))
     expect(v.Hari).toBe('Senin'); expect(v.Tanggal).toBe('26 Oktober 2026'); expect(v.Pukul).toBe('10.00 WIT s.d. selesai')
-    expect(v['Pimpinan Rapat']).toBe('Helmi Ashari, S.H. (Ketua Organizing Committee)')
+    expect(v['Pimpinan']).toBe('Helmi Ashari, S.H. (Ketua Organizing Committee)')
   })
   it('isian kosong tidak muncul', () => {
     const e = buildNoteDoc({ follow_ups: [], held_at: null }, { title: [], address: [] }, TZ)
     expect(e.header).toEqual([]); expect(e.blocks).toEqual([]); expect(e.signature).toBeNull()
   })
-  it('bagian diberi huruf A, B, C … dan diawali "Jalannya Rapat:"', () => {
+  it('bagian diberi huruf A, B, C … dan diawali "Jalannya Kegiatan:"', () => {
     const heads = d.blocks.filter((b) => b.t === 'heading').map((b) => (b as { text: string }).text)
-    expect(heads[0]).toBe('Jalannya Rapat:')
+    expect(heads[0]).toBe('Jalannya Kegiatan:')
     expect(heads.slice(1)).toEqual(['A. Pembukaan', 'B. Pengarahan Ketua Pengadilan Tinggi Agama Maluku Utara', 'C. Tanggapan dan Masukan Peserta Rapat', 'D. Arahan Penutup Ketua Pengadilan Tinggi Agama Maluku Utara', 'E. Kesimpulan dan Rencana Tindak Lanjut', 'F. Penutup'])
   })
   it('butir: judul tebal + isi; anak butir a, b, c; butir berjudul beranak menjadi baris tebal', () => {
@@ -65,7 +65,7 @@ describe('buildNoteDoc', () => {
   it('notula lama (tanpa bagian) diturunkan dari pembahasan, keputusan, dan tindak lanjut', () => {
     const old = buildNoteDoc({ follow_ups: [{ id: '1', task: 'Kirim laporan', pic: 'Budi', due: '', done: false }], discussion: 'Paragraf satu.\n\nParagraf dua.', decisions: '1. Setuju\n2. Lanjut', sections: [] }, { title: [], address: [] }, TZ)
     const heads = old.blocks.filter((b) => b.t === 'heading').map((b) => (b as { text: string }).text)
-    expect(heads).toEqual(['Jalannya Rapat:', 'A. Pembahasan', 'B. Keputusan dan Kesimpulan', 'C. Rencana Tindak Lanjut'])
+    expect(heads).toEqual(['Jalannya Kegiatan:', 'A. Pembahasan', 'B. Keputusan dan Kesimpulan', 'C. Rencana Tindak Lanjut'])
     expect(old.blocks.filter((b) => b.t === 'item')).toHaveLength(4)
     expect(old.blocks.some((b) => b.t === 'table')).toBe(true)
   })
@@ -80,7 +80,7 @@ describe('kop dan nama berkas', () => {
   })
   it('nama berkas aman', () => {
     expect(noteFileName('Rapat Panitia: Bimtek CPP / 2026!', 'pdf')).toBe('notula-rapat-panitia-bimtek-cpp-2026.pdf')
-    expect(noteFileName('', 'docx')).toBe('notula-rapat.docx')
+    expect(noteFileName('', 'docx')).toBe('notula-kegiatan.docx')
     expect(noteFileName('Évaluasi Ünit', 'docx')).toBe('notula-evaluasi-unit.docx')
   })
 })

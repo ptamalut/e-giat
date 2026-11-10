@@ -1,4 +1,4 @@
-/** Isian otomatis notula dari data kegiatan (dasar surat, tanggal, tempat, acara) dan pengolah daftar peserta rapat. Bagian murni. */
+/** Isian otomatis notula dari data kegiatan (dasar surat, tanggal, tempat, acara) dan kunci orang. Bagian murni. */
 import type { AttendeeRef, LetterBrief } from './types'
 
 const dateLong = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -46,18 +46,5 @@ export function splitLocal(v: string): { day: string; time: string } {
 }
 export const joinLocal = (day: string, time: string) => (day ? `${day}T${time || '09:00'}` : '')
 
-/** Kunci unik orang pada daftar peserta rapat. */
+/** Kunci unik orang (nama + NIP). */
 export const personKey = (p: Pick<AttendeeRef, 'name' | 'nip'>) => `${p.name.trim().toLowerCase()}|${(p.nip ?? '').trim()}`
-
-/** Gabungkan orang baru ke daftar tanpa duplikat (urutan daftar dipertahankan). */
-export function mergePeople(list: readonly AttendeeRef[], add: readonly AttendeeRef[]): AttendeeRef[] {
-  const seen = new Set(list.map(personKey))
-  const out = [...list]
-  for (const p of add) {
-    const name = p.name.trim()
-    if (!name || seen.has(personKey({ name, nip: p.nip }))) continue
-    seen.add(personKey({ name, nip: p.nip }))
-    out.push({ name, nip: p.nip?.trim() || null, job_title: p.job_title?.trim() || null, institution: p.institution?.trim() || null })
-  }
-  return out
-}

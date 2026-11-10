@@ -3,7 +3,7 @@ import type { Block, NoteDoc, Run } from '../lib/noteDoc'
 
 const runs = (rs: Run[]): ReactNode => rs.map((r, i) => (r.bold ? <b key={i}>{r.text}</b> : <Fragment key={i}>{r.text}</Fragment>))
 
-/** Tampilan baca notula (sesuai susunan dokumen Word/PDF): keterangan, jalannya rapat, tabel tindak lanjut, tanda tangan. */
+/** Tampilan baca notula (sesuai susunan dokumen Word/PDF): keterangan, jalannya kegiatan, tabel tindak lanjut, tanda tangan. */
 export default function NoteView({ doc }: { doc: NoteDoc }) {
   const body = (b: Block, i: number) => {
     switch (b.t) {

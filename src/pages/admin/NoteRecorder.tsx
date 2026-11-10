@@ -14,7 +14,7 @@ export interface RecorderApply {
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
 /**
- * Rekam rapat dan ubah suara menjadi teks (gratis, memakai pengenalan suara bawaan browser).
+ * Rekam suara dan ubah menjadi teks menjadi teks (gratis, memakai pengenalan suara bawaan browser).
  * Hasilnya bisa dimasukkan ke Pembahasan, dan kalimat keputusan/tindak lanjut disarankan berdasarkan kata kunci.
  */
 export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
@@ -106,9 +106,9 @@ export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
   const toggle = (k: string) => setPick((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n })
 
   return (
-    <div className="card" aria-label="Rekam rapat">
+    <div className="card" aria-label="Rekam suara">
       <div className="card-head">
-        <h2><Mic size={18} /> Rekam rapat (suara → teks)</h2><span className="spacer" />
+        <h2><Mic size={18} /> Rekam suara (suara → teks)</h2><span className="spacer" />
         {listening
           ? <button className="btn danger" onClick={stop}><Square size={15} /> Hentikan · {mmss(secs)}</button>
           : <button className="btn primary" onClick={start} disabled={!supported}><Mic size={15} /> {text ? 'Lanjut merekam' : 'Mulai merekam'}</button>}
@@ -121,7 +121,7 @@ export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
 
       {(listening || text) && (
         <>
-          <textarea className="input" rows={8} aria-label="Transkrip rapat" readOnly={listening} value={text}
+          <textarea className="input" rows={8} aria-label="Transkrip" readOnly={listening} value={text}
             onChange={(e) => setBase(e.target.value)} placeholder="Transkrip akan muncul di sini…" />
           {listening && <p className="muted small" aria-live="polite" style={{ margin: '6px 0 0' }}>
             <span className="badge dot danger">Merekam</span> {interim ? <i>{interim}</i> : 'Mendengarkan…'}</p>}
@@ -129,7 +129,7 @@ export default function NoteRecorder({ refDate, onDiscussion, onApply }: {
             <div className="row" style={{ marginTop: 10 }}>
               <button className="btn primary" onClick={insert} disabled={!text.trim()}><FileText size={15} /> Masukkan ke Pembahasan</button>
               <button className="btn" onClick={analyse} disabled={!text.trim()}><Sparkles size={15} /> Cari keputusan &amp; tindak lanjut</button>
-              <button className="btn ghost" onClick={() => downloadBlob('transkrip-rapat.txt', new Blob([text], { type: 'text/plain;charset=utf-8' }))} disabled={!text.trim()}><Download size={15} /> Unduh .txt</button>
+              <button className="btn ghost" onClick={() => downloadBlob('transkrip.txt', new Blob([text], { type: 'text/plain;charset=utf-8' }))} disabled={!text.trim()}><Download size={15} /> Unduh .txt</button>
               <span className="spacer" />
               <button className="btn ghost danger" onClick={() => { setBase(''); setSegments([]); setSuggest(null) }}><Trash2 size={15} /> Kosongkan</button>
             </div>

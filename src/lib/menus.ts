@@ -23,7 +23,7 @@ export const MENUS: MenuDef[] = [
   { key: 'materials', flag: 'enable_materials', route: 'materi', label: 'Materi', access: 'access_materials',
     hint: 'Unggah materi (berkas atau tautan) dari pemateri; peserta mengunduhnya lewat link pribadi.', short: 'Unggah dan bagikan materi' },
   { key: 'notes', flag: 'enable_notes', route: 'notula', label: 'Notula', access: 'access_notes',
-    hint: 'Catatan hasil rapat/sesi: pembahasan, keputusan, dan tindak lanjut (peserta hanya melihat yang Final).', short: 'Catatan rapat dan tindak lanjut' },
+    hint: 'Catatan hasil kegiatan/sesi: pembahasan, keputusan, dan tindak lanjut (peserta hanya melihat yang Final).', short: 'Catatan kegiatan dan tindak lanjut' },
   { key: 'quiz', flag: 'enable_quiz', route: 'kuis', label: 'Kuis', access: 'access_quiz',
     hint: 'Pre test / post test berwaktu, hasil, dan peringkat.', short: 'Pre/post test dan peringkat' },
   { key: 'certificate', flag: 'enable_certificate', route: 'sertifikat', label: 'Sertifikat', access: 'access_certificate',

@@ -12,7 +12,7 @@ import { useActivity } from './ActivityLayout'
 type Draft = NoteDraft
 const today = () => new Date().toISOString().slice(0, 10)
 const clip = (t: string) => (t.length > 140 ? t.slice(0, 140) + '…' : t)
-/** Cuplikan kartu: acara; bila kosong, judul bagian-bagian jalannya rapat; untuk notula lama, keputusannya. */
+/** Cuplikan kartu: acara; bila kosong, judul bagian-bagian jalannya kegiatan; untuk notula lama, keputusannya. */
 const snippet = (n: MeetingNote) => clip(n.agenda ?? (n.sections ?? []).map((s) => s.title).filter(Boolean).join(' · ') ?? n.decisions ?? '') || (n.decisions ? clip(n.decisions) : '')
 
 export default function NotesTab() {
@@ -56,13 +56,13 @@ export default function NotesTab() {
 
   return (
     <div className="stack">
-      <PageHeader title="Notula" subtitle="Catatan hasil rapat atau sesi kegiatan: pembahasan, keputusan, dan tindak lanjut. Peserta yang diberi hak akses Notula hanya melihat notula berstatus Final."
+      <PageHeader title="Notula" subtitle="Catatan hasil kegiatan atau sesi: pembahasan, keputusan, dan tindak lanjut. Peserta yang diberi hak akses Notula hanya melihat notula berstatus Final."
         actions={<button className="btn primary" onClick={() => setEditing(emptyNote(activity.location))}><Plus size={17} /> Notula baru</button>} />
       {loading && !data && <Loading />}
       {error && <ErrorBox error={error} onRetry={() => void reload()} />}
       {data && !notes.length && (
         <div className="card"><Empty icon={<NotebookPen size={26} />} title="Belum ada notula">
-          Catat jalannya rapat atau sesi: peserta, agenda, pembahasan, keputusan, dan tindak lanjut beserta penanggung jawabnya.
+          Catat jalannya kegiatan atau sesi: peserta, agenda, pembahasan, keputusan, dan tindak lanjut beserta penanggung jawabnya.
           <div style={{ marginTop: 12 }}><button className="btn primary" onClick={() => setEditing(emptyNote(activity.location))}><Plus size={16} /> Buat notula pertama</button></div>
         </Empty></div>
       )}
