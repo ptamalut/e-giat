@@ -64,8 +64,14 @@ di halaman depan (lihat di bawah).
   Isian awal: peserta = absensi, kuis, sertifikat; narasumber = absensi, sertifikat; panitia = semua kecuali kuis. Menu yang boleh
   dipakai seseorang = menu aktif di kegiatan **dan** hak akses orang itu, ditegakkan di server (RPC portal). Peserta yang berhak
   melihat **notula Final** dan **dokumentasi** di halaman pribadinya.
-- **Notula**: catatan rapat/sesi (waktu, tempat, pimpinan, pencatat, peserta rapat — bisa diisi dari absensi —, agenda,
-  pembahasan, keputusan, dan **tindak lanjut** dengan penanggung jawab, tenggat, status selesai). Cetak/PDF dan unduh Word.
+- **Notula sesuai format resmi**: editor mengikuti format notula (kop surat, judul *NOTULA*, lalu **Dasar, Hari, Tanggal, Pukul, Tempat, Acara, Pimpinan Rapat, Notulis, Peserta Rapat**,
+  **Jalannya Rapat** bagian **A, B, C …** (judul bagian, kalimat pengantar, butir bernomor dengan judul tebal + isi, anak butir a, b, c; huruf bagian otomatis mengikuti urutan dan bisa digeser naik/turun),
+  tabel **Rencana Tindak Lanjut / Penanggung Jawab** (kolom *Tenggat* ikut tampil bila diisi), dan **tanda tangan** Notulis serta *Mengetahui* pimpinan rapat lengkap dengan NIP).
+  Notula baru diberi kerangka Pembukaan – Pembahasan – Kesimpulan dan Rencana Tindak Lanjut – Penutup yang bebas ditambah/diubah/dihapus. Daftar butir panjang bisa **ditempel sekaligus**
+  (*Tempel daftar*: `1.` = butir, `a.` = anak butir, `**teks**` = tebal). Hari dan tanggal diisi otomatis dari waktu pelaksanaan; *Pukul* tampil `10.00 WIT s.d. selesai` (atau jam selesai yang diisi).
+  Peserta rapat bisa diisi dari absensi. **Unduh Word (.docx) dan PDF (A4, huruf Times)** dengan susunan yang sama persis di admin maupun halaman pribadi petugas/panitia; peserta juga bisa mengunduh notula Final.
+  Notula lama (pembahasan/keputusan/tindak lanjut) otomatis tampil sebagai bagian di format baru. **Kop surat** diatur di *Pengaturan aplikasi → Kop surat* (judul kop, alamat/kontak) dan memakai logo aplikasi;
+  bila kosong, kop memakai nama instansi dan kontak (migrasi 019).
 - **Rekam rapat (suara → teks)** di editor notula: tombol *Mulai merekam* mengubah ucapan menjadi teks bahasa Indonesia secara langsung, **gratis dan tanpa API key**,
   memakai pengenalan suara bawaan **Google Chrome / Microsoft Edge** (suara diproses oleh layanan browser tersebut, jadi perlu internet; Firefox/Safari belum didukung).
   Perekaman lanjut otomatis saat Chrome berhenti karena hening, bisa dijeda/dilanjutkan, dan layar dijaga tetap menyala. Transkrip bisa disunting, dimasukkan ke
@@ -146,7 +152,7 @@ Kartu kegiatan di dasbor dan riwayat halaman depan menampilkan lencana jenisnya 
 ## Petugas/panitia menginput notula dan dokumentasi dari halaman pribadi
 Orang yang berkedudukan **Petugas** (jenis Kegiatan) atau **Panitia** (jenis Diklat) dan punya hak akses *Notula* / *Dokumentasi* bisa **menginput langsung dari link pribadinya**, tidak hanya melihat:
 - **Notula**: tombol *Tambah notula* membuka editor yang sama dengan halaman admin (judul, waktu, tempat, pimpinan, pencatat, status Draft/Final, peserta rapat yang bisa diisi dari semua orang di kegiatan atau yang hadir pada sebuah sesi,
-  agenda, pembahasan, keputusan, tindak lanjut + penanggung jawab + tenggat, **rekam rapat suara-ke-teks**, unduh Word, cetak). Mereka dapat **mengubah dan menghapus notula buatannya sendiri**; draf buatan mereka hanya terlihat oleh mereka dan admin
+  dasar, acara, pimpinan dan notulis beserta NIP, bagian A, B, C … dengan butir/anak butir, tabel tindak lanjut + penanggung jawab, **rekam rapat suara-ke-teks**, unduh Word dan PDF). Mereka dapat **mengubah dan menghapus notula buatannya sendiri**; draf buatan mereka hanya terlihat oleh mereka dan admin
   sampai ditandai Final. Notula buatan admin atau orang lain tidak bisa diubah.
 - **Dokumentasi**: tombol *Tambah foto* (dikompres otomatis, per album dan tanggal) dan *Tambah tautan*. Foto diunggah ke path yang dicadangkan server (sekali pakai, 30 menit) sehingga tidak bisa mengunggah sembarang berkas. Penghapusan foto tetap oleh admin.
 - Peserta, narasumber, dan moderator tetap hanya melihat. Admin melihat penanda **"Dari petugas"** pada notula dan foto yang dibuat lewat link pribadi dan tetap bisa mengelola semuanya (migrasi 017).
@@ -206,7 +212,7 @@ panitia, bar atas versi HP, header halaman peserta, dan halaman login. Pilihan d
 
 > **Memperbarui database yang sudah ada:** jalankan ulang seluruh isi `supabase/schema.sql` di SQL Editor, atau cukup
 > jalankan berkas perubahan di `supabase/migrations/` yang belum pernah dijalankan secara berurutan
-> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, lalu `018_dasar_surat.sql`).
+> (`002_narasumber.sql`, `003_panitia.sql`, `004_urutan.sql`, `005_sertifikat.sql`, `006_selfie_lokasi.sql`, `007_pegawai_menu.sql`, `008_akses_notula_dokumentasi.sql`, `009_halaman_depan.sql`, `010_urutan_pegawai.sql`, `011_moderator_anggota_sesi.sql`, `012_jenis_rangkap.sql`, `013_pengaturan_aplikasi.sql`, `014_username_kunjungan_galeri.sql`, `015_riwayat_kegiatan.sql`, `016_jenis_kegiatan.sql`, `017_isi_notula_dokumentasi.sql`, `018_dasar_surat.sql`, lalu `019_format_notula.sql`).
 >
 > Migrasi 007 membentuk **data pegawai dari peserta yang sudah ada** (satu pegawai per NIP) dan menautkannya, sehingga kegiatan lama
 > tetap utuh; hak akses kuis narasumber/panitia lama diisi *nonaktif* sesuai aturan sebelumnya. Langkah ini hanya berjalan sekali.

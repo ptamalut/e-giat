@@ -1,13 +1,17 @@
-import { ChevronDown, ChevronRight, ExternalLink, ImagePlus, Images, Link2, NotebookPen, Pencil, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, FileDown, FileText, ImagePlus, Images, Link2, NotebookPen, Pencil, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useBrand } from '../../components/brand'
 import { LinkModal, UploadModal } from '../../components/DocForms'
 import NoteEditor, { type NoteDraft } from '../../components/NoteEditor'
-import { CardTitle, Empty, Loading, Modal } from '../../components/ui'
+import NoteView from '../../components/NoteView'
+import { CardTitle, Empty, Loading, Modal, useToast } from '../../components/ui'
 import { DEFAULT_ALBUM, DOC_BUCKET } from '../../lib/docs'
-import { fmtDate, fmtDateTime } from '../../lib/format'
+import { fmtDateTime } from '../../lib/format'
 import { emptyNote } from '../../lib/notes'
+import { buildNoteDoc, kopFromSettings } from '../../lib/noteDoc'
+import { downloadNote, type NoteFormat } from '../../lib/noteExport'
 import { portalDocWriter, portalNoteApi } from '../../lib/portalStaffApi'
-import { rpc, supabase } from '../../lib/supabase'
+import { errMsg, rpc, supabase } from '../../lib/supabase'
 import type { PortalDoc, PortalNote } from '../../lib/types'
 
 /** Muat data portal sekali; galat ditampilkan sebagai pesan. */
@@ -22,9 +26,6 @@ function useRpc<T>(fn: string, token: string, version = 0) {
   return { data, error }
 }
 
-const Block = ({ title, text }: { title: string; text: string | null }) =>
-  text ? <div style={{ marginTop: 12 }}><div className="label">{title}</div><p style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', color: 'var(--text-2)' }}>{text}</p></div> : null
-
 /** Notula yang sudah Final. Petugas/panitia juga bisa menambah notula dan mengubah buatannya sendiri. */
 export function NotesSection({ token, canManage = false, activityId, activityName, location, sessions, onEditing }: {
   token: string; canManage?: boolean; activityId: string; activityName: string; location: string | null; sessions: { id: string; title: string }[]
@@ -37,8 +38,16 @@ export function NotesSection({ token, canManage = false, activityId, activityNam
   const [editing, setEditing] = useState<NoteDraft | null>(null)
   const api = useMemo(() => portalNoteApi(token, sessions), [token, sessions])
   useEffect(() => { onEditing?.(!!editing) }, [editing, onEditing])
+  const { settings } = useBrand()
+  const toast = useToast()
+  const [busy, setBusy] = useState<string | null>(null)
+  async function download(format: NoteFormat, n: PortalNote) {
+    setBusy(`${n.id}:${format}`)
+    try { await downloadNote(format, n, settings) } catch (e) { toast(errMsg(e), 'error') } finally { setBusy(null) }
+  }
   const toDraft = (n: PortalNote): NoteDraft => ({ id: n.id, title: n.title, held_at: n.held_at, location: n.location, leader: n.leader, notetaker: n.notetaker, attendees: n.attendees,
-    agenda: n.agenda, discussion: n.discussion, decisions: n.decisions, follow_ups: n.follow_ups, status: n.status ?? 'draft' })
+    agenda: n.agenda, discussion: n.discussion, decisions: n.decisions, follow_ups: n.follow_ups, status: n.status ?? 'draft',
+    basis: n.basis ?? null, held_until: n.held_until ?? null, leader_role: n.leader_role ?? null, leader_nip: n.leader_nip ?? null, notetaker_nip: n.notetaker_nip ?? null, sections: n.sections ?? [] })
 
   if (editing) {
     return <div className="keep"><NoteEditor key={editing.id ?? 'baru'} draft={editing} activityId={activityId} activityName={activityName} api={api} backLabel="Kembali ke halaman saya"
@@ -69,22 +78,14 @@ export function NotesSection({ token, canManage = false, activityId, activityNam
             </div>
             {isOpen && (
               <div style={{ padding: '4px 0 4px 24px' }}>
-                {(n.leader || n.notetaker) && <div className="muted small">{[n.leader && `Pimpinan: ${n.leader}`, n.notetaker && `Pencatat: ${n.notetaker}`].filter(Boolean).join(' · ')}</div>}
-                <Block title="Agenda" text={n.agenda} />
-                <Block title="Pembahasan" text={n.discussion} />
-                <Block title="Keputusan / kesimpulan" text={n.decisions} />
-                {n.follow_ups.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <div className="label">Tindak lanjut</div>
-                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                      {n.follow_ups.map((f) => (
-                        <li key={f.id} style={{ color: 'var(--text-2)' }}>
-                          {f.done ? '✓ ' : ''}{f.task}{f.pic ? ` — ${f.pic}` : ''}{f.due ? ` (tenggat ${fmtDate(f.due)})` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <NoteView doc={buildNoteDoc(n, kopFromSettings(settings))} />
+                <div className="row tight" style={{ marginTop: 12 }}>
+                  {(['docx', 'pdf'] as const).map((fmt) => (
+                    <button key={fmt} type="button" className="btn sm" disabled={!!busy} onClick={() => void download(fmt, n)} aria-label={`Unduh notula ${n.title} (${fmt === 'docx' ? 'Word' : 'PDF'})`}>
+                      {fmt === 'docx' ? <FileDown size={14} /> : <FileText size={14} />} {busy === `${n.id}:${fmt}` ? 'Menyiapkan…' : fmt === 'docx' ? 'Word' : 'PDF'}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

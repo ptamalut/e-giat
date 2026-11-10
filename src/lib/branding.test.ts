@@ -45,3 +45,12 @@ describe('pengaturan aplikasi', () => {
     expect(fitBox(100, 50, 512)).toEqual({ w: 100, h: 50 })
   })
 })
+
+describe('kop surat', () => {
+  it('kop_title dan kop_address dirapikan per baris; kosong menjadi null', async () => {
+    const { normalizeSettings } = await import('./branding')
+    const s = normalizeSettings({ kop_title: '  A  \n\n B ', kop_address: '   ' })
+    expect(s.kop_title).toBe('A\nB'); expect(s.kop_address).toBeNull()
+    expect(normalizeSettings({}).kop_title).toBeNull()
+  })
+})

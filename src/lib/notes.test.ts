@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attendeesText, cleanFollowUps, followUpProgress, overdue } from './notes'
+import { attendeesText, cleanFollowUps, cleanSections, defaultSections, emptyNote, followUpProgress, newItem, newSection, newSub, noteSections, outlineText, overdue, parseOutline, sectionLetter } from './notes'
 
 const F = (task: string, over: Partial<{ done: boolean; due: string; pic: string }> = {}) => ({ id: task, task, pic: '', due: '', done: false, ...over })
 
@@ -19,5 +19,62 @@ describe('notula', () => {
   })
   it('attendeesText memberi nomor dan satker', () => {
     expect(attendeesText([{ name: 'Budi', institution: 'Dinas A' }, { name: 'Siti' }])).toBe('1. Budi (Dinas A)\n2. Siti')
+  })
+})
+
+describe('format notula: bagian dan butir', () => {
+  it('huruf bagian A, B, C …', () => {
+    expect([0, 1, 25, 26].map(sectionLetter)).toEqual(['A', 'B', 'Z', '27'])
+  })
+  it('notula baru memakai kerangka Pembukaan … tindak lanjut … Penutup', () => {
+    const d = defaultSections()
+    expect(d.map((x) => x.title)).toEqual(['Pembukaan', 'Pembahasan', 'Kesimpulan dan Rencana Tindak Lanjut', 'Penutup'])
+    expect(d.map((x) => x.type)).toEqual(['teks', 'teks', 'tindak_lanjut', 'teks'])
+    expect(emptyNote(null).sections).toHaveLength(4)
+    expect(new Set(d.map((x) => x.id)).size).toBe(4)
+  })
+  it('parseOutline: butir, anak butir, sambungan baris, judul tebal', () => {
+    const items = parseOutline('1. **Struktur kepanitiaan.** Panitia terdiri atas SC dan OC;\n2. Perbaikan SK Panitia:\n   a. Klarifikasi nama rangkap;\n   b. Hapus jabatan Bendahara\n      apabila tidak ada dana;\n3. Peserta luring.')
+    expect(items.map((i) => [i.lead, i.text, i.subs.length])).toEqual([
+      ['Struktur kepanitiaan', 'Panitia terdiri atas SC dan OC;', 0],
+      ['Perbaikan SK Panitia:', '', 2],      // butir beranak tanpa judul tebal: teksnya menjadi judul
+      ['', 'Peserta luring.', 0],
+    ])
+    expect(items[1].subs.map((x) => x.text)).toEqual(['Klarifikasi nama rangkap;', 'Hapus jabatan Bendahara apabila tidak ada dana;'])
+  })
+  it('parseOutline: teks tanpa nomor menjadi satu butir; kosong tidak menghasilkan apa-apa', () => {
+    expect(parseOutline('Hanya satu kalimat.').map((i) => i.text)).toEqual(['Hanya satu kalimat.'])
+    expect(parseOutline(' \n\n')).toEqual([])
+    expect(parseOutline('a. anak tanpa induk').map((i) => i.text)).toEqual(['a. anak tanpa induk'])
+  })
+  it('outlineText kebalikan parseOutline', () => {
+    const items = [newItem('Judul', 'isi', [newSub('', 'anak satu'), newSub('Tebal', 'anak dua')]), newItem('', 'butir dua')]
+    const back = parseOutline(outlineText(items))
+    expect(back.map((i) => [i.lead, i.text, i.subs.map((s) => [s.lead, s.text])])).toEqual([
+      ['Judul', 'isi', [['', 'anak satu'], ['Tebal', 'anak dua']]],
+      ['', 'butir dua', []],
+    ])
+  })
+  it('cleanSections membuang butir kosong dan merapikan spasi', () => {
+    const out = cleanSections([
+      newSection('teks', '  Pembukaan ', '  ', [newItem('', '  '), newItem(' L ', ' t ', [newSub('', ''), newSub('', ' a ')])]),
+      newSection('teks', '', '', [newItem()]),               // kosong seluruhnya: dibuang
+      newSection('tindak_lanjut', 'Tindak lanjut'),
+    ])
+    expect(out).toHaveLength(2)
+    expect(out[0].title).toBe('Pembukaan'); expect(out[0].intro).toBe('')
+    expect(out[0].items).toHaveLength(1)
+    expect(out[0].items[0]).toMatchObject({ lead: 'L', text: 't' })
+    expect(out[0].items[0].subs.map((s) => s.text)).toEqual(['a'])
+    expect(out[1].type).toBe('tindak_lanjut')
+  })
+  it('noteSections: memakai bagian tersimpan; notula lama diturunkan; kosong -> kerangka bawaan', () => {
+    const saved = [newSection('teks', 'A')]
+    expect(noteSections({ sections: saved, discussion: 'x', decisions: null, follow_ups: [] })).toBe(saved)
+    const old = noteSections({ sections: [], discussion: 'Satu.\n\nDua.', decisions: '1. Setuju\n- Lanjut', follow_ups: [F('a')] })
+    expect(old.map((x) => x.title)).toEqual(['Pembahasan', 'Keputusan dan Kesimpulan', 'Rencana Tindak Lanjut'])
+    expect(old[1].items.map((i) => i.text)).toEqual(['Setuju', 'Lanjut'])
+    expect(noteSections({ sections: [], discussion: null, decisions: null, follow_ups: [] }).map((x) => x.title)).toHaveLength(4)
+    expect(noteSections({ sections: [], discussion: null, decisions: null, follow_ups: [] }, false)).toEqual([])
   })
 })
