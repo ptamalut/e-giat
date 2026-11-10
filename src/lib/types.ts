@@ -185,6 +185,8 @@ export interface Attendance {
   lat: number | null
   lng: number | null
   accuracy_m: number | null
+  /** kode acak untuk QR tanda tangan elektronik pada daftar hadir (kosong bila migrasi 022 belum dijalankan) */
+  sign_code?: string
 }
 
 export interface Quiz {

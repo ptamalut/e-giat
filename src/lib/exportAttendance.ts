@@ -1,5 +1,6 @@
 import type { ColumnKey, ExportModel } from './exportModel'
 import { fmtDateTime, fmtTime } from './format'
+import { SIGN_NOTE, signUrl } from './signQr'
 import { ROLE_LABEL, ROLES } from './people'
 import { ATT_LABEL, memberMapOf, sessionRole } from './reports'
 import { groupBySatker, matchesUnit } from './satker'
@@ -20,6 +21,8 @@ export interface AttExportOptions {
   group: AttGroup
   columns: AttColumn[]
   landscape: boolean
+  /** alamat aplikasi (mis. location.origin): kolom Tanda Tangan diisi QR tanda tangan elektronik untuk yang sudah hadir/terlambat */
+  qrBase?: string
 }
 
 const LABEL: Record<AttColumn, string> = {
@@ -78,32 +81,40 @@ export function buildAttendanceModels(
         case 'signature': return ''
       }
     }
+    // QR tanda tangan elektronik: hanya yang tercatat hadir/terlambat dan punya kode
+    const sign = (p: Participant): string | null => {
+      const a = att(p)
+      return opts.qrBase && cols.includes('signature') && a?.sign_code && (a.status === 'hadir' || a.status === 'terlambat') ? signUrl(opts.qrBase, a.sign_code) : null
+    }
+    const mk = (label: string | null, items: readonly Participant[]) => ({ label, rows: items.map((p, i) => row(p, i + 1)), signs: items.map(sign) })
     const row = (p: Participant, n: number) => [String(n), p.name, ...(withUnit ? [p.institution?.trim() ?? ''] : []), ...cols.map((c) => cell(p, c))]
     const attended = (items: readonly Participant[]) => items.filter((p) => { const st = att(p)?.status; return st === 'hadir' || st === 'terlambat' }).length
 
     const ordered = groupBySatker(roster.map((r) => r.p), (p) => p.institution, satkerOrder)
     const flat = ordered.flatMap((g) => g.items)
     const groups = opts.group === 'satker'
-      ? ordered.map((g) => ({ label: `${g.label} (${g.items.length} orang · ${attended(g.items)} hadir)`, rows: g.items.map((p, i) => row(p, i + 1)) }))
+      ? ordered.map((g) => mk(`${g.label} (${g.items.length} orang · ${attended(g.items)} hadir)`, g.items))
       : opts.group === 'jenis'
         ? ROLES.filter((r) => opts.roles.includes(r)).map((r) => {
             const items = flat.filter((p) => roleOf.get(p.id) === r)
-            return { label: `${ROLE_LABEL[r]} (${items.length} orang · ${attended(items)} hadir)`, rows: items.map((p, i) => row(p, i + 1)) }
+            return mk(`${ROLE_LABEL[r]} (${items.length} orang · ${attended(items)} hadir)`, items)
           })
-        : [{ label: null, rows: flat.map((p, i) => row(p, i + 1)) }]
+        : [mk(null, flat)]
 
     const count = (st: string) => flat.filter((p) => (att(p) ? ATT_LABEL[att(p)!.status] : 'Belum absen') === st).length
     const summary = [...Object.values(ATT_LABEL), 'Belum absen'].map((st) => [st, count(st)] as const).filter(([, n]) => n > 0).map(([st, n]) => `${st} ${n}`).join(' · ')
     const keys: ColumnKey[] = ['no', 'name', ...(withUnit ? (['unit'] as const) : []), ...cols]
+    const shownGroups = groups.filter((g) => g.rows.length > 0)
     return [{
       title: opts.title.trim() || 'Daftar Hadir',
       subtitle: [activity.name, `${s.title} · ${fmtDateTime(s.start_at)} – ${fmtTime(s.end_at)}`, `${flat.length} orang${summary ? ` · ${summary}` : ''}`],
       headers: ['No', 'Nama Lengkap & Gelar', ...(withUnit ? ['Satuan Kerja'] : []), ...cols.map((c) => LABEL[c])],
       keys,
-      groups: groups.filter((g) => g.rows.length > 0),
+      groups: shownGroups,
       total: flat.length,
       landscape: opts.landscape,
       hasSignature: cols.includes('signature'),
+      footnote: shownGroups.some((g) => g.signs.some(Boolean)) ? SIGN_NOTE : undefined,
     }]
   })
 }
